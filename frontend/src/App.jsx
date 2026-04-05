@@ -1,47 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-const HYPE_CURRENCIES = [
-  { code: "IQD", name: "Iraqi Dinar", flag: "🇮🇶", rate: 0.000763, mcap: "78B", vol: "12M", hype: 98, story: "Post-war reconstruction & revaluation rumors" },
-  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", rate: 0.0000394, mcap: "102B", vol: "8M", hype: 72, story: "Emerging market growth, forex controls" },
-  { code: "IRR", name: "Iranian Rial", flag: "🇮🇷", rate: 0.0000238, mcap: "N/A", vol: "N/A", hype: 91, story: "Sanctions, black market divergence" },
-  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", rate: 0.0000617, mcap: "580B", vol: "45M", hype: 55, story: "Southeast Asia's largest economy" },
-  { code: "KHR", name: "Cambodian Riel", flag: "🇰🇭", rate: 0.000246, mcap: "4B", vol: "1.2M", hype: 48, story: "Dollarized economy, reform speculation" },
-  { code: "MMK", name: "Myanmar Kyat", flag: "🇲🇲", rate: 0.000476, mcap: "N/A", vol: "N/A", hype: 83, story: "Military junta, dual exchange rates" },
-  { code: "LAK", name: "Lao Kip", flag: "🇱🇦", rate: 0.0000474, mcap: "2.1B", vol: "800K", hype: 44, story: "BRI debt, commodity links" },
-  { code: "ZWL", name: "Zimbabwe Dollar", flag: "🇿🇼", rate: 0.000777, mcap: "N/A", vol: "N/A", hype: 89, story: "Hyperinflation, USD adoption, reset talk" },
-  { code: "VES", name: "Venezuelan Bolívar", flag: "🇻🇪", rate: 0.0000277, mcap: "N/A", vol: "N/A", hype: 87, story: "Oil wealth vs. socialist collapse" },
-  { code: "ARS", name: "Argentine Peso", flag: "🇦🇷", rate: 0.00104, mcap: "N/A", vol: "N/A", hype: 85, story: "Serial defaulter, Milei shock therapy" },
-  { code: "TRY", name: "Turkish Lira", flag: "🇹🇷", rate: 0.0284, mcap: "N/A", vol: "N/A", hype: 76, story: "Unorthodox monetary policy, inflation" },
-  { code: "LBP", name: "Lebanese Pound", flag: "🇱🇧", rate: 0.0000111, mcap: "N/A", vol: "N/A", hype: 92, story: "Banking collapse, haircut negotiations" },
-  { code: "SYP", name: "Syrian Pound", flag: "🇸🇾", rate: 0.0000772, mcap: "N/A", vol: "N/A", hype: 80, story: "Post-conflict reconstruction potential" },
-  { code: "AFN", name: "Afghan Afghani", flag: "🇦🇫", rate: 0.01415, mcap: "N/A", vol: "N/A", hype: 68, story: "Taliban sanctions, frozen reserves" },
-  { code: "GHS", name: "Ghanaian Cedi", flag: "🇬🇭", rate: 0.0645, mcap: "N/A", vol: "N/A", hype: 52, story: "IMF bailout, debt restructuring" },
-  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", rate: 0.000635, mcap: "N/A", vol: "N/A", hype: 79, story: "Oil petrodollars, FX unification" },
-  { code: "EGP", name: "Egyptian Pound", flag: "🇪🇬", rate: 0.0205, mcap: "N/A", vol: "N/A", hype: 66, story: "IMF lifeline, devaluation cycles" },
-  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", rate: 0.00359, mcap: "N/A", vol: "N/A", hype: 63, story: "IMF dependency, political instability" },
-  { code: "SLL", name: "Sierra Leone Leone", flag: "🇸🇱", rate: 0.0000458, mcap: "N/A", vol: "N/A", hype: 41, story: "Post-conflict, diamond/mineral wealth" },
-  { code: "MZN", name: "Mozambican Metical", flag: "🇲🇿", rate: 0.01567, mcap: "N/A", vol: "N/A", hype: 38, story: "Natural gas discoveries, debt scandal" },
-  { code: "UZS", name: "Uzbek Som", flag: "🇺🇿", rate: 0.0000783, mcap: "N/A", vol: "N/A", hype: 47, story: "Silk Road revival, liberalization" },
-  { code: "KZT", name: "Kazakhstani Tenge", flag: "🇰🇿", rate: 0.00190, mcap: "N/A", vol: "N/A", hype: 43, story: "Oil wealth, Eurasian pivot" },
-  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", rate: 0.00849, mcap: "N/A", vol: "N/A", hype: 40, story: "Garment export powerhouse" },
-  { code: "ETB", name: "Ethiopian Birr", flag: "🇪🇹", rate: 0.00712, mcap: "N/A", vol: "N/A", hype: 45, story: "Fastest growing African economy" },
-  { code: "TZS", name: "Tanzanian Shilling", flag: "🇹🇿", rate: 0.000385, mcap: "N/A", vol: "N/A", hype: 37, story: "East Africa growth, gas potential" },
-  { code: "SDG", name: "Sudanese Pound", flag: "🇸🇩", rate: 0.001672, mcap: "N/A", vol: "N/A", hype: 56, story: "Civil war chaos, oil split aftermath" },
-  { code: "CDF", name: "Congolese Franc", flag: "🇨🇩", rate: 0.000345, mcap: "N/A", vol: "N/A", hype: 61, story: "Cobalt, coltan — critical mineral wealth" },
-  { code: "SOS", name: "Somali Shilling", flag: "🇸🇴", rate: 0.00174, mcap: "N/A", vol: "N/A", hype: 50, story: "Failed state recovery, diaspora remit" },
-  { code: "MNT", name: "Mongolian Tögrög", flag: "🇲🇳", rate: 0.000292, mcap: "N/A", vol: "N/A", hype: 39, story: "Rare earths, mining boom speculation" },
-  { code: "AMD", name: "Armenian Dram", flag: "🇦🇲", rate: 0.00257, mcap: "N/A", vol: "N/A", hype: 42, story: "Russia money flows, diaspora capital" },
-  { code: "GEL", name: "Georgian Lari", flag: "🇬🇪", rate: 0.362, mcap: "N/A", vol: "N/A", hype: 44, story: "Russia capital flight hub" },
-  { code: "AZN", name: "Azerbaijani Manat", flag: "🇦🇿", rate: 0.588, mcap: "N/A", vol: "N/A", hype: 41, story: "Oil corridor, Karabakh windfall" },
-  { code: "MKD", name: "North Macedonia Denar", flag: "🇲🇰", rate: 0.01742, mcap: "N/A", vol: "N/A", hype: 33, story: "EU accession path" },
-  { code: "XOF", name: "West African CFA Franc", flag: "🌍", rate: 0.001634, mcap: "N/A", vol: "N/A", hype: 58, story: "De-dollarization push, French exit" },
-  { code: "HTG", name: "Haitian Gourde", flag: "🇭🇹", rate: 0.00724, mcap: "N/A", vol: "N/A", hype: 46, story: "Political collapse, gang control" },
-  { code: "STN", name: "São Tomé Dobra", flag: "🇸🇹", rate: 0.04318, mcap: "N/A", vol: "N/A", hype: 30, story: "Island microstate, oil exploration" },
-  { code: "MVR", name: "Maldivian Rufiyaa", flag: "🇲🇻", rate: 0.0649, mcap: "N/A", vol: "N/A", hype: 32, story: "Tourism-dollar dependency, debt" },
-  { code: "KPW", name: "North Korean Won", flag: "🇰🇵", rate: 0.00111, mcap: "N/A", vol: "N/A", hype: 95, story: "Ultimate black market — regime change play" },
-  { code: "SCR", name: "Seychelles Rupee", flag: "🇸🇨", rate: 0.0724, mcap: "N/A", vol: "N/A", hype: 31, story: "Offshore finance, Indian Ocean hub" },
-  { code: "YER", name: "Yemeni Rial", flag: "🇾🇪", rate: 0.000400, mcap: "N/A", vol: "N/A", hype: 77, story: "Civil war split, Saudi-backed north" },
-];
+const API = "http://localhost:8000/api";
 
 const HYPE_COLORS = {
   high: "#ff4d4d",
@@ -53,9 +12,7 @@ function HypeBar({ score }) {
   const color = score >= 80 ? HYPE_COLORS.high : score >= 55 ? HYPE_COLORS.mid : HYPE_COLORS.low;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{
-        flex: 1, height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden"
-      }}>
+      <div style={{ flex: 1, height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden" }}>
         <div style={{
           width: `${score}%`, height: "100%", background: color,
           borderRadius: 3, transition: "width 0.6s ease",
@@ -71,10 +28,7 @@ function StatCard({ label, value, sub }) {
   return (
     <div style={{
       background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-      border: "1px solid #1e1e3f",
-      borderRadius: 12,
-      padding: "18px 20px",
-      flex: 1,
+      border: "1px solid #1e1e3f", borderRadius: 12, padding: "18px 20px", flex: 1,
     }}>
       <div style={{ color: "#5a5a8a", fontSize: 11, textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>{label}</div>
       <div style={{ color: "#e8e8ff", fontSize: 22, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{value}</div>
@@ -87,45 +41,125 @@ function LiveDot() {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span style={{
-        display: "inline-block", width: 8, height: 8,
-        borderRadius: "50%", background: "#00d4aa",
-        boxShadow: "0 0 8px #00d4aa",
-        animation: "pulse 2s infinite"
+        display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+        background: "#00d4aa", boxShadow: "0 0 8px #00d4aa", animation: "pulse 2s infinite"
       }} />
       <span style={{ color: "#00d4aa", fontSize: 12, letterSpacing: 1 }}>LIVE</span>
     </span>
   );
 }
 
+// Small badge shown next to exchange rates — distinguishes live API data from fallback estimates
+function RateBadge({ live }) {
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, letterSpacing: 1,
+      background: live ? "#003322" : "#1a1a00",
+      color: live ? "#00d4aa" : "#ffa500",
+      border: `1px solid ${live ? "#00d4aa33" : "#ffa50033"}`,
+      marginLeft: 8, verticalAlign: "middle",
+    }}>
+      {live ? "LIVE" : "EST"}
+    </span>
+  );
+}
+
 export default function ProjectHype() {
-  const [selected, setSelected] = useState(HYPE_CURRENCIES[0]);
+  const [currencies, setCurrencies] = useState([]);
+  const [loadingRates, setLoadingRates] = useState(true);
+  const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState("20000000");
   const [targetRate, setTargetRate] = useState("");
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState("calculator");
   const [search, setSearch] = useState("");
   const [ticker, setTicker] = useState(0);
+  const [headlines, setHeadlines] = useState([]);
+  const [loadingNews, setLoadingNews] = useState(false);
 
+  // Ref to cancel in-flight ROI requests when inputs change quickly
+  const roiAbortRef = useRef(null);
+
+  // ── Fetch all 40 currencies with live rates on mount ──────────────────────
+  useEffect(() => {
+    fetch(`${API}/rates`)
+      .then(r => r.json())
+      .then(data => {
+        setCurrencies(data);
+        setSelected(data[0]);
+        setLoadingRates(false);
+      })
+      .catch(() => setLoadingRates(false));
+  }, []);
+
+  // ── Ticker animation in the header ───────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => setTicker(t => t + 1), 3000);
     return () => clearInterval(interval);
   }, []);
 
+  // ── Recalculate ROI whenever selection or inputs change ───────────────────
   useEffect(() => {
+    if (!selected) return;
     calculate();
   }, [selected, amount, targetRate]);
 
-  function calculate() {
+  // ── Fetch news whenever the selected currency changes ─────────────────────
+  useEffect(() => {
+    if (!selected) return;
+    setHeadlines([]);
+    setLoadingNews(true);
+    fetch(`${API}/news/${selected.code}`)
+      .then(r => r.json())
+      .then(data => { setHeadlines(data); setLoadingNews(false); })
+      .catch(() => setLoadingNews(false));
+  }, [selected]);
+
+  async function calculate() {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) { setResults(null); return; }
+
+    // Always show current value immediately using the local rate
     const currentVal = amt * selected.rate;
-    let targetVal = null, gain = null, roi = null;
-    if (targetRate && parseFloat(targetRate) > 0) {
-      targetVal = amt * parseFloat(targetRate);
-      gain = targetVal - currentVal;
-      roi = ((gain / currentVal) * 100).toFixed(2);
+
+    // Without a valid target rate, show only current value
+    if (!targetRate || parseFloat(targetRate) <= 0) {
+      setResults({ currentVal, targetVal: null, gain: null, roi: null });
+      return;
     }
-    setResults({ currentVal, targetVal, gain, roi });
+
+    // Cancel any previous in-flight request
+    if (roiAbortRef.current) roiAbortRef.current.abort();
+    const controller = new AbortController();
+    roiAbortRef.current = controller;
+
+    try {
+      const res = await fetch(`${API}/roi`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: selected.code,
+          amount: amt,
+          target_rate: parseFloat(targetRate),
+        }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      setResults({
+        currentVal: data.current_value,
+        targetVal: data.target_value,
+        gain: data.gain,
+        roi: String(data.roi_percent.toFixed(2)),
+        multiplier: data.multiplier,
+      });
+    } catch (err) {
+      if (err.name === "AbortError") return; // stale request, ignore
+      // API unreachable — fall back to client-side math
+      const targetVal = amt * parseFloat(targetRate);
+      const gain = targetVal - currentVal;
+      const roi = ((gain / currentVal) * 100).toFixed(2);
+      setResults({ currentVal, targetVal, gain, roi });
+    }
   }
 
   const fmt = (n) => {
@@ -136,20 +170,40 @@ export default function ProjectHype() {
     return `$${n.toFixed(4)}`;
   };
 
-  const filtered = HYPE_CURRENCIES.filter(c =>
+  const filtered = currencies.filter(c =>
     c.code.toLowerCase().includes(search.toLowerCase()) ||
     c.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const topHype = [...HYPE_CURRENCIES].sort((a, b) => b.hype - a.hype).slice(0, 6);
+  const topHype = [...currencies].sort((a, b) => b.hype - a.hype).slice(0, 6);
+
+  // ── Loading screen ────────────────────────────────────────────────────────
+  if (loadingRates || !selected) {
+    return (
+      <div style={{
+        minHeight: "100vh", background: "#070714", display: "flex",
+        alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16,
+      }}>
+        <style>{`@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }`}</style>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10,
+          background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 20, animation: "pulse 1.5s infinite",
+        }}>⚡</div>
+        <div style={{ color: "#5a5a8a", fontSize: 12, letterSpacing: 3, textTransform: "uppercase" }}>
+          Loading rates...
+        </div>
+      </div>
+    );
+  }
+
+  const tickerCurrency = currencies[ticker % currencies.length];
 
   return (
     <div style={{
-      minHeight: "100vh",
-      background: "#070714",
-      color: "#e8e8ff",
-      fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
-      padding: 0,
+      minHeight: "100vh", background: "#070714",
+      color: "#e8e8ff", fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif", padding: 0,
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
@@ -158,22 +212,15 @@ export default function ProjectHype() {
         @keyframes glow { 0%,100%{box-shadow:0 0 20px #00d4aa22} 50%{box-shadow:0 0 40px #00d4aa44} }
         @keyframes tick { 0%{opacity:0;transform:translateX(-8px)} 20%{opacity:1;transform:translateX(0)} 80%{opacity:1} 100%{opacity:0;transform:translateX(8px)} }
         ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#0d0d1a} ::-webkit-scrollbar-thumb{background:#1e1e3f;border-radius:2px}
-        input:focus{outline:none!important}
-        select:focus{outline:none!important}
+        input:focus{outline:none!important} select:focus{outline:none!important}
       `}</style>
 
       {/* Header */}
       <div style={{
         background: "linear-gradient(90deg, #070714 0%, #0d0d2e 50%, #070714 100%)",
-        borderBottom: "1px solid #1e1e3f",
-        padding: "0 40px",
-        height: 64,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        borderBottom: "1px solid #1e1e3f", padding: "0 40px", height: 64,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        position: "sticky", top: 0, zIndex: 100,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{
@@ -192,16 +239,16 @@ export default function ProjectHype() {
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <LiveDot />
           <span style={{ color: "#5a5a8a", fontSize: 12 }}>
-            <span style={{ animation: "tick 3s ease infinite", display: "inline-block", key: ticker }}>
-              {HYPE_CURRENCIES[ticker % HYPE_CURRENCIES.length]?.code} · {HYPE_CURRENCIES[ticker % HYPE_CURRENCIES.length]?.rate.toFixed(8)}
+            <span style={{ animation: "tick 3s ease infinite", display: "inline-block" }}>
+              {tickerCurrency?.code} · {tickerCurrency?.rate.toFixed(8)}
+              {tickerCurrency && <RateBadge live={tickerCurrency.live} />}
             </span>
           </span>
           <div style={{
             background: "#0d0d2e", border: "1px solid #1e1e3f",
-            borderRadius: 20, padding: "4px 14px",
-            fontSize: 12, color: "#5a5a8a"
+            borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#5a5a8a"
           }}>
-            {HYPE_CURRENCIES.length} currencies tracked
+            {currencies.length} currencies tracked
           </div>
         </div>
       </div>
@@ -253,7 +300,7 @@ export default function ProjectHype() {
                     />
                     <select
                       value={selected.code}
-                      onChange={e => setSelected(HYPE_CURRENCIES.find(c => c.code === e.target.value))}
+                      onChange={e => setSelected(currencies.find(c => c.code === e.target.value))}
                       style={{
                         width: "100%", padding: "12px 16px", boxSizing: "border-box",
                         background: "#070714", border: "1px solid #1e1e3f",
@@ -264,7 +311,7 @@ export default function ProjectHype() {
                       }}
                       size={search ? Math.min(filtered.length, 5) : 1}
                     >
-                      {(search ? filtered : HYPE_CURRENCIES).map(c => (
+                      {(search ? filtered : currencies).map(c => (
                         <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
                           {c.flag} {c.code} — {c.name}
                         </option>
@@ -282,6 +329,7 @@ export default function ProjectHype() {
                     <div style={{ fontSize: 24, marginBottom: 4 }}>{selected.flag}</div>
                     <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#00d4aa" }}>
                       {selected.rate.toFixed(8)} <span style={{ fontSize: 12, color: "#5a5a8a" }}>USD</span>
+                      <RateBadge live={selected.live} />
                     </div>
                     <div style={{ fontSize: 12, color: "#5a5a8a", marginTop: 4 }}>{selected.story}</div>
                   </div>
@@ -362,7 +410,11 @@ export default function ProjectHype() {
                     <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: !results.roi ? "#2a2a4a" : parseFloat(results.roi) > 0 ? "#00d4aa" : "#ff4d4d" }}>
                       {results.roi ? `${parseFloat(results.roi) > 0 ? "+" : ""}${Number(results.roi).toLocaleString()}%` : "—"}
                     </div>
-                    {results.gain && <div style={{ fontSize: 11, color: "#5a8a8a", marginTop: 6 }}>Gain: {fmt(results.gain)}</div>}
+                    {results.gain != null && results.multiplier && (
+                      <div style={{ fontSize: 11, color: "#5a8a8a", marginTop: 6 }}>
+                        {fmt(results.gain)} · {results.multiplier.toFixed(2)}x
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -394,24 +446,20 @@ export default function ProjectHype() {
 
           {activeTab === "markets" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
-              <div style={{
-                background: "#0d0d1a", borderRadius: 12, overflow: "hidden",
-                border: "1px solid #1e1e3f"
-              }}>
+              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", border: "1px solid #1e1e3f" }}>
                 <div style={{
-                  display: "grid", gridTemplateColumns: "40px 80px 1fr 100px 80px 60px 80px",
-                  gap: 12, padding: "12px 20px",
-                  borderBottom: "1px solid #1e1e3f",
+                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 80px 60px 80px",
+                  gap: 12, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
                   fontSize: 10, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase"
                 }}>
                   <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div>Market Cap</div><div>Hype</div><div>Story</div>
                 </div>
-                {HYPE_CURRENCIES.map((c, i) => (
+                {currencies.map((c) => (
                   <div
                     key={c.code}
                     onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                     style={{
-                      display: "grid", gridTemplateColumns: "40px 80px 1fr 100px 80px 60px 80px",
+                      display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 80px 60px 80px",
                       gap: 12, padding: "12px 20px", cursor: "pointer",
                       borderBottom: "1px solid #0d0d1a",
                       background: selected.code === c.code ? "#111128" : "transparent",
@@ -423,7 +471,10 @@ export default function ProjectHype() {
                     <div style={{ fontSize: 18 }}>{c.flag}</div>
                     <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
                     <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff" }}>{c.rate.toFixed(8)}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
+                      {c.rate.toFixed(8)}
+                      <RateBadge live={c.live} />
+                    </div>
                     <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: c.hype >= 80 ? "#ff4d4d" : c.hype >= 55 ? "#ffa500" : "#00d4aa" }}>{c.hype}</div>
                     <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
@@ -439,7 +490,7 @@ export default function ProjectHype() {
                 Tile size = hype score. Color = intensity. Click to analyze.
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {[...HYPE_CURRENCIES].sort((a, b) => b.hype - a.hype).map(c => {
+                {[...currencies].sort((a, b) => b.hype - a.hype).map(c => {
                   const size = 40 + (c.hype / 100) * 60;
                   const alpha = 0.2 + (c.hype / 100) * 0.8;
                   const color = c.hype >= 80 ? `rgba(255,77,77,${alpha})` : c.hype >= 55 ? `rgba(255,165,0,${alpha})` : `rgba(0,212,170,${alpha})`;
@@ -499,9 +550,7 @@ export default function ProjectHype() {
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
                   <div style={{ fontSize: 11, color: "#5a5a8a" }}>{c.name}</div>
                 </div>
-                <div>
-                  <HypeBar score={c.hype} />
-                </div>
+                <div><HypeBar score={c.hype} /></div>
               </div>
             ))}
           </div>
@@ -547,36 +596,70 @@ export default function ProjectHype() {
             })}
           </div>
 
-          {/* News Placeholder */}
+          {/* Latest Intel — wired to /api/news/{code} */}
           <div style={{
             background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
             border: "1px solid #1e1e3f", borderRadius: 16, padding: 24
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📰 LATEST INTEL</div>
-              <div style={{ fontSize: 10, color: "#1e1e3f", background: "#0d0d2e", borderRadius: 10, padding: "3px 10px" }}>SOON</div>
-            </div>
-            {[
-              { tag: selected.code, headline: `${selected.name} monetary policy update`, time: "2h ago" },
-              { tag: "MACRO", headline: "Fed signals extended hold amid global FX volatility", time: "4h ago" },
-              { tag: "RUMOR", headline: "Revaluation speculation resurfaces on forums", time: "6h ago" },
-            ].map((n, i) => (
-              <div key={i} style={{
-                padding: "10px 0", borderBottom: i < 2 ? "1px solid #0f0f22" : "none"
-              }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                    background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1
-                  }}>{n.tag}</span>
-                  <span style={{ fontSize: 10, color: "#2a2a4a" }}>{n.time}</span>
+              {headlines.length > 0 && (
+                <div style={{
+                  fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, letterSpacing: 1,
+                  background: headlines[0]?.mock ? "#1a1a00" : "#003322",
+                  color: headlines[0]?.mock ? "#ffa500" : "#00d4aa",
+                  border: `1px solid ${headlines[0]?.mock ? "#ffa50033" : "#00d4aa33"}`,
+                }}>
+                  {headlines[0]?.mock ? "ANALYST" : "LIVE"}
                 </div>
-                <div style={{ fontSize: 12, color: "#5a5a8a" }}>{n.headline}</div>
-              </div>
-            ))}
-            <div style={{ marginTop: 12, fontSize: 11, color: "#2a2a4a", textAlign: "center" }}>
-              NewsAPI integration coming — connect your key
+              )}
             </div>
+
+            {loadingNews ? (
+              <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>
+                Loading intel...
+              </div>
+            ) : headlines.length === 0 ? (
+              <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>
+                No headlines available
+              </div>
+            ) : (
+              headlines.map((h, i) => (
+                <div
+                  key={i}
+                  style={{ padding: "10px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}
+                >
+                  <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                      background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
+                      maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {h.source}
+                    </span>
+                    {h.published_at && (
+                      <span style={{ fontSize: 10, color: "#2a2a4a" }}>
+                        {new Date(h.published_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  {h.url ? (
+                    <a
+                      href={h.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
+                      onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
+                      onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}
+                    >
+                      {h.title}
+                    </a>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
