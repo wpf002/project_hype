@@ -80,6 +80,18 @@ export default function ProjectHype() {
   // Ref to cancel in-flight ROI requests when inputs change quickly
   const roiAbortRef = useRef(null);
 
+  // ── Responsive breakpoints ────────────────────────────────────────────────
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+  useEffect(() => {
+    const handler = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  const isMobile = windowWidth < 768;
+  const isNarrow = windowWidth < 900;
+
   // ── Fetch all 40 currencies with live rates on mount ──────────────────────
   useEffect(() => {
     fetch(`${API}/rates`)
@@ -218,7 +230,7 @@ export default function ProjectHype() {
       {/* Header */}
       <div style={{
         background: "linear-gradient(90deg, #070714 0%, #0d0d2e 50%, #070714 100%)",
-        borderBottom: "1px solid #1e1e3f", padding: "0 40px", height: 64,
+        borderBottom: "1px solid #1e1e3f", padding: isMobile ? "0 16px" : "0 40px", height: 64,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         position: "sticky", top: 0, zIndex: 100,
       }}>
@@ -233,37 +245,41 @@ export default function ProjectHype() {
             <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#fff" }}>
               PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
             </div>
-            <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>
+            {!isMobile && <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <LiveDot />
-          <span style={{ color: "#5a5a8a", fontSize: 12 }}>
-            <span style={{ animation: "tick 3s ease infinite", display: "inline-block" }}>
-              {tickerCurrency?.code} · {tickerCurrency?.rate.toFixed(8)}
-              {tickerCurrency && <RateBadge live={tickerCurrency.live} />}
+          {!isMobile && (
+            <span style={{ color: "#5a5a8a", fontSize: 12 }}>
+              <span style={{ animation: "tick 3s ease infinite", display: "inline-block" }}>
+                {tickerCurrency?.code} · {tickerCurrency?.rate.toFixed(8)}
+                {tickerCurrency && <RateBadge live={tickerCurrency.live} />}
+              </span>
             </span>
-          </span>
-          <div style={{
-            background: "#0d0d2e", border: "1px solid #1e1e3f",
-            borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#5a5a8a"
-          }}>
-            {currencies.length} currencies tracked
-          </div>
+          )}
+          {!isMobile && (
+            <div style={{
+              background: "#0d0d2e", border: "1px solid #1e1e3f",
+              borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#5a5a8a"
+            }}>
+              {currencies.length} currencies tracked
+            </div>
+          )}
         </div>
       </div>
 
       {/* Main Grid */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 40px", display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 380px", gap: 24 }}>
 
         {/* Left Column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
           {/* Nav Tabs */}
-          <div style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, width: "fit-content" }}>
+          <div style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             {["calculator", "markets", "heatmap"].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
                 background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
                 color: activeTab === tab ? "#e8e8ff" : "#5a5a8a",
                 fontSize: 13, textTransform: "capitalize", fontWeight: 600,
@@ -279,7 +295,7 @@ export default function ProjectHype() {
               {/* Currency Selector + Inputs */}
               <div style={{
                 background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-                border: "1px solid #1e1e3f", borderRadius: 16, padding: 28,
+                border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 28,
                 marginBottom: 20, animation: "glow 4s ease infinite"
               }}>
                 <div style={{ marginBottom: 20 }}>
@@ -341,7 +357,7 @@ export default function ProjectHype() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                   <div>
                     <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                       Amount Held ({selected.code})
@@ -380,7 +396,7 @@ export default function ProjectHype() {
 
               {/* Results */}
               {results ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
                   <div style={{
                     background: "linear-gradient(135deg, #0d1a0d, #111e11)",
                     border: "1px solid #1a3a1a", borderRadius: 12, padding: "20px"
@@ -427,7 +443,7 @@ export default function ProjectHype() {
               )}
 
               {/* Market Context */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
                 <StatCard label="Market Cap" value={selected.mcap === "N/A" ? "—" : `$${selected.mcap}`} sub="Estimated" />
                 <StatCard label="24h Volume" value={selected.vol === "N/A" ? "—" : `$${selected.vol}`} sub="Reported" />
                 <div style={{
@@ -446,7 +462,8 @@ export default function ProjectHype() {
 
           {activeTab === "markets" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
-              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", border: "1px solid #1e1e3f" }}>
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
+              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 620 }}>
                 <div style={{
                   display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 80px 60px 80px",
                   gap: 12, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
@@ -480,6 +497,7 @@ export default function ProjectHype() {
                     <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
                   </div>
                 ))}
+              </div>
               </div>
             </div>
           )}
