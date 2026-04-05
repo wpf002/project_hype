@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 
-const API = "http://localhost:8000/api";
+// In development: VITE_API_URL=http://localhost:8000 (or unset → fallback)
+// In docker-compose: VITE_API_URL="" → relative /api/* URLs, proxied by nginx
+// In Railway production: VITE_API_URL=https://your-backend.up.railway.app
+const API = `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api`;
 
 const HYPE_COLORS = {
   high: "#ff4d4d",

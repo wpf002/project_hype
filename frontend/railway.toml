@@ -1,0 +1,14 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services.variables]]
+# Set these in the Railway dashboard under Variables:
+# VITE_API_URL = https://your-backend.up.railway.app
+#
+# Note: VITE_API_URL is a BUILD-TIME variable. After setting it in Railway,
+# trigger a redeploy so the frontend is rebuilt with the correct backend URL.
