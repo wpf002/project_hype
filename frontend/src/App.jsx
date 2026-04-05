@@ -77,6 +77,15 @@ export default function ProjectHype() {
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
 
+  // ── Portfolio ─────────────────────────────────────────────────────────────
+  const [portfolio, setPortfolio] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("hype_portfolio") || "[]"); }
+    catch { return []; }
+  });
+  const [pfCode, setPfCode] = useState("");
+  const [pfAmount, setPfAmount] = useState("");
+  const [pfSearch, setPfSearch] = useState("");
+
   // Ref to cancel in-flight ROI requests when inputs change quickly
   const roiAbortRef = useRef(null);
 
@@ -91,6 +100,32 @@ export default function ProjectHype() {
   }, []);
   const isMobile = windowWidth < 768;
   const isNarrow = windowWidth < 900;
+
+  // ── Persist portfolio to localStorage on every change ────────────────────
+  useEffect(() => {
+    localStorage.setItem("hype_portfolio", JSON.stringify(portfolio));
+  }, [portfolio]);
+
+  function addPosition() {
+    const code = pfCode || (currencies[0]?.code ?? "");
+    const amt = parseFloat(pfAmount);
+    if (!code || isNaN(amt) || amt <= 0) return;
+    setPortfolio(prev => {
+      const existing = prev.findIndex(p => p.code === code);
+      if (existing >= 0) {
+        // Merge into existing position
+        const updated = [...prev];
+        updated[existing] = { ...updated[existing], amount: updated[existing].amount + amt };
+        return updated;
+      }
+      return [...prev, { code, amount: amt, addedAt: Date.now() }];
+    });
+    setPfAmount("");
+  }
+
+  function removePosition(code) {
+    setPortfolio(prev => prev.filter(p => p.code !== code));
+  }
 
   // ── Fetch all 40 currencies with live rates on mount ──────────────────────
   useEffect(() => {
@@ -277,7 +312,7 @@ export default function ProjectHype() {
 
           {/* Nav Tabs */}
           <div style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            {["calculator", "markets", "heatmap"].map(tab => (
+            {["calculator", "markets", "heatmap", "portfolio"].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
                 background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
@@ -285,7 +320,7 @@ export default function ProjectHype() {
                 fontSize: 13, textTransform: "capitalize", fontWeight: 600,
                 transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none"
               }}>
-                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : "🔥 Hype Map"}
+                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`}
               </button>
             ))}
           </div>
@@ -501,6 +536,186 @@ export default function ProjectHype() {
               </div>
             </div>
           )}
+
+          {activeTab === "portfolio" && (() => {
+            const pfFiltered = currencies.filter(c =>
+              c.code.toLowerCase().includes(pfSearch.toLowerCase()) ||
+              c.name.toLowerCase().includes(pfSearch.toLowerCase())
+            );
+            const totalUSD = portfolio.reduce((sum, p) => {
+              const cur = currencies.find(c => c.code === p.code);
+              return sum + (cur ? cur.rate * p.amount : 0);
+            }, 0);
+
+            return (
+              <div style={{ animation: "slideIn 0.3s ease", display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* Add Position */}
+                <div style={{
+                  background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+                  border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24,
+                }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, marginBottom: 16 }}>
+                    + ADD POSITION
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Currency</label>
+                      <input
+                        placeholder="Search..."
+                        value={pfSearch}
+                        onChange={e => { setPfSearch(e.target.value); if (!pfCode) setPfCode(currencies[0]?.code ?? ""); }}
+                        style={{
+                          width: "100%", padding: "10px 14px", boxSizing: "border-box",
+                          background: "#070714", border: "1px solid #1e1e3f",
+                          borderRadius: pfSearch ? "8px 8px 0 0" : 8, color: "#e8e8ff", fontSize: 13,
+                          borderBottom: pfSearch ? "1px solid #1e1e3f" : undefined,
+                        }}
+                      />
+                      <select
+                        value={pfCode || currencies[0]?.code || ""}
+                        onChange={e => { setPfCode(e.target.value); setPfSearch(""); }}
+                        size={pfSearch ? Math.min(pfFiltered.length, 5) : 1}
+                        style={{
+                          width: "100%", padding: "10px 14px", boxSizing: "border-box",
+                          background: "#070714", border: "1px solid #1e1e3f",
+                          borderTop: pfSearch ? "none" : "1px solid #1e1e3f",
+                          borderRadius: pfSearch ? "0 0 8px 8px" : 8,
+                          color: "#e8e8ff", fontSize: 13, fontWeight: 600, cursor: "pointer", appearance: "none",
+                        }}
+                      >
+                        {(pfSearch ? pfFiltered : currencies).map(c => (
+                          <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
+                            {c.flag} {c.code} — {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Amount</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 1000000"
+                        value={pfAmount}
+                        onChange={e => setPfAmount(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && addPosition()}
+                        style={{
+                          width: "100%", padding: "10px 14px", boxSizing: "border-box",
+                          background: "#070714", border: "1px solid #1e1e3f",
+                          borderRadius: 8, color: "#e8e8ff", fontSize: 14,
+                          fontFamily: "'Space Mono', monospace", fontWeight: 700,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={addPosition}
+                    style={{
+                      width: "100%", padding: "12px", borderRadius: 8, border: "none", cursor: "pointer",
+                      background: "linear-gradient(135deg, #1e1e4f, #252560)",
+                      color: "#e8e8ff", fontSize: 13, fontWeight: 700, letterSpacing: 1,
+                      boxShadow: "0 0 20px #25256044", transition: "opacity 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+                    onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                  >
+                    ADD TO PORTFOLIO
+                  </button>
+                </div>
+
+                {/* Total Value Banner */}
+                {portfolio.length > 0 && (
+                  <div style={{
+                    background: "linear-gradient(135deg, #0d1a0d 0%, #111e11 100%)",
+                    border: "1px solid #1a3a1a", borderRadius: 16, padding: "20px 24px",
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: "#5a8a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Total Portfolio Value</div>
+                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#00d4aa" }}>
+                        {fmt(totalUSD)}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 11, color: "#5a8a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Positions</div>
+                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#e8e8ff" }}>
+                        {portfolio.length}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Position Rows */}
+                {portfolio.length === 0 ? (
+                  <div style={{
+                    background: "#0d0d1a", border: "1px dashed #1e1e3f", borderRadius: 12,
+                    padding: 32, textAlign: "center", color: "#2a2a4a", fontSize: 13,
+                  }}>
+                    No positions yet — add a currency above
+                  </div>
+                ) : (
+                  <div style={{ background: "#0d0d1a", borderRadius: 16, border: "1px solid #1e1e3f", overflow: "hidden" }}>
+                    {portfolio.map((p, i) => {
+                      const cur = currencies.find(c => c.code === p.code);
+                      if (!cur) return null;
+                      const posValue = cur.rate * p.amount;
+                      const pct = totalUSD > 0 ? (posValue / totalUSD) * 100 : 0;
+                      const hypeColor = cur.hype >= 80 ? "#ff4d4d" : cur.hype >= 55 ? "#ffa500" : "#00d4aa";
+                      return (
+                        <div key={p.code} style={{
+                          padding: "16px 20px",
+                          borderBottom: i < portfolio.length - 1 ? "1px solid #0f0f22" : "none",
+                          display: "flex", alignItems: "center", gap: 14,
+                        }}>
+                          <div style={{ fontSize: 26, flexShrink: 0 }}>{cur.flag}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa" }}>{cur.code}</span>
+                              <span style={{ fontSize: 12, color: "#5a5a8a" }}>{cur.name}</span>
+                              <RateBadge live={cur.live} />
+                            </div>
+                            <div style={{ fontSize: 12, color: "#9999cc", marginBottom: 6 }}>
+                              {p.amount.toLocaleString()} units · {cur.rate.toFixed(8)} USD
+                            </div>
+                            {/* Portfolio weight bar */}
+                            <div style={{ height: 3, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
+                              <div style={{
+                                width: `${pct}%`, height: "100%", background: hypeColor,
+                                borderRadius: 2, transition: "width 0.6s ease",
+                                boxShadow: `0 0 6px ${hypeColor}`,
+                              }} />
+                            </div>
+                            <div style={{ fontSize: 10, color: "#5a5a8a", marginTop: 4 }}>{pct.toFixed(1)}% of portfolio</div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, color: "#e8e8ff" }}>
+                              {fmt(posValue)}
+                            </div>
+                            <div style={{ fontSize: 11, color: hypeColor, fontWeight: 700 }}>
+                              HYPE {cur.hype}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removePosition(p.code)}
+                            title="Remove position"
+                            style={{
+                              background: "none", border: "1px solid #1e1e3f", borderRadius: 6,
+                              color: "#3a3a5a", fontSize: 14, cursor: "pointer",
+                              padding: "4px 8px", flexShrink: 0, lineHeight: 1, transition: "all 0.15s",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff4d4d"; e.currentTarget.style.color = "#ff4d4d"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#3a3a5a"; }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {activeTab === "heatmap" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
