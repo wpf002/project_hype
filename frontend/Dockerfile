@@ -21,8 +21,12 @@ RUN npm run build
 FROM nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy as a template — PORT is substituted at container start
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
+# Default port for local docker-compose; Railway overrides with its own $PORT
+ENV PORT=80
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# envsubst '$PORT' replaces only PORT, leaving nginx vars ($host etc.) intact
+CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
