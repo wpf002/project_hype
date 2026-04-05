@@ -52,6 +52,26 @@ function LiveDot() {
   );
 }
 
+// Small % change indicator — green positive, red negative, grey no data
+function ChangeChip({ value }) {
+  if (value === null || value === undefined) {
+    return <span style={{ fontSize: 10, color: "#3a3a5a", fontFamily: "'Space Mono', monospace" }}>—</span>;
+  }
+  const pos = value >= 0;
+  const color = pos ? "#00d4aa" : "#ff4d4d";
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, fontFamily: "'Space Mono', monospace",
+      color, padding: "2px 5px", borderRadius: 4,
+      background: pos ? "#00d4aa11" : "#ff4d4d11",
+      border: `1px solid ${pos ? "#00d4aa33" : "#ff4d4d33"}`,
+      whiteSpace: "nowrap",
+    }}>
+      {pos ? "+" : ""}{value.toFixed(2)}%
+    </span>
+  );
+}
+
 // Small badge shown next to exchange rates — distinguishes live API data from fallback estimates
 function RateBadge({ live }) {
   return (
@@ -385,7 +405,11 @@ export default function ProjectHype() {
                       {selected.rate.toFixed(8)} <span style={{ fontSize: 12, color: "#5a5a8a" }}>USD</span>
                       <RateBadge live={selected.live} />
                     </div>
-                    <div style={{ fontSize: 12, color: "#5a5a8a", marginTop: 4 }}>{selected.story}</div>
+                    <div style={{ marginTop: 4, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 1 }}>24H</span>
+                      <ChangeChip value={selected.change_24h} />
+                    </div>
+                    <div style={{ fontSize: 12, color: "#5a5a8a", marginTop: 2 }}>{selected.story}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 1, marginBottom: 6 }}>HYPE SCORE</div>
@@ -501,20 +525,20 @@ export default function ProjectHype() {
           {activeTab === "markets" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
-              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 620 }}>
+              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 680 }}>
                 <div style={{
-                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 80px 60px 80px",
+                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 80px 60px 80px",
                   gap: 12, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
                   fontSize: 10, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase"
                 }}>
-                  <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div>Market Cap</div><div>Hype</div><div>Story</div>
+                  <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div>24h</div><div>Market Cap</div><div>Hype</div><div>Story</div>
                 </div>
                 {currencies.map((c) => (
                   <div
                     key={c.code}
                     onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                     style={{
-                      display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 80px 60px 80px",
+                      display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 80px 60px 80px",
                       gap: 12, padding: "12px 20px", cursor: "pointer",
                       borderBottom: "1px solid #0d0d1a",
                       background: selected.code === c.code ? "#111128" : "transparent",
@@ -530,6 +554,7 @@ export default function ProjectHype() {
                       {c.rate.toFixed(8)}
                       <RateBadge live={c.live} />
                     </div>
+                    <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
                     <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: c.hype >= 80 ? "#ff4d4d" : c.hype >= 55 ? "#ffa500" : "#00d4aa" }}>{c.hype}</div>
                     <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>

@@ -21,6 +21,7 @@ import httpx
 from dotenv import load_dotenv
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
+from db.db import write_snapshots
 
 load_dotenv()
 
@@ -92,7 +93,9 @@ async def get_all_rates() -> Dict[str, Tuple[float, bool]]:
     is_live=False means it's the hardcoded fallback.
     Exotics in EXOTIC_NO_LIVE always return is_live=False.
     """
-    if not _is_cache_valid():
+    cache_was_stale = not _is_cache_valid()
+
+    if cache_was_stale:
         live_rates = await _fetch_live_rates()
         if live_rates:
             _cache["rates"] = live_rates
@@ -116,6 +119,9 @@ async def get_all_rates() -> Dict[str, Tuple[float, bool]]:
             result[code] = (live_rate, True)
         else:
             result[code] = (fallback, False)
+
+    if cache_was_stale:
+        write_snapshots(result)
 
     return result
 

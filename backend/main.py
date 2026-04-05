@@ -3,15 +3,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import rates, roi, news
+from routers import rates, roi, news, history
+from db.db import init_db
 
 load_dotenv()
 
 app = FastAPI(
     title="Project Hype API",
     description="Speculative foreign currency intelligence — rates, ROI modeling, and geopolitical news.",
-    version="1.0.0",
+    version="1.1.0",
 )
+
+init_db()
 
 # ALLOWED_ORIGINS: comma-separated list of allowed frontend origins.
 # Defaults to local dev URLs. Override in production via environment variable.
@@ -32,6 +35,7 @@ app.add_middleware(
 app.include_router(rates.router, prefix="/api")
 app.include_router(roi.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
+app.include_router(history.router, prefix="/api")
 
 
 @app.get("/")
@@ -45,5 +49,6 @@ async def root():
             "GET  /api/rate/{code}",
             "POST /api/roi",
             "GET  /api/news/{code}",
+            "GET  /api/history/{code}",
         ],
     }
