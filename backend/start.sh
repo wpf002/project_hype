@@ -9,4 +9,4 @@ if [ ! -f ".env" ]; then
   echo "Edit backend/.env to add your FX_API_KEY and NEWSAPI_KEY."
 fi
 
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000 --reload-exclude venv
