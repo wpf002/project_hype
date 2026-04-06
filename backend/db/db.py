@@ -61,6 +61,19 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_hype_code_ts ON hype_snapshots (code, timestamp)"
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS catalyst_snapshots (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                code       TEXT    NOT NULL,
+                score      REAL    NOT NULL,
+                sentiment  REAL    NOT NULL DEFAULT 0,
+                momentum   REAL    NOT NULL DEFAULT 0,
+                timestamp  TEXT    NOT NULL
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_catalyst_code_ts ON catalyst_snapshots (code, timestamp)"
+        )
         conn.commit()
     logger.info("DB initialised at %s", DB_PATH)
 
@@ -231,6 +244,52 @@ def get_latest_hype_scores() -> Dict[str, float]:
         return {r["code"]: r["score"] for r in rows}
     except Exception:
         logger.exception("Failed to fetch latest hype scores")
+        return {}
+
+
+# ── Catalyst snapshots ────────────────────────────────────────────────────
+
+def write_catalyst_snapshots(data: Dict[str, dict]) -> None:
+    """Insert one catalyst snapshot per currency and prune rows older than 30 days."""
+    now = datetime.now(timezone.utc).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    rows = [
+        (code, v["score"], v.get("sentiment", 0.0), v.get("momentum", 0.0), now)
+        for code, v in data.items()
+    ]
+    try:
+        with _connect() as conn:
+            conn.executemany(
+                "INSERT INTO catalyst_snapshots (code, score, sentiment, momentum, timestamp) VALUES (?, ?, ?, ?, ?)",
+                rows,
+            )
+            conn.execute("DELETE FROM catalyst_snapshots WHERE timestamp < ?", (cutoff,))
+            conn.commit()
+    except Exception:
+        logger.exception("Failed to write catalyst snapshots")
+
+
+def get_latest_catalyst_scores() -> Dict[str, dict]:
+    """Return the most recent catalyst snapshot for every currency that has one."""
+    try:
+        with _connect() as conn:
+            rows = conn.execute(
+                """SELECT code, score, sentiment, momentum
+                   FROM catalyst_snapshots
+                   WHERE id IN (
+                       SELECT MAX(id) FROM catalyst_snapshots GROUP BY code
+                   )"""
+            ).fetchall()
+        return {
+            r["code"]: {
+                "catalyst_score": r["score"],
+                "sentiment": r["sentiment"],
+                "momentum_7d": r["momentum"],
+            }
+            for r in rows
+        }
+    except Exception:
+        logger.exception("Failed to fetch latest catalyst scores")
         return {}
 
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from data.currencies import CURRENCIES, CURRENCY_MAP
 from services.fx_service import get_all_rates, get_rate
-from db.db import get_all_changes_24h, get_change_24h, get_latest_hype_scores
+from db.db import get_all_changes_24h, get_change_24h, get_latest_hype_scores, get_latest_catalyst_scores
 
 router = APIRouter()
 
@@ -20,7 +20,10 @@ class CurrencyRate(BaseModel):
     story: str
     live: bool          # True = from live API, False = hardcoded fallback
     change_24h: Optional[float] = None   # % change over last 24 h; null if insufficient data
-    hype_score: Optional[float] = None   # dynamic score from hype engine; falls back to hype
+    hype_score: Optional[float] = None     # dynamic score from hype engine; falls back to hype
+    catalyst_score: Optional[float] = None # forward-looking appreciation potential 0-100
+    sentiment: Optional[float] = None      # news sentiment -100 to +100
+    momentum_7d: Optional[float] = None    # % rate change over last 7 days
 
 
 class SingleRate(CurrencyRate):
@@ -37,11 +40,13 @@ async def get_all_currency_rates():
     all_rates = await get_all_rates()
     changes = get_all_changes_24h()
     latest_hype = get_latest_hype_scores()
+    latest_catalyst = get_latest_catalyst_scores()
     result = []
 
     for currency in CURRENCIES:
         code = currency["code"]
         rate_value, is_live = all_rates.get(code, (currency["rate"], False))
+        cat = latest_catalyst.get(code, {})
         result.append(
             CurrencyRate(
                 code=code,
@@ -55,6 +60,9 @@ async def get_all_currency_rates():
                 live=is_live,
                 change_24h=changes.get(code),
                 hype_score=latest_hype.get(code, float(currency["hype"])),
+                catalyst_score=cat.get("catalyst_score"),
+                sentiment=cat.get("sentiment"),
+                momentum_7d=cat.get("momentum_7d"),
             )
         )
 
@@ -78,6 +86,8 @@ async def get_single_currency_rate(code: str):
 
     rate_value, is_live = await get_rate(code)
     latest_hype = get_latest_hype_scores()
+    latest_catalyst = get_latest_catalyst_scores()
+    cat = latest_catalyst.get(code, {})
 
     return SingleRate(
         code=code,
@@ -92,4 +102,7 @@ async def get_single_currency_rate(code: str):
         live=is_live,
         change_24h=get_change_24h(code),
         hype_score=latest_hype.get(code, float(currency["hype"])),
+        catalyst_score=cat.get("catalyst_score"),
+        sentiment=cat.get("sentiment"),
+        momentum_7d=cat.get("momentum_7d"),
     )

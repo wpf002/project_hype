@@ -456,7 +456,7 @@ export default function ProjectHype() {
 
           {/* Nav Tabs */}
           <div style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            {["calculator", "markets", "heatmap", "portfolio"].map(tab => (
+            {["calculator", "markets", "heatmap", "signals", "portfolio"].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
                 background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
@@ -464,7 +464,7 @@ export default function ProjectHype() {
                 fontSize: 13, textTransform: "capitalize", fontWeight: 600,
                 transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none"
               }}>
-                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`}
+                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : tab === "signals" ? "🎯 Signals" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`}
               </button>
             ))}
           </div>
@@ -643,6 +643,45 @@ export default function ProjectHype() {
                   </div>
                 </div>
               </div>
+
+              {/* Catalyst Signal */}
+              {selected.catalyst_score != null && (() => {
+                const cat = selected.catalyst_score;
+                const sent = selected.sentiment ?? 0;
+                const mom = selected.momentum_7d ?? 0;
+                const catColor = cat >= 65 ? "#00d4aa" : cat >= 40 ? "#ffa500" : "#ff4d4d";
+                const sentLabel = sent > 10 ? "Bullish narrative" : sent < -10 ? "Bearish narrative" : "Neutral narrative";
+                const momLabel = mom > 0.5 ? `+${mom.toFixed(2)}% 7d momentum` : mom < -0.5 ? `${mom.toFixed(2)}% 7d decline` : "Flat rate trend";
+                const signal = cat >= 65 ? "Strong appreciation potential" : cat >= 40 ? "Mixed signals — watch closely" : "Weak near-term outlook";
+                return (
+                  <div style={{
+                    background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+                    border: `1px solid ${catColor}33`, borderRadius: 12, padding: "18px 20px", marginTop: 16
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>🎯 Catalyst Score</div>
+                        <div style={{ fontSize: 11, color: catColor }}>{signal}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: catColor }}>{Math.round(cat)}</div>
+                        <div style={{ fontSize: 10, color: "#5a5a8a" }}>/ 100</div>
+                      </div>
+                    </div>
+                    <div style={{ height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+                      <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 3, boxShadow: `0 0 8px ${catColor}` }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 11, color: sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#5a5a8a" }}>
+                        📰 {sentLabel}
+                      </div>
+                      <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#5a5a8a" }}>
+                        📈 {momLabel}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Latest Intel */}
               <div style={{
@@ -998,6 +1037,121 @@ export default function ProjectHype() {
               </div>
             </div>
           )}
+
+          {/* ── Signals Tab ─────────────────────────────────────────────── */}
+          {activeTab === "signals" && (
+            <div style={{ animation: "slideIn 0.3s ease" }}>
+              <div style={{
+                background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+                border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24, marginBottom: 20
+              }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: 1, marginBottom: 6 }}>
+                    🎯 APPRECIATION SIGNALS
+                  </div>
+                  <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.6 }}>
+                    Forward-looking potential ranked by <strong style={{ color: "#9999cc" }}>Catalyst Score</strong> — a composite of news sentiment (what the market is saying) and 7-day rate momentum (what the market is doing). Updated hourly.
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+                  {[["#00d4aa", "Bullish", ">10 sentiment"], ["#5a5a8a", "Neutral", "±10"], ["#ff4d4d", "Bearish", "<−10 sentiment"]].map(([color, label, sub]) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                      <span style={{ fontSize: 11, color, fontWeight: 700 }}>{label}</span>
+                      <span style={{ fontSize: 10, color: "#3a3a5a" }}>{sub}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Table header */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "28px 32px 1fr 110px 80px 70px",
+                  gap: 10, padding: "8px 12px",
+                  fontSize: 9, color: "#3a3a5a", letterSpacing: 2, textTransform: "uppercase",
+                  borderBottom: "1px solid #1e1e3f"
+                }}>
+                  <div>#</div><div></div><div>Currency</div><div>Catalyst</div><div>Sentiment</div><div>7d Move</div>
+                </div>
+
+                {[...currencies]
+                  .filter(c => c.catalyst_score != null)
+                  .sort((a, b) => b.catalyst_score - a.catalyst_score)
+                  .map((c, i) => {
+                    const cat = c.catalyst_score ?? 0;
+                    const sent = c.sentiment ?? 0;
+                    const mom = c.momentum_7d ?? 0;
+                    const catColor = cat >= 65 ? "#00d4aa" : cat >= 40 ? "#ffa500" : "#ff4d4d";
+                    const sentColor = sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#5a5a8a";
+                    const momColor = mom > 0 ? "#00d4aa" : mom < 0 ? "#ff4d4d" : "#5a5a8a";
+                    const sentLabel = sent > 10 ? "BULLISH" : sent < -10 ? "BEARISH" : "NEUTRAL";
+                    return (
+                      <div
+                        key={c.code}
+                        onClick={() => { setSelected(c); setActiveTab("calculator"); }}
+                        style={{
+                          display: "grid", gridTemplateColumns: "28px 32px 1fr 110px 80px 70px",
+                          gap: 10, padding: "12px 12px", cursor: "pointer",
+                          borderBottom: "1px solid #0d0d1a",
+                          background: selected.code === c.code ? "#111128" : "transparent",
+                          transition: "background 0.15s",
+                          borderRadius: i === 0 ? "8px 8px 0 0" : 0,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
+                        onMouseLeave={e => e.currentTarget.style.background = selected.code === c.code ? "#111128" : "transparent"}
+                      >
+                        {/* Rank */}
+                        <div style={{ fontSize: 10, color: "#2a2a4a", fontFamily: "'Space Mono', monospace", paddingTop: 2 }}>{i + 1}</div>
+
+                        {/* Flag */}
+                        <div style={{ fontSize: 20 }}>{c.flag}</div>
+
+                        {/* Name */}
+                        <div>
+                          <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: "#e8e8ff" }}>{c.code}</div>
+                          <div style={{ fontSize: 10, color: "#5a5a8a", marginTop: 1 }}>{c.name}</div>
+                        </div>
+
+                        {/* Catalyst bar */}
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                            <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: catColor }}>{Math.round(cat)}</span>
+                          </div>
+                          <div style={{ height: 4, background: "#1a1a2e", borderRadius: 2, overflow: "hidden", width: "100%" }}>
+                            <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 2, boxShadow: `0 0 6px ${catColor}` }} />
+                          </div>
+                        </div>
+
+                        {/* Sentiment */}
+                        <div>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                            color: sentColor, background: `${sentColor}18`,
+                            border: `1px solid ${sentColor}33`,
+                          }}>{sentLabel}</span>
+                          <div style={{ fontSize: 10, color: sentColor, fontFamily: "'Space Mono', monospace", marginTop: 3 }}>
+                            {sent > 0 ? "+" : ""}{sent.toFixed(0)}
+                          </div>
+                        </div>
+
+                        {/* Momentum */}
+                        <div style={{ fontSize: 12, fontFamily: "'Space Mono', monospace", color: momColor, fontWeight: 700 }}>
+                          {mom > 0 ? "+" : ""}{mom.toFixed(2)}%
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {currencies.filter(c => c.catalyst_score != null).length === 0 && (
+                  <div style={{ textAlign: "center", padding: "40px 0", color: "#3a3a5a", fontSize: 13 }}>
+                    Catalyst scores are computed on startup — check back in a moment.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Right Sidebar */}
