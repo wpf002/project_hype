@@ -87,6 +87,17 @@ function RateBadge({ live }) {
   );
 }
 
+// Hype trend arrow — compares latest score vs ~6 snapshots ago (≈6h at hourly cadence)
+function HypeTrend({ history }) {
+  if (!history || history.length < 2) return null;
+  const latest = history[0].score;
+  const older = history[Math.min(5, history.length - 1)].score;
+  const delta = latest - older;
+  if (delta > 1) return <span style={{ color: "#00d4aa", fontWeight: 700, fontSize: 13 }}>↑</span>;
+  if (delta < -1) return <span style={{ color: "#ff4d4d", fontWeight: 700, fontSize: 13 }}>↓</span>;
+  return <span style={{ color: "#5a5a8a", fontWeight: 700, fontSize: 13 }}>→</span>;
+}
+
 function Sparkline({ data, color = "#00d4aa", height = 48 }) {
   // W/H are the fixed internal coordinate space — always numeric.
   // The `height` prop only sets the CSS height so it can be "100%" or a number.
@@ -144,6 +155,7 @@ export default function ProjectHype() {
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [rateHistory, setRateHistory] = useState([]);
+  const [hypeHistory, setHypeHistory] = useState([]);
 
   // ── Portfolio ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => {
@@ -284,6 +296,16 @@ export default function ProjectHype() {
       .catch(() => {});
   }, [selected]);
 
+  // ── Fetch hype history whenever the selected currency changes ─────────────
+  useEffect(() => {
+    if (!selected) return;
+    setHypeHistory([]);
+    fetch(`${API}/hype/${selected.code}?limit=8`)
+      .then(r => { if (!r.ok) throw new Error("no data"); return r.json(); })
+      .then(data => setHypeHistory(data))
+      .catch(() => {});
+  }, [selected]);
+
   async function calculate() {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) { setResults(null); return; }
@@ -344,7 +366,7 @@ export default function ProjectHype() {
     c.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const topHype = [...currencies].sort((a, b) => b.hype - a.hype).slice(0, 6);
+  const topHype = [...currencies].sort((a, b) => b.hype_score - a.hype_score).slice(0, 6);
 
   // ── Loading screen ────────────────────────────────────────────────────────
   if (loadingRates || !selected) {
@@ -512,8 +534,11 @@ export default function ProjectHype() {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 1, marginBottom: 6 }}>HYPE SCORE</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: selected.hype >= 80 ? "#ff4d4d" : selected.hype >= 55 ? "#ffa500" : "#00d4aa" }}>
-                      {selected.hype}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                      <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: selected.hype_score >= 80 ? "#ff4d4d" : selected.hype_score >= 55 ? "#ffa500" : "#00d4aa" }}>
+                        {Math.round(selected.hype_score ?? selected.hype)}
+                      </div>
+                      <HypeTrend history={hypeHistory} />
                     </div>
                   </div>
                 </div>
@@ -612,9 +637,9 @@ export default function ProjectHype() {
                   border: "1px solid #1e1e3f", borderRadius: 12, padding: "18px 20px", flex: 1
                 }}>
                   <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Hype Score</div>
-                  <HypeBar score={selected.hype} />
+                  <HypeBar score={Math.round(selected.hype_score ?? selected.hype)} />
                   <div style={{ fontSize: 11, color: "#5a5a8a", marginTop: 8 }}>
-                    {selected.hype >= 80 ? "🔥 Extreme speculation" : selected.hype >= 55 ? "⚡ Elevated interest" : "📊 Moderate tracking"}
+                    {(selected.hype_score ?? selected.hype) >= 80 ? "🔥 Extreme speculation" : (selected.hype_score ?? selected.hype) >= 55 ? "⚡ Elevated interest" : "📊 Moderate tracking"}
                   </div>
                 </div>
               </div>
@@ -703,7 +728,7 @@ export default function ProjectHype() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
                     <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: c.hype >= 80 ? "#ff4d4d" : c.hype >= 55 ? "#ffa500" : "#00d4aa" }}>{c.hype}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}>{Math.round(c.hype_score ?? c.hype)}</div>
                     <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
                   </div>
                 ))}
@@ -881,7 +906,7 @@ export default function ProjectHype() {
                       if (!cur) return null;
                       const posValue = cur.rate * p.amount;
                       const pct = totalUSD > 0 ? (posValue / totalUSD) * 100 : 0;
-                      const hypeColor = cur.hype >= 80 ? "#ff4d4d" : cur.hype >= 55 ? "#ffa500" : "#00d4aa";
+                      const hypeColor = (cur.hype_score ?? cur.hype) >= 80 ? "#ff4d4d" : (cur.hype_score ?? cur.hype) >= 55 ? "#ffa500" : "#00d4aa";
                       return (
                         <div key={p.code} style={{
                           padding: "16px 20px",
@@ -913,7 +938,7 @@ export default function ProjectHype() {
                               {fmt(posValue)}
                             </div>
                             <div style={{ fontSize: 11, color: hypeColor, fontWeight: 700 }}>
-                              HYPE {cur.hype}
+                              HYPE {Math.round(cur.hype_score ?? cur.hype)}
                             </div>
                           </div>
                           <button
@@ -944,10 +969,11 @@ export default function ProjectHype() {
                 Tile size = hype score. Color = intensity. Click to analyze.
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {[...currencies].sort((a, b) => b.hype - a.hype).map(c => {
-                  const size = 40 + (c.hype / 100) * 60;
-                  const alpha = 0.2 + (c.hype / 100) * 0.8;
-                  const color = c.hype >= 80 ? `rgba(255,77,77,${alpha})` : c.hype >= 55 ? `rgba(255,165,0,${alpha})` : `rgba(0,212,170,${alpha})`;
+                {[...currencies].sort((a, b) => (b.hype_score ?? b.hype) - (a.hype_score ?? a.hype)).map(c => {
+                  const hs = c.hype_score ?? c.hype;
+                  const size = 40 + (hs / 100) * 60;
+                  const alpha = 0.2 + (hs / 100) * 0.8;
+                  const color = hs >= 80 ? `rgba(255,77,77,${alpha})` : hs >= 55 ? `rgba(255,165,0,${alpha})` : `rgba(0,212,170,${alpha})`;
                   return (
                     <div
                       key={c.code}
@@ -961,11 +987,11 @@ export default function ProjectHype() {
                       }}
                       onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = `0 0 20px ${color}`; }}
                       onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
-                      title={`${c.name} — Hype: ${c.hype}`}
+                      title={`${c.name} — Hype: ${Math.round(c.hype_score ?? c.hype)}`}
                     >
                       <div style={{ fontSize: Math.max(8, size / 5), lineHeight: 1 }}>{c.flag}</div>
                       <div style={{ fontSize: Math.max(7, size / 6), fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#fff", marginTop: 2 }}>{c.code}</div>
-                      {size > 70 && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.7)" }}>{c.hype}</div>}
+                      {size > 70 && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.7)" }}>{Math.round(c.hype_score ?? c.hype)}</div>}
                     </div>
                   );
                 })}
@@ -1004,7 +1030,7 @@ export default function ProjectHype() {
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
                   <div style={{ fontSize: 11, color: "#5a5a8a" }}>{c.name}</div>
                 </div>
-                <div><HypeBar score={c.hype} /></div>
+                <div><HypeBar score={Math.round(c.hype_score ?? c.hype)} /></div>
               </div>
             ))}
           </div>

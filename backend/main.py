@@ -1,10 +1,12 @@
+import asyncio
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import rates, roi, news, history, portfolio
+from routers import rates, roi, news, history, portfolio, hype
 from db.db import init_db
+from services.hype_service import calculate_all_hype_scores
 
 load_dotenv()
 
@@ -15,6 +17,18 @@ app = FastAPI(
 )
 
 init_db()
+
+
+async def _hype_engine_loop() -> None:
+    while True:
+        await calculate_all_hype_scores()
+        await asyncio.sleep(3600)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    asyncio.create_task(_hype_engine_loop())
+
 
 # ALLOWED_ORIGINS: comma-separated list of allowed frontend origins.
 # Defaults to local dev URLs. Override in production via environment variable.
@@ -37,6 +51,7 @@ app.include_router(roi.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
+app.include_router(hype.router, prefix="/api")
 
 
 @app.get("/")
@@ -51,6 +66,7 @@ async def root():
             "POST /api/roi",
             "GET  /api/news/{code}",
             "GET  /api/history/{code}",
+            "GET  /api/hype/{code}",
             "POST /api/portfolio/share",
             "GET  /api/portfolio/{id}",
         ],

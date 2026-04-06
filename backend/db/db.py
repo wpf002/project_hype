@@ -48,6 +48,19 @@ def init_db() -> None:
                 created_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS hype_snapshots (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                code       TEXT    NOT NULL,
+                score      REAL    NOT NULL,
+                news_count INTEGER NOT NULL DEFAULT 0,
+                volatility REAL    NOT NULL DEFAULT 0,
+                timestamp  TEXT    NOT NULL
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_hype_code_ts ON hype_snapshots (code, timestamp)"
+        )
         conn.commit()
     logger.info("DB initialised at %s", DB_PATH)
 
@@ -147,6 +160,78 @@ def get_all_changes_24h() -> Dict[str, Optional[float]]:
 def get_change_24h(code: str) -> Optional[float]:
     """Single-currency convenience wrapper around get_all_changes_24h."""
     return get_all_changes_24h().get(code.upper())
+
+
+# ── Hype snapshots ────────────────────────────────────────────────────────
+
+def write_hype_snapshots(scores: Dict[str, dict]) -> None:
+    """
+    Insert one hype snapshot per currency and prune rows older than 30 days.
+    `scores` is {code: {score, news_count, volatility}}.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+    rows = [
+        (code, v["score"], v.get("news_count", 0), v.get("volatility", 0.0), now)
+        for code, v in scores.items()
+    ]
+
+    try:
+        with _connect() as conn:
+            conn.executemany(
+                "INSERT INTO hype_snapshots (code, score, news_count, volatility, timestamp) VALUES (?, ?, ?, ?, ?)",
+                rows,
+            )
+            conn.execute("DELETE FROM hype_snapshots WHERE timestamp < ?", (cutoff,))
+            conn.commit()
+    except Exception:
+        logger.exception("Failed to write hype snapshots")
+
+
+def get_hype_history(code: str, limit: int = 24) -> List[dict]:
+    """Return the last `limit` hype snapshots for `code`, newest first."""
+    try:
+        with _connect() as conn:
+            rows = conn.execute(
+                """SELECT id, code, score, news_count, volatility, timestamp
+                   FROM hype_snapshots
+                   WHERE code = ?
+                   ORDER BY timestamp DESC
+                   LIMIT ?""",
+                (code.upper(), limit),
+            ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "code": r["code"],
+                "score": r["score"],
+                "news_count": r["news_count"],
+                "volatility": r["volatility"],
+                "timestamp": r["timestamp"],
+            }
+            for r in rows
+        ]
+    except Exception:
+        logger.exception("Failed to fetch hype history for %s", code)
+        return []
+
+
+def get_latest_hype_scores() -> Dict[str, float]:
+    """Return the most recent hype score for every currency that has one."""
+    try:
+        with _connect() as conn:
+            rows = conn.execute(
+                """SELECT code, score
+                   FROM hype_snapshots
+                   WHERE id IN (
+                       SELECT MAX(id) FROM hype_snapshots GROUP BY code
+                   )"""
+            ).fetchall()
+        return {r["code"]: r["score"] for r in rows}
+    except Exception:
+        logger.exception("Failed to fetch latest hype scores")
+        return {}
 
 
 # ── Shared portfolios ──────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from data.currencies import CURRENCIES, CURRENCY_MAP
 from services.fx_service import get_all_rates, get_rate
-from db.db import get_all_changes_24h, get_change_24h
+from db.db import get_all_changes_24h, get_change_24h, get_latest_hype_scores
 
 router = APIRouter()
 
@@ -20,6 +20,7 @@ class CurrencyRate(BaseModel):
     story: str
     live: bool          # True = from live API, False = hardcoded fallback
     change_24h: Optional[float] = None   # % change over last 24 h; null if insufficient data
+    hype_score: Optional[float] = None   # dynamic score from hype engine; falls back to hype
 
 
 class SingleRate(CurrencyRate):
@@ -35,6 +36,7 @@ async def get_all_currency_rates():
     """
     all_rates = await get_all_rates()
     changes = get_all_changes_24h()
+    latest_hype = get_latest_hype_scores()
     result = []
 
     for currency in CURRENCIES:
@@ -52,6 +54,7 @@ async def get_all_currency_rates():
                 story=currency["story"],
                 live=is_live,
                 change_24h=changes.get(code),
+                hype_score=latest_hype.get(code, float(currency["hype"])),
             )
         )
 
@@ -74,6 +77,7 @@ async def get_single_currency_rate(code: str):
         )
 
     rate_value, is_live = await get_rate(code)
+    latest_hype = get_latest_hype_scores()
 
     return SingleRate(
         code=code,
@@ -87,4 +91,5 @@ async def get_single_currency_rate(code: str):
         news_query=currency["news_query"],
         live=is_live,
         change_24h=get_change_24h(code),
+        hype_score=latest_hype.get(code, float(currency["hype"])),
     )
