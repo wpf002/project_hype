@@ -6,7 +6,9 @@ One connection per call; sqlite3 handles its own locking.
 DB file lives at backend/db/rates.db (gitignored).
 """
 
+import json
 import os
+import secrets
 import sqlite3
 import logging
 from datetime import datetime, timezone, timedelta
@@ -39,6 +41,13 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_code_ts ON rate_snapshots (code, timestamp)"
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS shared_portfolios (
+                id         TEXT PRIMARY KEY,
+                positions  TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
         conn.commit()
     logger.info("DB initialised at %s", DB_PATH)
 
@@ -138,3 +147,33 @@ def get_all_changes_24h() -> Dict[str, Optional[float]]:
 def get_change_24h(code: str) -> Optional[float]:
     """Single-currency convenience wrapper around get_all_changes_24h."""
     return get_all_changes_24h().get(code.upper())
+
+
+# ── Shared portfolios ──────────────────────────────────────────────────────
+
+def create_shared_portfolio(positions: list) -> str:
+    """
+    Persist `positions` as JSON and return the generated 8-char ID.
+    ID is generated with secrets.token_urlsafe(6)[:8] (URL-safe, no padding).
+    """
+    share_id = secrets.token_urlsafe(6)[:8]
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO shared_portfolios (id, positions, created_at) VALUES (?, ?, ?)",
+            (share_id, json.dumps(positions), now),
+        )
+        conn.commit()
+    return share_id
+
+
+def get_shared_portfolio(share_id: str) -> Optional[list]:
+    """Return the positions list for `share_id`, or None if not found."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT positions FROM shared_portfolios WHERE id = ?",
+            (share_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return json.loads(row["positions"])

@@ -109,6 +109,15 @@ export default function ProjectHype() {
   const [pfAmount, setPfAmount] = useState("");
   const [pfSearch, setPfSearch] = useState("");
 
+  // ── Share modal ───────────────────────────────────────────────────────────
+  const [shareModal, setShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+
+  // ── Shared-view banner (loaded from ?portfolio= URL param) ────────────────
+  const [isSharedView, setIsSharedView] = useState(false);
+
   // Ref to cancel in-flight ROI requests when inputs change quickly
   const roiAbortRef = useRef(null);
 
@@ -161,6 +170,41 @@ export default function ProjectHype() {
       })
       .catch(() => setLoadingRates(false));
   }, []);
+
+  // ── Load shared portfolio from ?portfolio= URL param ──────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shareId = params.get("portfolio");
+    if (!shareId) return;
+    fetch(`${API}/portfolio/${shareId}`)
+      .then(r => { if (!r.ok) throw new Error("not found"); return r.json(); })
+      .then(positions => {
+        setPortfolio(positions.map(p => ({ ...p, addedAt: Date.now() })));
+        setIsSharedView(true);
+        setActiveTab("portfolio");
+      })
+      .catch(() => {}); // silently ignore invalid IDs
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function sharePortfolio() {
+    if (portfolio.length === 0) return;
+    setShareLoading(true);
+    try {
+      const res = await fetch(`${API}/portfolio/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positions: portfolio.map(p => ({ code: p.code, amount: p.amount })) }),
+      });
+      const data = await res.json();
+      setShareUrl(data.url);
+      setShareModal(true);
+      setShareCopied(false);
+    } catch {
+      // ignore
+    } finally {
+      setShareLoading(false);
+    }
+  }
 
   // ── Ticker animation in the header ───────────────────────────────────────
   useEffect(() => {
@@ -578,6 +622,34 @@ export default function ProjectHype() {
             return (
               <div style={{ animation: "slideIn 0.3s ease", display: "flex", flexDirection: "column", gap: 20 }}>
 
+                {/* Shared-view banner */}
+                {isSharedView && (
+                  <div style={{
+                    background: "linear-gradient(135deg, #0d1a2e, #111e3a)",
+                    border: "1px solid #1e3a6e", borderRadius: 12,
+                    padding: "14px 20px", display: "flex", alignItems: "center",
+                    justifyContent: "space-between", gap: 12,
+                  }}>
+                    <div style={{ fontSize: 13, color: "#7799cc" }}>
+                      👁 Viewing a shared portfolio
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsSharedView(false);
+                        window.history.replaceState({}, "", window.location.pathname);
+                      }}
+                      style={{
+                        padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #1e1e4f, #252560)",
+                        color: "#e8e8ff", fontSize: 11, fontWeight: 700, letterSpacing: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      SAVE AS MY OWN
+                    </button>
+                  </div>
+                )}
+
                 {/* Add Position */}
                 <div style={{
                   background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
@@ -656,7 +728,7 @@ export default function ProjectHype() {
                   <div style={{
                     background: "linear-gradient(135deg, #0d1a0d 0%, #111e11 100%)",
                     border: "1px solid #1a3a1a", borderRadius: 16, padding: "20px 24px",
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
                   }}>
                     <div>
                       <div style={{ fontSize: 11, color: "#5a8a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Total Portfolio Value</div>
@@ -664,11 +736,29 @@ export default function ProjectHype() {
                         {fmt(totalUSD)}
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 11, color: "#5a8a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Positions</div>
-                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#e8e8ff" }}>
-                        {portfolio.length}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 11, color: "#5a8a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Positions</div>
+                        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#e8e8ff" }}>
+                          {portfolio.length}
+                        </div>
                       </div>
+                      <button
+                        onClick={sharePortfolio}
+                        disabled={shareLoading}
+                        style={{
+                          padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+                          background: "linear-gradient(135deg, #1e3a1e, #253a25)",
+                          border: "1px solid #00d4aa33",
+                          color: "#00d4aa", fontSize: 12, fontWeight: 700, letterSpacing: 1,
+                          transition: "opacity 0.15s",
+                          opacity: shareLoading ? 0.5 : 1,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = shareLoading ? "0.5" : "1"}
+                      >
+                        {shareLoading ? "…" : "🔗 SHARE"}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -924,6 +1014,67 @@ export default function ProjectHype() {
           </div>
         </div>
       </div>
+
+      {/* Share Portfolio modal */}
+      {shareModal && (
+        <div
+          onClick={() => setShareModal(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(7,7,20,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1000, padding: 24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "linear-gradient(135deg, #0d0d1a, #111128)",
+              border: "1px solid #1e1e3f", borderRadius: 20, padding: 32,
+              width: "100%", maxWidth: 480, animation: "slideIn 0.2s ease",
+            }}
+          >
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
+              🔗 Share Portfolio
+            </div>
+            <div style={{ fontSize: 12, color: "#5a5a8a", marginBottom: 20 }}>
+              Anyone with this link can view your current positions.
+            </div>
+            <div style={{
+              display: "flex", gap: 8, alignItems: "stretch",
+              background: "#070714", borderRadius: 10, border: "1px solid #1e1e3f",
+              padding: "10px 14px", marginBottom: 20,
+            }}>
+              <div style={{
+                flex: 1, fontSize: 12, color: "#9999cc", fontFamily: "'Space Mono', monospace",
+                wordBreak: "break-all", lineHeight: 1.5,
+              }}>
+                {shareUrl}
+              </div>
+              <button
+                onClick={() => { navigator.clipboard.writeText(shareUrl); setShareCopied(true); }}
+                style={{
+                  flexShrink: 0, padding: "6px 14px", borderRadius: 8, border: "none",
+                  cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 1,
+                  background: shareCopied ? "#003322" : "linear-gradient(135deg, #1e1e4f, #252560)",
+                  color: shareCopied ? "#00d4aa" : "#e8e8ff",
+                  transition: "all 0.2s",
+                }}
+              >
+                {shareCopied ? "✓ COPIED" : "COPY"}
+              </button>
+            </div>
+            <button
+              onClick={() => setShareModal(false)}
+              style={{
+                width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #1e1e3f",
+                background: "transparent", color: "#5a5a8a", fontSize: 13, cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

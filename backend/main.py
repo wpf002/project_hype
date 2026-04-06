@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import rates, roi, news, history
+from routers import rates, roi, news, history, portfolio
 from db.db import init_db
 
 load_dotenv()
@@ -36,6 +36,7 @@ app.include_router(rates.router, prefix="/api")
 app.include_router(roi.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
+app.include_router(portfolio.router, prefix="/api")
 
 
 @app.get("/")
@@ -50,5 +51,7 @@ async def root():
             "POST /api/roi",
             "GET  /api/news/{code}",
             "GET  /api/history/{code}",
+            "POST /api/portfolio/share",
+            "GET  /api/portfolio/{id}",
         ],
     }
