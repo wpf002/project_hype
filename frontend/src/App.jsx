@@ -1737,44 +1737,46 @@ export default function ProjectHype() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#3a3a6a", textTransform: "uppercase", marginBottom: 10 }}>
                 NEWS · {selected.code}
               </div>
-              {loadingNews ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
-                  {[100, 80, 100, 60].map((w, i) => (
-                    <div key={i} style={{
-                      height: i % 2 === 0 ? 12 : 8, width: `${w}%`, borderRadius: 4,
-                      background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
-                      backgroundSize: "400px 100%", animation: `shimmer 1.5s ${i * 0.1}s infinite linear`,
-                    }} />
-                  ))}
-                </div>
-              ) : headlines.length === 0 ? (
-                <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
-              ) : (
-                <div style={{ marginBottom: 4 }}>
-                  {headlines.slice(0, 2).map((h, i) => (
-                    <div key={i} style={{ padding: "9px 0", borderBottom: i < Math.min(headlines.length, 2) - 1 ? "1px solid #0f0f22" : "none" }}>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                          background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
-                          maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        }}>{h.source}</span>
-                        {h.published_at && <span style={{ fontSize: 10, color: "#2a2a4a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+              <div style={{ flex: 1, overflowY: "auto", minHeight: 0, scrollbarWidth: "thin" }}>
+                {loadingNews ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
+                    {[100, 80, 100, 60].map((w, i) => (
+                      <div key={i} style={{
+                        height: i % 2 === 0 ? 12 : 8, width: `${w}%`, borderRadius: 4,
+                        background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
+                        backgroundSize: "400px 100%", animation: `shimmer 1.5s ${i * 0.1}s infinite linear`,
+                      }} />
+                    ))}
+                  </div>
+                ) : headlines.length === 0 ? (
+                  <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
+                ) : (
+                  <div>
+                    {headlines.map((h, i) => (
+                      <div key={i} style={{ padding: "9px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}>
+                        <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                            background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
+                            maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>{h.source}</span>
+                          {h.published_at && <span style={{ fontSize: 10, color: "#2a2a4a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+                        </div>
+                        {h.url ? (
+                          <a href={h.url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
+                            onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
+                            onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
+                            {h.title}
+                          </a>
+                        ) : (
+                          <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
+                        )}
                       </div>
-                      {h.url ? (
-                        <a href={h.url} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
-                          onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
-                          onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
-                          {h.title}
-                        </a>
-                      ) : (
-                        <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* ── Divider ── */}
               <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
@@ -1828,7 +1830,7 @@ export default function ProjectHype() {
               <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
 
               {/* ── Section: Top Signals ── */}
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#3a3a6a", textTransform: "uppercase", marginBottom: 12 }}>
                   ⚡ TOP SIGNALS
                 </div>
