@@ -17,7 +17,6 @@ CATALYST SCORE (0–100) — forward-looking: appreciation potential
 
 import asyncio
 import logging
-import os
 import statistics
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Tuple
@@ -25,17 +24,20 @@ from typing import Dict, Tuple
 import httpx
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
-from db.db import get_history, write_hype_snapshots, write_catalyst_snapshots
+from db.db import (
+    get_history,
+    write_hype_snapshots,
+    write_catalyst_snapshots,
+    get_latest_catalyst_scores,
+    get_subscribers_for_code,
+)
+from services.email_service import send_catalyst_alert
 
 logger = logging.getLogger(__name__)
 
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
-
-# ── Sentiment keyword lists ────────────────────────────────────────────────
-# Tuned for speculative currency narratives — geopolitical signals that
-# precede revaluations, stabilisation events, or depreciations.
 
 BULLISH_KEYWORDS = {
     "revaluation", "revalue", "revalued", "revaluing",
@@ -83,7 +85,6 @@ def _floor(code: str) -> float:
 
 
 def _normalise(values: Dict[str, float]) -> Dict[str, float]:
-    """Min-max normalise a dict of floats to 0-100. Returns 50 for all if range is 0."""
     if not values:
         return {}
     lo = min(values.values())
@@ -94,11 +95,6 @@ def _normalise(values: Dict[str, float]) -> Dict[str, float]:
 
 
 def _score_sentiment(articles: list) -> float:
-    """
-    Score a list of NewsAPI article dicts on a -100 to +100 scale.
-    Scans title + description for bullish/bearish keywords.
-    Net score normalised by article count so volume doesn't inflate sentiment.
-    """
     if not articles:
         return 0.0
     total = 0
@@ -112,15 +108,6 @@ def _score_sentiment(articles: list) -> float:
 
 
 async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
-    """
-    Fetch up to 100 articles from GDELT DOC API for `query` over the last 7 days.
-    Returns (total_7d, weighted_recency_cnt, sentiment_score).
-    Returns (0, 0, 0.0) on any error.
-
-    GDELT is free, requires no API key, and provides broad global coverage
-    across thousands of sources — ideal for exotic and geopolitically sensitive
-    currencies that mainstream financial APIs under-cover.
-    """
     now = datetime.now(timezone.utc)
     cutoff_48h = now - timedelta(hours=48)
 
@@ -146,8 +133,9 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
         for a in articles:
             seen = a.get("seendate", "")
             try:
-                # GDELT seendate format: 20240401T120000Z
-                pub_dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                pub_dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(
+                    tzinfo=timezone.utc
+                )
                 weighted += 3 if pub_dt >= cutoff_48h else 1
             except (ValueError, TypeError):
                 weighted += 1
@@ -160,9 +148,8 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
         return 0, 0, 0.0
 
 
-def _get_volatility(code: str) -> float:
-    """Stdev of rate snapshots over last 24h; 0 if insufficient data."""
-    snapshots = get_history(code, limit=96)
+async def _get_volatility(code: str) -> float:
+    snapshots = await get_history(code, limit=96)
     if len(snapshots) < 2:
         return 0.0
     try:
@@ -171,12 +158,8 @@ def _get_volatility(code: str) -> float:
         return 0.0
 
 
-def _get_momentum_7d(code: str) -> float:
-    """
-    % rate change oldest→newest across last 7 days of snapshots.
-    Positive = currency appreciating vs USD. Returns 0 if insufficient data.
-    """
-    snapshots = get_history(code, limit=672)  # 96/day × 7 days
+async def _get_momentum_7d(code: str) -> float:
+    snapshots = await get_history(code, limit=672)
     if len(snapshots) < 2:
         return 0.0
     newest = snapshots[0]["rate"]
@@ -186,21 +169,57 @@ def _get_momentum_7d(code: str) -> float:
     return ((newest - oldest) / oldest) * 100
 
 
+async def _check_and_send_alerts(
+    catalyst_out: Dict[str, dict],
+    old_catalyst: Dict[str, dict],
+    currency_map: Dict[str, dict],
+) -> None:
+    """Fire email alerts for any Catalyst Score that jumped 15+ points."""
+    SPIKE_THRESHOLD = 15.0
+
+    for code, new_data in catalyst_out.items():
+        new_score = new_data["score"]
+        old_data = old_catalyst.get(code)
+        if not old_data:
+            continue
+        old_score = old_data.get("catalyst_score", 0.0)
+        if new_score - old_score < SPIKE_THRESHOLD:
+            continue
+
+        logger.info(
+            "Catalyst spike: %s %.1f → %.1f (+%.1f)",
+            code, old_score, new_score, new_score - old_score,
+        )
+        subscribers = await get_subscribers_for_code(code)
+        if not subscribers:
+            continue
+
+        currency = currency_map.get(code, {})
+        await asyncio.gather(*[
+            send_catalyst_alert(email, code, currency, old_score, new_score)
+            for email in subscribers
+        ])
+
+
 async def calculate_all_hype_scores() -> None:
     """
     Compute hype + catalyst scores for all currencies and persist both tables.
-    Called on startup then every 12 hours (2 runs/day = 80 NewsAPI req/day).
+    Called on startup then every 12 hours.
     """
     logger.info("Score engine: starting for %d currencies via GDELT", len(CURRENCIES))
 
-    # ── Gather news data concurrently via GDELT (free, no API key required) ──
+    # Capture previous catalyst scores BEFORE computing new ones (for alert diffing)
+    old_catalyst = await get_latest_catalyst_scores()
+
+    # Build a quick lookup map for currency metadata
+    currency_map = {c["code"]: c for c in CURRENCIES}
+
     raw_volume: Dict[str, int] = {}
     raw_recency: Dict[str, int] = {}
     raw_sentiment: Dict[str, float] = {}
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
-    # Limit to 8 concurrent GDELT requests to be a good citizen
     semaphore = asyncio.Semaphore(8)
 
     async def fetch_one(currency: dict) -> None:
@@ -215,20 +234,22 @@ async def calculate_all_hype_scores() -> None:
     await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
     use_news = any(v > 0 for v in raw_volume.values())
 
-    for c in CURRENCIES:
-        raw_volatility[c["code"]] = _get_volatility(c["code"])
-        raw_momentum[c["code"]] = _get_momentum_7d(c["code"])
+    vol_mom = await asyncio.gather(*[
+        asyncio.gather(_get_volatility(c["code"]), _get_momentum_7d(c["code"]))
+        for c in CURRENCIES
+    ])
+    for c, (vol, mom) in zip(CURRENCIES, vol_mom):
+        raw_volatility[c["code"]] = vol
+        raw_momentum[c["code"]] = mom
 
     # ── Normalise ──────────────────────────────────────────────────────────
     norm_volume     = _normalise(raw_volume)
     norm_recency    = _normalise(raw_recency)
     norm_volatility = _normalise(raw_volatility)
 
-    # Shift sentiment (-100..+100) to positive domain before normalising
     shifted_sentiment = {k: v + 100 for k, v in raw_sentiment.items()}
     norm_sentiment = _normalise(shifted_sentiment)
 
-    # Shift momentum to handle negative values before normalising
     mom_min = min(raw_momentum.values(), default=0)
     norm_momentum = _normalise({k: v - mom_min for k, v in raw_momentum.items()})
 
@@ -240,7 +261,6 @@ async def calculate_all_hype_scores() -> None:
         code = c["code"]
         floor = _floor(code)
 
-        # Hype — how much attention right now?
         if use_news:
             raw_hype = (
                 0.40 * norm_volume.get(code, 0)
@@ -255,7 +275,6 @@ async def calculate_all_hype_scores() -> None:
             )
         hype_score = round(max(floor, min(100.0, raw_hype)), 2)
 
-        # Catalyst — forward-looking appreciation potential
         if use_news:
             raw_catalyst = (
                 0.60 * norm_sentiment.get(code, 50)
@@ -276,6 +295,9 @@ async def calculate_all_hype_scores() -> None:
             "momentum": round(raw_momentum.get(code, 0.0), 4),
         }
 
-    write_hype_snapshots(hype_out)
-    write_catalyst_snapshots(catalyst_out)
+    await write_hype_snapshots(hype_out)
+    await write_catalyst_snapshots(catalyst_out)
     logger.info("Score engine: wrote hype + catalyst for %d currencies", len(CURRENCIES))
+
+    # ── Fire alerts for significant Catalyst spikes ────────────────────────
+    await _check_and_send_alerts(catalyst_out, old_catalyst, currency_map)

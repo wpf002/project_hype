@@ -11,10 +11,11 @@ const HYPE_COLORS = {
   low: "#00d4aa",
 };
 
-function HypeBar({ score }) {
+function HypeBar({ score, title }) {
   const color = score >= 80 ? HYPE_COLORS.high : score >= 55 ? HYPE_COLORS.mid : HYPE_COLORS.low;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}
+      title={title || `Hype Score ${score}/100 — measures current news volume, recency, and rate volatility`}>
       <div style={{ flex: 1, height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden" }}>
         <div style={{
           width: `${score}%`, height: "100%", background: color,
@@ -33,10 +34,11 @@ function catalystColor(score) {
   return "#9b59b6";
 }
 
-function CatalystBar({ score }) {
+function CatalystBar({ score, title }) {
   const color = catalystColor(score);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}
+      title={title || `Catalyst Score ${score}/100 — forward-looking: news sentiment (60%) + 7-day rate momentum (40%)`}>
       <div style={{ flex: 1, height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden" }}>
         <div style={{
           width: `${score}%`, height: "100%",
@@ -200,6 +202,18 @@ export default function ProjectHype() {
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
 
+  // ── Alert modal ───────────────────────────────────────────────────────────
+  const [alertModal, setAlertModal] = useState(false);
+  const [alertEmail, setAlertEmail] = useState("");
+  const [alertCodes, setAlertCodes] = useState(new Set());
+  const [alertSubmitted, setAlertSubmitted] = useState(false);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [alertError, setAlertError] = useState("");
+
+  // ── Error / loading states ────────────────────────────────────────────────
+  const [ratesError, setRatesError] = useState(false);
+  const [roiError, setRoiError] = useState("");
+
   // ── Shared-view banner (loaded from ?portfolio= URL param) ────────────────
   const [isSharedView, setIsSharedView] = useState(false);
 
@@ -245,16 +259,19 @@ export default function ProjectHype() {
   }
 
   // ── Fetch all 40 currencies with live rates on mount ──────────────────────
-  useEffect(() => {
+  const fetchRates = () => {
+    setRatesError(false);
+    setLoadingRates(true);
     fetch(`${API}/rates`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error("API error"); return r.json(); })
       .then(data => {
         setCurrencies(data);
-        setSelected(data[0]);
+        setSelected(prev => prev ? (data.find(c => c.code === prev.code) ?? data[0]) : data[0]);
         setLoadingRates(false);
       })
-      .catch(() => setLoadingRates(false));
-  }, []);
+      .catch(() => { setLoadingRates(false); setRatesError(true); });
+  };
+  useEffect(() => { fetchRates(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load shared portfolio from ?portfolio= URL param ──────────────────────
   useEffect(() => {
@@ -363,7 +380,9 @@ export default function ProjectHype() {
         }),
         signal: controller.signal,
       });
+      if (!res.ok) throw new Error(`ROI API ${res.status}`);
       const data = await res.json();
+      setRoiError("");
       setResults({
         currentVal: data.current_value,
         targetVal: data.target_value,
@@ -372,8 +391,8 @@ export default function ProjectHype() {
         multiplier: data.multiplier,
       });
     } catch (err) {
-      if (err.name === "AbortError") return; // stale request, ignore
-      // API unreachable — fall back to client-side math
+      if (err.name === "AbortError") return;
+      setRoiError("Could not reach the ROI API — showing client-side estimate.");
       const targetVal = amt * parseFloat(targetRate);
       const gain = targetVal - currentVal;
       const roi = ((gain / currentVal) * 100).toFixed(2);
@@ -398,22 +417,76 @@ export default function ProjectHype() {
   const topCatalyst = [...currencies].filter(c => c.catalyst_score != null).sort((a, b) => b.catalyst_score - a.catalyst_score);
   const tickerTop3 = topCatalyst.slice(0, 3);
 
-  // ── Loading screen ────────────────────────────────────────────────────────
-  if (loadingRates || !selected) {
+  // ── Error screen ──────────────────────────────────────────────────────────
+  if (ratesError) {
     return (
       <div style={{
         minHeight: "100vh", background: "#070714", display: "flex",
-        alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16,
+        alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 20,
       }}>
-        <style>{`@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }`}</style>
-        <div style={{
-          width: 40, height: 40, borderRadius: 10,
-          background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20, animation: "pulse 1.5s infinite",
-        }}>⚡</div>
-        <div style={{ color: "#5a5a8a", fontSize: 12, letterSpacing: 3, textTransform: "uppercase" }}>
-          Loading rates...
+        <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}`}</style>
+        <div style={{ fontSize: 40 }}>⚠️</div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#e8e8ff" }}>
+          Unable to reach the Project Hype API
+        </div>
+        <div style={{ fontSize: 13, color: "#5a5a8a", maxWidth: 380, textAlign: "center", lineHeight: 1.6 }}>
+          The backend is temporarily unavailable. Check your connection or try again.
+        </div>
+        <button
+          onClick={fetchRates}
+          style={{
+            padding: "12px 32px", borderRadius: 10, border: "1px solid #1e1e3f", cursor: "pointer",
+            background: "linear-gradient(135deg, #1e1e4f, #252560)",
+            color: "#e8e8ff", fontSize: 14, fontWeight: 700, letterSpacing: 1,
+          }}
+        >
+          ↻ Retry
+        </button>
+      </div>
+    );
+  }
+
+  // ── Loading screen ────────────────────────────────────────────────────────
+  if (loadingRates || !selected) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#070714" }}>
+        <style>{`
+          @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+          @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+        `}</style>
+        {/* Header skeleton */}
+        <div style={{ height: 64, background: "#0d0d2e", borderBottom: "1px solid #1e1e3f",
+          display: "flex", alignItems: "center", padding: "0 40px", gap: 16 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10,
+            background: "linear-gradient(135deg,#ff4d4d,#ff8c00)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, animation: "pulse 1.5s infinite" }}>⚡</div>
+          <div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: 2 }}>
+              PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
+            </div>
+          </div>
+        </div>
+        {/* Content skeleton */}
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 40px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Tab bar skeleton */}
+              <div style={{ height: 44, borderRadius: 10, background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
+                backgroundSize: "800px 100%", animation: "shimmer 1.5s infinite linear" }} />
+              {/* Currency selector skeleton */}
+              <div style={{ borderRadius: 16, border: "1px solid #1e1e3f", padding: 28, background: "#0d0d1a", display: "flex", flexDirection: "column", gap: 16 }}>
+                {[80, 180, 60].map((w, i) => (
+                  <div key={i} style={{ height: i === 1 ? 52 : 36, width: `${w}%`, maxWidth: "100%", borderRadius: 8,
+                    background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
+                    backgroundSize: "800px 100%", animation: `shimmer 1.5s ${i * 0.15}s infinite linear` }} />
+                ))}
+              </div>
+            </div>
+            {/* Sidebar skeleton */}
+            <div style={{ height: 400, borderRadius: 16, border: "1px solid #1e1e3f",
+              background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
+              backgroundSize: "800px 100%", animation: "shimmer 1.5s 0.2s infinite linear" }} />
+          </div>
         </div>
       </div>
     );
@@ -433,8 +506,11 @@ export default function ProjectHype() {
         @keyframes slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes glow { 0%,100%{box-shadow:0 0 20px #00d4aa22} 50%{box-shadow:0 0 40px #00d4aa44} }
         @keyframes tick { 0%{opacity:0;transform:translateX(-8px)} 20%{opacity:1;transform:translateX(0)} 80%{opacity:1} 100%{opacity:0;transform:translateX(8px)} }
+        @keyframes shimmer { 0%{background-position:-800px 0} 100%{background-position:800px 0} }
+        @keyframes gradpulse { 0%,100%{opacity:.4} 50%{opacity:.8} }
         ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#0d0d1a} ::-webkit-scrollbar-thumb{background:#1e1e3f;border-radius:2px}
         input:focus{outline:none!important} select:focus{outline:none!important}
+        .tab-bar::-webkit-scrollbar{display:none}
       `}</style>
 
       {/* Disclaimer banner */}
@@ -447,58 +523,81 @@ export default function ProjectHype() {
       </div>
 
       {/* Header */}
-      <div style={{
-        background: "linear-gradient(90deg, #070714 0%, #0d0d2e 50%, #070714 100%)",
-        borderBottom: "1px solid #1e1e3f", padding: isMobile ? "0 16px" : "0 40px", height: 64,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, zIndex: 100,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 18, fontWeight: 700, boxShadow: "0 0 20px #ff4d4d44"
-          }}>⚡</div>
-          <div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#fff" }}>
-              PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
+      <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{
+          background: "linear-gradient(90deg, #070714 0%, #0d0d2e 50%, #070714 100%)",
+          padding: isMobile ? "0 16px" : "0 40px", height: 64,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18, fontWeight: 700, boxShadow: "0 0 20px #ff4d4d44"
+            }}>⚡</div>
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#fff" }}>
+                  PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
+                </div>
+                {!isMobile && <span style={{ fontSize: 10, color: "#2a2a4a", fontFamily: "'Space Mono',monospace" }}>v1.2.0</span>}
+              </div>
+              {!isMobile && <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>}
             </div>
-            {!isMobile && <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 20 }}>
+            <LiveDot />
+            {!isMobile && (
+              <span style={{ color: "#5a5a8a", fontSize: 12 }}>
+                <span style={{ animation: "tick 3s ease infinite", display: "inline-block" }}>
+                  {tickerTop3.length >= 3 ? (
+                    <>
+                      <span style={{ color: "#00b4ff", fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{tickerCurrency?.code}</span>
+                      <span style={{ color: "#5a5a8a" }}> CATALYST </span>
+                      <span style={{ color: "#00b4ff", fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{Math.round(tickerCurrency?.catalyst_score ?? 0)}</span>
+                      <span style={{ color: (tickerCurrency?.momentum_7d ?? 0) > 0 ? "#00d4aa" : (tickerCurrency?.momentum_7d ?? 0) < 0 ? "#ff4d4d" : "#5a5a8a", marginLeft: 4 }}>
+                        {(tickerCurrency?.momentum_7d ?? 0) > 0 ? "↑" : (tickerCurrency?.momentum_7d ?? 0) < 0 ? "↓" : "→"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {tickerCurrency?.code} · {tickerCurrency?.rate.toFixed(8)}
+                      {tickerCurrency && <RateBadge live={tickerCurrency.live} />}
+                    </>
+                  )}
+                </span>
+              </span>
+            )}
+            {!isMobile && (
+              <div style={{
+                background: "#0d0d2e", border: "1px solid #1e1e3f",
+                borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#5a5a8a"
+              }}>
+                {currencies.length} currencies tracked
+              </div>
+            )}
+            {/* Alert bell */}
+            <button
+              onClick={() => {
+                setAlertCodes(new Set([selected.code]));
+                setAlertSubmitted(false);
+                setAlertError("");
+                setAlertModal(true);
+              }}
+              title="Set Catalyst Score alerts"
+              style={{
+                background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
+                color: "#5a5a8a", fontSize: 16, cursor: "pointer",
+                padding: "5px 9px", lineHeight: 1, transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#5a5a8a"; }}
+            >🔔</button>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <LiveDot />
-          {!isMobile && (
-            <span style={{ color: "#5a5a8a", fontSize: 12 }}>
-              <span style={{ animation: "tick 3s ease infinite", display: "inline-block" }}>
-                {tickerTop3.length >= 3 ? (
-                  <>
-                    <span style={{ color: "#00b4ff", fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{tickerCurrency?.code}</span>
-                    <span style={{ color: "#5a5a8a" }}> CATALYST </span>
-                    <span style={{ color: "#00b4ff", fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{Math.round(tickerCurrency?.catalyst_score ?? 0)}</span>
-                    <span style={{ color: (tickerCurrency?.momentum_7d ?? 0) > 0 ? "#00d4aa" : (tickerCurrency?.momentum_7d ?? 0) < 0 ? "#ff4d4d" : "#5a5a8a", marginLeft: 4 }}>
-                      {(tickerCurrency?.momentum_7d ?? 0) > 0 ? "↑" : (tickerCurrency?.momentum_7d ?? 0) < 0 ? "↓" : "→"}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    {tickerCurrency?.code} · {tickerCurrency?.rate.toFixed(8)}
-                    {tickerCurrency && <RateBadge live={tickerCurrency.live} />}
-                  </>
-                )}
-              </span>
-            </span>
-          )}
-          {!isMobile && (
-            <div style={{
-              background: "#0d0d2e", border: "1px solid #1e1e3f",
-              borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#5a5a8a"
-            }}>
-              {currencies.length} currencies tracked
-            </div>
-          )}
-        </div>
+        {/* Gradient accent line */}
+        <div style={{ height: 1, background: "linear-gradient(90deg, transparent 0%, #00d4aa44 30%, #00b4ff44 70%, transparent 100%)" }} />
       </div>
 
       {/* Main Layout */}
@@ -517,7 +616,7 @@ export default function ProjectHype() {
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 24 }}>
 
           {/* Nav Tabs */}
-          <div style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <div className="tab-bar" style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexWrap: "nowrap" }}>
             {["calculator", "markets", "heatmap", "signals", "portfolio", "about"].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
@@ -655,6 +754,11 @@ export default function ProjectHype() {
               </div>
 
               {/* Results */}
+              {roiError && (
+                <div style={{ padding: "10px 16px", borderRadius: 8, background: "#1a0d0d", border: "1px solid #ff4d4d33", color: "#ff8a8a", fontSize: 12, marginBottom: 12 }}>
+                  ⚠ {roiError}
+                </div>
+              )}
               {results ? (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
                   <div style={{
@@ -795,9 +899,9 @@ export default function ProjectHype() {
               </div>
 
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
-              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 760 }}>
+              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 800 }}>
                 <div style={{
-                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px",
+                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px",
                   gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
                   fontSize: 10, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase"
                 }}>
@@ -805,14 +909,14 @@ export default function ProjectHype() {
                   <div
                     style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#5a5a8a", userSelect: "none" }}
                     onClick={() => setMarketSort("hype")}
-                    title="Sort by Hype"
+                    title="Sort by Hype Score"
                   >Hype {marketSort === "hype" ? "▼" : ""}</div>
                   <div
                     style={{ cursor: "pointer", color: marketSort === "catalyst" ? "#00b4ff" : "#5a5a8a", userSelect: "none" }}
                     onClick={() => setMarketSort("catalyst")}
-                    title="Sort by Catalyst"
+                    title="Sort by Catalyst Score"
                   >Cat {marketSort === "catalyst" ? "▼" : ""}</div>
-                  <div>Story</div>
+                  <div>Story</div><div></div>
                 </div>
                 {(() => {
                   const isSearching = marketSearch.trim().length > 0;
@@ -831,43 +935,75 @@ export default function ProjectHype() {
                       .sort((a, b) => (b.hype_score ?? b.hype) - (a.hype_score ?? a.hype))
                       .slice(0, 15);
                   }
-                  return visible.map((c) => (
-                    <div
-                      key={c.code}
-                      onClick={() => { setSelected(c); setActiveTab("calculator"); }}
-                      style={{
-                        display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px",
-                        gap: 10, padding: "12px 20px", cursor: "pointer",
-                        borderBottom: "1px solid #0d0d1a",
-                        background: selected.code === c.code ? "#111128" : "transparent",
-                        transition: "background 0.15s",
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
-                      onMouseLeave={e => e.currentTarget.style.background = selected.code === c.code ? "#111128" : "transparent"}
-                    >
-                      <div style={{ fontSize: 18 }}>{c.flag}</div>
-                      <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
-                      <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
-                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
-                        {c.rate.toFixed(8)}
-                        <RateBadge live={c.live} />
+                  return visible.map((c) => {
+                    const isSelected = selected.code === c.code;
+                    return (
+                      <div
+                        key={c.code}
+                        onClick={() => { setSelected(c); setActiveTab("calculator"); }}
+                        style={{
+                          display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px",
+                          gap: 10, padding: "12px 20px", cursor: "pointer",
+                          borderBottom: "1px solid #0d0d1a",
+                          borderLeft: isSelected ? "3px solid #00d4aa" : "3px solid transparent",
+                          background: isSelected ? "#111128" : "transparent",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
+                        onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#111128" : "transparent"}
+                      >
+                        <div style={{ fontSize: 18 }}>{c.flag}</div>
+                        <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
+                        <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
+                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
+                          {c.rate.toFixed(8)}
+                          <RateBadge live={c.live} />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
+                        <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}
+                          title={`Hype Score ${Math.round(c.hype_score ?? c.hype)}/100`}>
+                          {Math.round(c.hype_score ?? c.hype)}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}
+                          title={c.catalyst_score != null ? `Catalyst Score ${Math.round(c.catalyst_score)}/100 — forward-looking appreciation potential` : "Catalyst score pending"}>
+                          {c.catalyst_score != null ? (
+                            <>
+                              <div style={{ width: 7, height: 7, borderRadius: "50%", background: catalystColor(c.catalyst_score), boxShadow: `0 0 4px ${catalystColor(c.catalyst_score)}`, flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: 10, color: "#3a3a5a" }}>—</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setPortfolio(prev => {
+                                const existing = prev.findIndex(p => p.code === c.code);
+                                if (existing >= 0) {
+                                  const updated = [...prev];
+                                  updated[existing] = { ...updated[existing], amount: updated[existing].amount + 1 };
+                                  return updated;
+                                }
+                                return [...prev, { code: c.code, amount: 1, addedAt: Date.now() }];
+                              });
+                            }}
+                            title={`Add 1 ${c.code} to portfolio`}
+                            style={{
+                              background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
+                              color: "#3a3a5a", fontSize: 13, cursor: "pointer",
+                              padding: "2px 6px", lineHeight: 1, transition: "all 0.15s",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#00d4aa"; e.currentTarget.style.color = "#00d4aa"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#3a3a5a"; }}
+                          >+</button>
+                        </div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
-                      <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}>{Math.round(c.hype_score ?? c.hype)}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        {c.catalyst_score != null ? (
-                          <>
-                            <div style={{ width: 7, height: 7, borderRadius: "50%", background: catalystColor(c.catalyst_score), boxShadow: `0 0 4px ${catalystColor(c.catalyst_score)}`, flexShrink: 0 }} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
-                          </>
-                        ) : (
-                          <span style={{ fontSize: 10, color: "#3a3a5a" }}>—</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
               </div>
@@ -1049,10 +1185,14 @@ export default function ProjectHype() {
                 {/* Position Rows */}
                 {portfolio.length === 0 ? (
                   <div style={{
-                    background: "#0d0d1a", border: "1px dashed #1e1e3f", borderRadius: 12,
-                    padding: 32, textAlign: "center", color: "#2a2a4a", fontSize: 13,
+                    background: "#0d0d1a", border: "1px dashed #1e1e3f", borderRadius: 16,
+                    padding: "40px 24px", textAlign: "center",
                   }}>
-                    No positions yet — add a currency above
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>💼</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#5a5a8a", marginBottom: 6 }}>No positions yet</div>
+                    <div style={{ fontSize: 13, color: "#2a2a4a", lineHeight: 1.6 }}>
+                      Add your first position above, or use the <strong style={{ color: "#3a3a5a" }}>+</strong> button in the Markets table to add a currency instantly.
+                    </div>
                   </div>
                 ) : (
                   <div style={{ background: "#0d0d1a", borderRadius: 16, border: "1px solid #1e1e3f", overflow: "hidden" }}>
@@ -1492,8 +1632,22 @@ export default function ProjectHype() {
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: 1, marginBottom: 6 }}>
                     ℹ️ About Project Hype
                   </div>
-                  <div style={{ fontSize: 13, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 24 }}>
+                  <div style={{ fontSize: 13, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 12 }}>
                     A field guide to speculative currency intelligence — what the scores mean, where the data comes from, and how to use the tools.
+                  </div>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+                    <span style={{ fontSize: 11, color: "#3a3a5a", background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 20, padding: "3px 12px" }}>
+                      Currently tracking <strong style={{ color: "#9999cc" }}>{currencies.length}</strong> currencies across <strong style={{ color: "#9999cc" }}>6</strong> geopolitical regions
+                    </span>
+                    {(() => {
+                      const lastScored = currencies.find(c => c.hype_score != null);
+                      if (!lastScored) return null;
+                      return (
+                        <span style={{ fontSize: 11, color: "#3a3a5a", background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 20, padding: "3px 12px" }}>
+                          Scores refresh every <strong style={{ color: "#9999cc" }}>12 hours</strong>
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1574,7 +1728,15 @@ export default function ProjectHype() {
                 NEWS · {selected.code}
               </div>
               {loadingNews ? (
-                <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>Loading intel...</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
+                  {[100, 80, 100, 60].map((w, i) => (
+                    <div key={i} style={{
+                      height: i % 2 === 0 ? 12 : 8, width: `${w}%`, borderRadius: 4,
+                      background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
+                      backgroundSize: "400px 100%", animation: `shimmer 1.5s ${i * 0.1}s infinite linear`,
+                    }} />
+                  ))}
+                </div>
               ) : headlines.length === 0 ? (
                 <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
               ) : (
@@ -1805,7 +1967,14 @@ export default function ProjectHype() {
                   </>
                 );
               })() : (
-                <div style={{ fontSize: 11, color: "#2a2a4a" }}>Updates every 15 min — check back soon.</div>
+                <div style={{ width: "100%", textAlign: "center" }}>
+                  <div style={{
+                    height: 6, borderRadius: 3, marginBottom: 12,
+                    background: "linear-gradient(90deg, #0d0d1a 0%, #1a1a2e 50%, #0d0d1a 100%)",
+                    backgroundSize: "400px 100%", animation: "shimmer 2s infinite linear, gradpulse 2s infinite",
+                  }} />
+                  <div style={{ fontSize: 11, color: "#2a2a4a" }}>Accumulating data — updates every 15 min</div>
+                </div>
               )}
             </div>
           </div>
@@ -1871,6 +2040,178 @@ export default function ProjectHype() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Alert / Subscribe modal */}
+      {alertModal && (
+        <div
+          onClick={() => setAlertModal(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(7,7,20,0.88)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1000, padding: 24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "linear-gradient(135deg, #0d0d1a, #111128)",
+              border: "1px solid #1e1e3f", borderRadius: 20, padding: 32,
+              width: "100%", maxWidth: 520, animation: "slideIn 0.2s ease",
+              maxHeight: "90vh", overflowY: "auto",
+            }}
+          >
+            {alertSubmitted ? (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
+                  You're subscribed
+                </div>
+                <div style={{ fontSize: 13, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 16 }}>
+                  We'll email you when any tracked currency's Catalyst Score jumps 15+ points.
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 20 }}>
+                  {[...alertCodes].map(code => {
+                    const cur = currencies.find(c => c.code === code);
+                    return (
+                      <span key={code} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 12, background: "#1e1e3f", color: "#9999cc" }}>
+                        {cur?.flag} {code}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: "#3a3a5a" }}>Unsubscribe anytime from the email.</div>
+                <button onClick={() => setAlertModal(false)} style={{
+                  marginTop: 20, padding: "10px 28px", borderRadius: 8, border: "1px solid #1e1e3f",
+                  background: "transparent", color: "#5a5a8a", fontSize: 13, cursor: "pointer",
+                }}>Close</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 6 }}>
+                  🔔 Catalyst Score Alerts
+                </div>
+                <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 20 }}>
+                  We'll email you when any tracked currency's Catalyst Score jumps <strong style={{ color: "#00b4ff" }}>15+ points</strong> between scoring runs. Unsubscribe anytime.
+                </div>
+
+                {/* Email input */}
+                <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={alertEmail}
+                  onChange={e => setAlertEmail(e.target.value)}
+                  style={{
+                    width: "100%", padding: "11px 14px", boxSizing: "border-box",
+                    background: "#070714", border: "1px solid #1e1e3f",
+                    borderRadius: 8, color: "#e8e8ff", fontSize: 14, marginBottom: 20,
+                  }}
+                />
+
+                {/* Currency checkboxes */}
+                <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>
+                  Track these currencies
+                </label>
+                <div style={{
+                  maxHeight: 240, overflowY: "auto", background: "#070714",
+                  border: "1px solid #1e1e3f", borderRadius: 10, padding: 8, marginBottom: 20,
+                }}>
+                  {currencies.map(c => {
+                    const checked = alertCodes.has(c.code);
+                    return (
+                      <label key={c.code} style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "7px 10px",
+                        borderRadius: 7, cursor: "pointer", transition: "background 0.1s",
+                        background: checked ? "#111128" : "transparent",
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
+                        onMouseLeave={e => e.currentTarget.style.background = checked ? "#111128" : "transparent"}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setAlertCodes(prev => {
+                              const next = new Set(prev);
+                              next.has(c.code) ? next.delete(c.code) : next.add(c.code);
+                              return next;
+                            });
+                          }}
+                          style={{ accentColor: "#00b4ff", width: 14, height: 14, flexShrink: 0 }}
+                        />
+                        <span style={{ fontSize: 16 }}>{c.flag}</span>
+                        <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 12, color: "#00d4aa" }}>{c.code}</span>
+                        <span style={{ fontSize: 12, color: "#5a5a8a" }}>{c.name}</span>
+                        {c.catalyst_score != null && (
+                          <span style={{ marginLeft: "auto", fontSize: 11, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono',monospace" }}>
+                            {Math.round(c.catalyst_score)}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {alertError && (
+                  <div style={{ padding: "9px 14px", background: "#1a0d0d", border: "1px solid #ff4d4d33", borderRadius: 8, color: "#ff8a8a", fontSize: 12, marginBottom: 16 }}>
+                    {alertError}
+                  </div>
+                )}
+
+                <button
+                  disabled={alertLoading}
+                  onClick={async () => {
+                    const email = alertEmail.trim();
+                    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+                      setAlertError("Please enter a valid email address.");
+                      return;
+                    }
+                    if (alertCodes.size === 0) {
+                      setAlertError("Select at least one currency to track.");
+                      return;
+                    }
+                    setAlertError("");
+                    setAlertLoading(true);
+                    try {
+                      const res = await fetch(`${API}/alerts/subscribe`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email, codes: [...alertCodes] }),
+                      });
+                      if (!res.ok) {
+                        const d = await res.json().catch(() => ({}));
+                        setAlertError(d.detail || "Subscription failed — please try again.");
+                      } else {
+                        setAlertSubmitted(true);
+                      }
+                    } catch {
+                      setAlertError("Network error — please check your connection.");
+                    } finally {
+                      setAlertLoading(false);
+                    }
+                  }}
+                  style={{
+                    width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: alertLoading ? "default" : "pointer",
+                    background: alertLoading ? "#1a1a3a" : "linear-gradient(135deg, #0d1a2e, #0d2040)",
+                    color: alertLoading ? "#3a3a5a" : "#00b4ff", fontSize: 13, fontWeight: 700,
+                    letterSpacing: 1, border: "1px solid #00b4ff33", transition: "opacity 0.15s",
+                    opacity: alertLoading ? 0.7 : 1, marginBottom: 12,
+                  }}
+                >
+                  {alertLoading ? "Subscribing…" : "🔔 Notify me when Catalyst Score spikes"}
+                </button>
+
+                <button onClick={() => setAlertModal(false)} style={{
+                  width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #1e1e3f",
+                  background: "transparent", color: "#5a5a8a", fontSize: 13, cursor: "pointer",
+                }}>Cancel</button>
+              </>
+            )}
           </div>
         </div>
       )}

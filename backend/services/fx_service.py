@@ -121,7 +121,7 @@ async def get_all_rates() -> Dict[str, Tuple[float, bool]]:
             result[code] = (fallback, False)
 
     if cache_was_stale:
-        write_snapshots(result)
+        await write_snapshots(result)
 
     return result
 
