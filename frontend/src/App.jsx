@@ -608,7 +608,7 @@ export default function ProjectHype() {
           display: isNarrow ? "block" : "grid",
           gridTemplateColumns: "1fr 380px",
           gap: 24,
-          alignItems: "start",
+          alignItems: "stretch",
           marginBottom: 24,
         }}>
 
@@ -629,6 +629,9 @@ export default function ProjectHype() {
               </button>
             ))}
           </div>
+
+          {/* Tab content — flex:1 so this area always fills to the sidebar's bottom */}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
 
           {activeTab === "calculator" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
@@ -1689,6 +1692,8 @@ export default function ProjectHype() {
               </div>
             );
           })()}
+
+          </div>{/* end tab content wrapper */}
 
         </div>{/* end Left Column */}
 
