@@ -1,5 +1,6 @@
 import asyncio
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -10,12 +11,6 @@ from services.hype_service import calculate_all_hype_scores
 
 load_dotenv()
 
-app = FastAPI(
-    title="Project Hype API",
-    description="Speculative foreign currency intelligence — rates, ROI modeling, and geopolitical news.",
-    version="1.2.0",
-)
-
 
 async def _hype_engine_loop() -> None:
     while True:
@@ -23,10 +18,19 @@ async def _hype_engine_loop() -> None:
         await asyncio.sleep(43200)  # 12 hours
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     await init_db()
     asyncio.create_task(_hype_engine_loop())
+    yield
+
+
+app = FastAPI(
+    title="Project Hype API",
+    description="Speculative foreign currency intelligence — rates, ROI modeling, and geopolitical news.",
+    version="1.2.0",
+    lifespan=lifespan,
+)
 
 
 _raw_origins = os.getenv(

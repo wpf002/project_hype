@@ -1148,7 +1148,7 @@ export default function ProjectHype() {
                         onClick={sharePortfolio}
                         disabled={shareLoading}
                         style={{
-                          padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+                          padding: "8px 18px", borderRadius: 8, cursor: "pointer",
                           background: "linear-gradient(135deg, #1e3a1e, #253a25)",
                           border: "1px solid #00d4aa33",
                           color: "#00d4aa", fontSize: 12, fontWeight: 700, letterSpacing: 1,
@@ -2200,10 +2200,10 @@ export default function ProjectHype() {
                     }
                   }}
                   style={{
-                    width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: alertLoading ? "default" : "pointer",
+                    width: "100%", padding: "13px", borderRadius: 10, border: "1px solid #00b4ff33", cursor: alertLoading ? "default" : "pointer",
                     background: alertLoading ? "#1a1a3a" : "linear-gradient(135deg, #0d1a2e, #0d2040)",
                     color: alertLoading ? "#8080aa" : "#00b4ff", fontSize: 13, fontWeight: 700,
-                    letterSpacing: 1, border: "1px solid #00b4ff33", transition: "opacity 0.15s",
+                    letterSpacing: 1, transition: "opacity 0.15s",
                     opacity: alertLoading ? 0.7 : 1, marginBottom: 12,
                   }}
                 >
