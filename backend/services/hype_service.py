@@ -11,7 +11,7 @@ HYPE SCORE (0–100)  — backward-looking: how much noise right now?
   10%  Baseline floor   — exotic/sanctioned currencies floor 60, others floor 20
 
 CATALYST SCORE (0–100) — forward-looking: appreciation potential
-  60%  News sentiment   — bullish vs bearish keyword ratio across article titles
+  60%  News sentiment   — VADER compound score averaged across article titles/descriptions
   40%  Rate momentum    — % rate change over last 7 days (normalised)
 """
 
@@ -22,6 +22,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Tuple
 
 import httpx
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
 from db.db import (
@@ -39,45 +40,7 @@ GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
 
-BULLISH_KEYWORDS = {
-    "revaluation", "revalue", "revalued", "revaluing",
-    "appreciation", "appreciating", "appreciates",
-    "liberalization", "liberalise", "liberalize",
-    "reconstruction", "reconstruction fund",
-    "ceasefire", "cease-fire", "peace deal", "peace agreement", "peace talks",
-    "normalization", "normalisation",
-    "sanctions relief", "sanctions lifted", "sanctions removed", "sanctions eased",
-    "sanctions waived",
-    "article viii", "article 8", "imf approval", "imf program", "imf deal",
-    "imf agreement", "imf compliance",
-    "forex reform", "currency reform", "exchange rate reform",
-    "peg adjustment", "managed float",
-    "foreign reserve", "reserve growth", "reserve increase",
-    "stabilization", "stabilisation", "stabilize", "stabilise",
-    "economic recovery", "trade surplus", "export growth",
-    "oil revenue", "oil production increase",
-    "fdi", "foreign investment", "investment surge", "investment inflow",
-    "diplomatic ties", "diplomatic relations",
-    "economic reform", "banking reform", "central bank independence",
-    "debt relief", "debt restructuring success",
-}
-
-BEARISH_KEYWORDS = {
-    "hyperinflation", "hyper-inflation",
-    "devaluation", "devalue", "devalued", "devaluing",
-    "currency collapse", "economic collapse", "financial collapse",
-    "new sanctions", "fresh sanctions", "additional sanctions",
-    "parallel market", "black market", "unofficial rate",
-    "capital flight", "capital controls", "capital restriction",
-    "military coup", "coup d'état", "coup attempt", "junta",
-    "civil war", "armed conflict", "military offensive",
-    "currency crisis", "exchange crisis", "balance of payments crisis",
-    "sovereign default", "debt default",
-    "embargo", "trade embargo", "trade ban", "economic blockade",
-    "money printing", "currency printing",
-    "inflation spiral", "banking collapse", "bank run",
-    "asset freeze", "frozen assets",
-}
+_vader = SentimentIntensityAnalyzer()
 
 
 def _floor(code: str) -> float:
@@ -95,16 +58,20 @@ def _normalise(values: Dict[str, float]) -> Dict[str, float]:
 
 
 def _score_sentiment(articles: list) -> float:
+    """Score sentiment using VADER. Returns -100 to +100."""
     if not articles:
         return 0.0
-    total = 0
+    scores = []
     for a in articles:
-        text = ((a.get("title") or "") + " " + (a.get("description") or "")).lower()
-        bull = sum(1 for kw in BULLISH_KEYWORDS if kw in text)
-        bear = sum(1 for kw in BEARISH_KEYWORDS if kw in text)
-        total += bull - bear
-    per_article = total / len(articles)
-    return max(-100.0, min(100.0, per_article * 33.3))
+        text = ((a.get("title") or "") + " " + (a.get("description") or "")).strip()
+        if not text:
+            continue
+        compound = _vader.polarity_scores(text)["compound"]
+        scores.append(compound)
+    if not scores:
+        return 0.0
+    # compound is -1 to +1; scale to -100 to +100
+    return round(sum(scores) / len(scores) * 100, 2)
 
 
 async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
