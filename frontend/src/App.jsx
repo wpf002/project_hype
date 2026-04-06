@@ -459,11 +459,11 @@ export default function ProjectHype() {
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 380px", gap: 24, alignItems: "start" }}>
+      {/* Main Layout */}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", display: "flex", flexDirection: isNarrow ? "column" : "row", alignItems: "flex-start", gap: 24 }}>
 
         {/* Left Column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 24 }}>
 
           {/* Nav Tabs */}
           <div style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -1217,15 +1217,100 @@ export default function ProjectHype() {
             </div>
           )}
 
+          {/* Bottom panels */}
+          <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 1fr 1fr", gap: 24 }}>
+
+            {/* Top Hyped */}
+            <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>🔥 TOP HYPED</div>
+                <div style={{ fontSize: 11, color: "#5a5a8a" }}>by hype score</div>
+              </div>
+              {topHype.map((c, i) => (
+                <div key={c.code} onClick={() => setSelected(c)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < topHype.length - 1 ? "1px solid #0f0f22" : "none", cursor: "pointer", transition: "all 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = "0.7"}
+                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                >
+                  <div style={{ color: "#2a2a4a", fontFamily: "'Space Mono', monospace", fontSize: 11, minWidth: 16 }}>#{i + 1}</div>
+                  <div style={{ fontSize: 22 }}>{c.flag}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
+                    <div style={{ fontSize: 11, color: "#5a5a8a" }}>{c.name}</div>
+                  </div>
+                  <div><HypeBar score={Math.round(c.hype_score ?? c.hype)} /></div>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick Scenarios */}
+            <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, marginBottom: 16 }}>⚡ QUICK SCENARIOS</div>
+              <div style={{ fontSize: 12, color: "#5a5a8a", marginBottom: 14 }}>{selected.code} · {parseFloat(amount || 0).toLocaleString()} units</div>
+              {[2, 5, 10, 50, 100].map(mult => {
+                const tgt = selected.rate * mult;
+                const val = parseFloat(amount || 0) * tgt;
+                const gain = val - parseFloat(amount || 0) * selected.rate;
+                return (
+                  <div key={mult} onClick={() => { setTargetRate(tgt.toFixed(10)); setActiveTab("calculator"); }}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, marginBottom: 6, background: "#070714", border: "1px solid #1e1e3f", cursor: "pointer", transition: "all 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#ffa500"; e.currentTarget.style.background = "#111128"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.background = "#070714"; }}
+                  >
+                    <div>
+                      <span style={{ color: "#ffa500", fontWeight: 700, fontSize: 13 }}>{mult}x</span>
+                      <span style={{ color: "#5a5a8a", fontSize: 11, marginLeft: 8 }}>revaluation</span>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#00d4aa", fontFamily: "'Space Mono', monospace" }}>{fmt(val)}</div>
+                      <div style={{ fontSize: 10, color: "#5a5a8a" }}>+{fmt(gain)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Rate History */}
+            <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
+                <div style={{ fontSize: 11, color: "#5a5a8a" }}>{selected.code} · last {rateHistory.length} snapshots</div>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                {rateHistory.length >= 2 ? (() => {
+                  const sparkColor = selected.change_24h == null ? "#5a5a8a" : selected.change_24h >= 0 ? "#00d4aa" : "#ff4d4d";
+                  const pts = [...rateHistory].reverse();
+                  return (
+                    <>
+                      <div style={{ width: "100%" }}>
+                        <Sparkline data={rateHistory} color={sparkColor} height={100} />
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginTop: 10 }}>
+                        <div style={{ fontSize: 10, color: "#5a5a8a", fontFamily: "'Space Mono', monospace" }}>{pts[0]?.rate.toFixed(8)}</div>
+                        <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: sparkColor, fontWeight: 700 }}>{pts[pts.length - 1]?.rate.toFixed(8)}</div>
+                      </div>
+                    </>
+                  );
+                })() : (
+                  <div style={{ fontSize: 11, color: "#2a2a4a" }}>Updates every 15 min — check back soon.</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
         </div>
 
-        {/* Right Sidebar — Latest Intel on all tabs */}
-        <div>
+        {/* Right Sidebar — Latest Intel */}
+        <div style={{ width: isNarrow ? "100%" : 380, flexShrink: 0, position: "sticky", top: 32, alignSelf: "flex-start" }}>
           <div style={{
             background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-            border: "1px solid #1e1e3f", borderRadius: 16, padding: 24
+            border: "1px solid #1e1e3f", borderRadius: 16, padding: 24,
+            display: "flex", flexDirection: "column", gap: 0, overflow: "hidden",
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📰 LATEST INTEL</div>
               {headlines.length > 0 && (
                 <div style={{
@@ -1238,136 +1323,137 @@ export default function ProjectHype() {
                 </div>
               )}
             </div>
+
+            {/* ── Section: News ── */}
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#3a3a6a", textTransform: "uppercase", marginBottom: 10 }}>
+              NEWS · {selected.code}
+            </div>
             {loadingNews ? (
               <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>Loading intel...</div>
             ) : headlines.length === 0 ? (
               <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
             ) : (
-              headlines.map((h, i) => (
-                <div key={i} style={{ padding: "10px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                      background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
-                      maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>{h.source}</span>
-                    {h.published_at && <span style={{ fontSize: 10, color: "#2a2a4a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+              <div style={{ marginBottom: 4 }}>
+                {headlines.slice(0, 2).map((h, i) => (
+                  <div key={i} style={{ padding: "9px 0", borderBottom: i < Math.min(headlines.length, 2) - 1 ? "1px solid #0f0f22" : "none" }}>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                        background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
+                        maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{h.source}</span>
+                      {h.published_at && <span style={{ fontSize: 10, color: "#2a2a4a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+                    </div>
+                    {h.url ? (
+                      <a href={h.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
+                        {h.title}
+                      </a>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
+                    )}
                   </div>
-                  {h.url ? (
-                    <a href={h.url} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
-                      onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
-                      {h.title}
-                    </a>
-                  ) : (
-                    <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
-                  )}
-                </div>
-              ))
+                ))}
+              </div>
             )}
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom panels — Top Hyped · Quick Scenarios · Rate History */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "0 16px 32px" : "0 40px 40px", display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 1fr 1fr", gap: 24 }}>
+            {/* ── Divider ── */}
+            <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
 
-        {/* Top Hyped */}
-        <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>🔥 TOP HYPED</div>
-            <div style={{ fontSize: 11, color: "#5a5a8a" }}>by hype score</div>
-          </div>
-          {topHype.map((c, i) => (
-            <div
-              key={c.code}
-              onClick={() => setSelected(c)}
-              style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
-                borderBottom: i < topHype.length - 1 ? "1px solid #0f0f22" : "none",
-                cursor: "pointer", transition: "all 0.15s"
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.7"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-            >
-              <div style={{ color: "#2a2a4a", fontFamily: "'Space Mono', monospace", fontSize: 11, minWidth: 16 }}>#{i + 1}</div>
-              <div style={{ fontSize: 22 }}>{c.flag}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
-                <div style={{ fontSize: 11, color: "#5a5a8a" }}>{c.name}</div>
-              </div>
-              <div><HypeBar score={Math.round(c.hype_score ?? c.hype)} /></div>
+            {/* ── Section: Top Movers 24H ── */}
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#3a3a6a", textTransform: "uppercase", marginBottom: 12 }}>
+              📊 TOP MOVERS · 24H
             </div>
-          ))}
-        </div>
+            {(() => {
+              const movers = [...currencies]
+                .filter(c => c.change_24h != null)
+                .sort((a, b) => Math.abs(b.change_24h) - Math.abs(a.change_24h))
+                .slice(0, 4);
+              if (movers.length === 0) return (
+                <div style={{ fontSize: 11, color: "#2a2a4a", padding: "8px 0" }}>Rate history populating…</div>
+              );
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+                  {movers.map(c => {
+                    const pos = c.change_24h >= 0;
+                    const color = pos ? "#00d4aa" : "#ff4d4d";
+                    return (
+                      <div
+                        key={c.code}
+                        onClick={() => setSelected(c)}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 8, background: "#070714", cursor: "pointer", transition: "background 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#111128"}
+                        onMouseLeave={e => e.currentTarget.style.background = "#070714"}
+                      >
+                        <span style={{ fontSize: 16 }}>{c.flag}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
+                          <div style={{ fontSize: 10, color: "#3a3a6a" }}>{c.name}</div>
+                        </div>
+                        <div style={{
+                          fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono', monospace",
+                          color, padding: "2px 7px", borderRadius: 4,
+                          background: pos ? "#00d4aa11" : "#ff4d4d11",
+                          border: `1px solid ${pos ? "#00d4aa33" : "#ff4d4d33"}`,
+                        }}>
+                          {pos ? "+" : ""}{c.change_24h.toFixed(2)}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
-        {/* Quick Scenarios */}
-        <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, marginBottom: 16 }}>
-            ⚡ QUICK SCENARIOS
-          </div>
-          <div style={{ fontSize: 12, color: "#5a5a8a", marginBottom: 14 }}>
-            {selected.code} · {parseFloat(amount || 0).toLocaleString()} units
-          </div>
-          {[2, 5, 10, 50, 100].map(mult => {
-            const tgt = selected.rate * mult;
-            const val = parseFloat(amount || 0) * tgt;
-            const gain = val - parseFloat(amount || 0) * selected.rate;
-            return (
-              <div
-                key={mult}
-                onClick={() => { setTargetRate(tgt.toFixed(10)); setActiveTab("calculator"); }}
-                style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "10px 12px", borderRadius: 8, marginBottom: 6,
-                  background: "#070714", border: "1px solid #1e1e3f",
-                  cursor: "pointer", transition: "all 0.15s"
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#ffa500"; e.currentTarget.style.background = "#111128"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.background = "#070714"; }}
-              >
-                <div>
-                  <span style={{ color: "#ffa500", fontWeight: 700, fontSize: 13 }}>{mult}x</span>
-                  <span style={{ color: "#5a5a8a", fontSize: 11, marginLeft: 8 }}>revaluation</span>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#00d4aa", fontFamily: "'Space Mono', monospace" }}>{fmt(val)}</div>
-                  <div style={{ fontSize: 10, color: "#5a5a8a" }}>+{fmt(gain)}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            {/* ── Divider ── */}
+            <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
 
-        {/* Rate History */}
-        <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
-            <div style={{ fontSize: 11, color: "#5a5a8a" }}>{selected.code} · last {rateHistory.length} snapshots</div>
-          </div>
-          {(() => {
-            const sparkColor = selected.change_24h == null ? "#5a5a8a" : selected.change_24h >= 0 ? "#00d4aa" : "#ff4d4d";
-            const pts = [...rateHistory].reverse();
-            const oldest = pts[0]?.rate;
-            const newest = pts[pts.length - 1]?.rate;
-            return (
-              <>
-                <div style={{ height: 100 }}>
-                  <Sparkline data={rateHistory} color={sparkColor} height={100} />
+            {/* ── Section: Top Signals ── */}
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#3a3a6a", textTransform: "uppercase", marginBottom: 12 }}>
+              ⚡ TOP SIGNALS
+            </div>
+            {(() => {
+              const top = [...currencies]
+                .filter(c => c.catalyst_score != null)
+                .sort((a, b) => b.catalyst_score - a.catalyst_score)
+                .slice(0, 3);
+              if (top.length === 0) return (
+                <div style={{ fontSize: 11, color: "#2a2a4a", padding: "8px 0" }}>Scores computing on startup…</div>
+              );
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {top.map(c => {
+                    const score = Math.round(c.catalyst_score);
+                    const color = score >= 70 ? "#00d4aa" : score >= 45 ? "#ffa500" : "#5a5aaa";
+                    return (
+                      <div
+                        key={c.code}
+                        onClick={() => setSelected(c)}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 8, background: "#070714", cursor: "pointer", transition: "background 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#111128"}
+                        onMouseLeave={e => e.currentTarget.style.background = "#070714"}
+                      >
+                        <span style={{ fontSize: 16 }}>{c.flag}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
+                          <div style={{ fontSize: 10, color: "#3a3a6a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                          <div style={{ width: 40, height: 4, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ width: `${score}%`, height: "100%", background: color, borderRadius: 2, boxShadow: `0 0 4px ${color}` }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: "'Space Mono', monospace", minWidth: 22, textAlign: "right" }}>{score}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {rateHistory.length >= 2 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-                    <div style={{ fontSize: 10, color: "#5a5a8a", fontFamily: "'Space Mono', monospace" }}>{oldest?.toFixed(8)}</div>
-                    <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: sparkColor, fontWeight: 700 }}>{newest?.toFixed(8)}</div>
-                  </div>
-                )}
-                {rateHistory.length < 2 && (
-                  <div style={{ fontSize: 11, color: "#2a2a4a", marginTop: 8 }}>Updates every 15 min — check back soon.</div>
-                )}
-              </>
-            );
-          })()}
+              );
+            })()}
+
+          </div>
         </div>
 
       </div>
