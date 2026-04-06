@@ -406,6 +406,15 @@ export default function ProjectHype() {
         input:focus{outline:none!important} select:focus{outline:none!important}
       `}</style>
 
+      {/* Disclaimer banner */}
+      <div style={{
+        background: "#0a0a1a", borderBottom: "1px solid #2a1a00",
+        padding: "7px 20px", textAlign: "center", fontSize: 11,
+        color: "#7a6a40", letterSpacing: 0.3,
+      }}>
+        ⚠ Project Hype is a <strong style={{ color: "#a08040" }}>speculative research tool</strong> — scores reflect news activity and short-term rate signals, not financial fundamentals. <strong style={{ color: "#a08040" }}>Not investment advice.</strong> Do your own research.
+      </div>
+
       {/* Header */}
       <div style={{
         background: "linear-gradient(90deg, #070714 0%, #0d0d2e 50%, #070714 100%)",
@@ -464,7 +473,7 @@ export default function ProjectHype() {
                 fontSize: 13, textTransform: "capitalize", fontWeight: 600,
                 transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none"
               }}>
-                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : tab === "signals" ? "🎯 Signals" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`}
+                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : tab === "signals" ? "🎯 Signal Strength" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`}
               </button>
             ))}
           </div>
@@ -652,7 +661,7 @@ export default function ProjectHype() {
                 const catColor = cat >= 65 ? "#00d4aa" : cat >= 40 ? "#ffa500" : "#ff4d4d";
                 const sentLabel = sent > 10 ? "Bullish narrative" : sent < -10 ? "Bearish narrative" : "Neutral narrative";
                 const momLabel = mom > 0.5 ? `+${mom.toFixed(2)}% 7d momentum` : mom < -0.5 ? `${mom.toFixed(2)}% 7d decline` : "Flat rate trend";
-                const signal = cat >= 65 ? "Strong appreciation potential" : cat >= 40 ? "Mixed signals — watch closely" : "Weak near-term outlook";
+                const signal = cat >= 65 ? "High speculative signal activity" : cat >= 40 ? "Mixed signals — limited catalyst data" : "Low signal activity";
                 return (
                   <div style={{
                     background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
@@ -660,7 +669,7 @@ export default function ProjectHype() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>🎯 Catalyst Score</div>
+                        <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>🎯 Signal Strength</div>
                         <div style={{ fontSize: 11, color: catColor }}>{signal}</div>
                       </div>
                       <div style={{ textAlign: "right" }}>
@@ -671,13 +680,16 @@ export default function ProjectHype() {
                     <div style={{ height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
                       <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 3, boxShadow: `0 0 8px ${catColor}` }} />
                     </div>
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
                       <div style={{ fontSize: 11, color: sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#5a5a8a" }}>
                         📰 {sentLabel}
                       </div>
                       <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#5a5a8a" }}>
                         📈 {momLabel}
                       </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#3a3a5a", borderTop: "1px solid #1a1a2e", paddingTop: 8 }}>
+                      Signal strength reflects news activity & rate movement only — not a prediction or investment advice.
                     </div>
                   </div>
                 );
@@ -1047,10 +1059,10 @@ export default function ProjectHype() {
               }}>
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: 1, marginBottom: 6 }}>
-                    🎯 APPRECIATION SIGNALS
+                    🎯 SPECULATIVE SIGNAL STRENGTH
                   </div>
                   <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.6 }}>
-                    Forward-looking potential ranked by <strong style={{ color: "#9999cc" }}>Catalyst Score</strong> — a composite of news sentiment (what the market is saying) and 7-day rate momentum (what the market is doing). Updated hourly.
+                    Currencies ranked by <strong style={{ color: "#9999cc" }}>Catalyst Score</strong> — a composite of news sentiment and 7-day rate momentum. High scores indicate active narratives and recent movement, <strong style={{ color: "#7a6a40" }}>not a prediction or recommendation</strong>. Updated every 12 hours.
                   </div>
                 </div>
 
