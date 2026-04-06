@@ -132,7 +132,12 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
                 continue
 
             resp.raise_for_status()
-            data = resp.json()
+            try:
+                data = resp.json()
+            except Exception:
+                # GDELT returns an empty body (not JSON) when no articles match.
+                # This is a valid "zero results" — don't retry.
+                return 0, 0, 0.0
 
             articles = data.get("articles") or []
             total_7d = len(articles)
@@ -153,8 +158,9 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
 
         except Exception as exc:
             logger.warning("GDELT fetch failed for %s (attempt %d): %s", code, attempt + 1, exc)
+            # Non-429 errors (timeouts, connection resets) get one quick retry
             if attempt < 2:
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
 
     return 0, 0, 0.0
 

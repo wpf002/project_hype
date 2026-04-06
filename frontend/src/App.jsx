@@ -928,7 +928,7 @@ export default function ProjectHype() {
                   gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
                   fontSize: 10, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase"
                 }}>
-                  <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div>24h</div><div>Market Cap</div>
+                  <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div style={{ textAlign: "center" }}>24h</div><div>Market Cap</div>
                   <div
                     style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#5a5a8a", userSelect: "none" }}
                     onClick={() => setMarketSort("hype")}
@@ -982,7 +982,7 @@ export default function ProjectHype() {
                           {c.rate.toFixed(8)}
                           <RateBadge live={c.live} />
                         </div>
-                        <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ChangeChip value={c.change_24h} /></div>
                         <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}
                           title={`Hype Score ${Math.round(c.hype_score ?? c.hype)}/100`}>
@@ -1662,7 +1662,7 @@ export default function ProjectHype() {
                   <div style={{ fontSize: 13, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 12 }}>
                     A field guide to speculative currency intelligence — what the scores mean, where the data comes from, and how to use the tools.
                   </div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 28 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
                     <span style={{ fontSize: 11, color: "#8888bb", background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 20, padding: "5px 14px" }}>
                       Currently tracking <strong style={{ color: "#c0c0e8" }}>{currencies.length}</strong> currencies across <strong style={{ color: "#c0c0e8" }}>6</strong> geopolitical regions
                     </span>
@@ -1677,7 +1677,7 @@ export default function ProjectHype() {
                     })()}
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     {sections.map(({ id, color, title, content }) => {
                       const isOpen = openAccordion === id;
                       return (
