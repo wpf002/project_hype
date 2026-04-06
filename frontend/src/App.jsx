@@ -58,9 +58,9 @@ function StatCard({ label, value, sub }) {
       background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
       border: "1px solid #1e1e3f", borderRadius: 12, padding: "18px 20px", flex: 1,
     }}>
-      <div style={{ color: "#5a5a8a", fontSize: 11, textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: "#8080aa", fontSize: 11, textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>{label}</div>
       <div style={{ color: "#e8e8ff", fontSize: 22, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{value}</div>
-      {sub && <div style={{ color: "#5a5a8a", fontSize: 12, marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ color: "#8080aa", fontSize: 12, marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -80,7 +80,7 @@ function LiveDot() {
 // Small % change indicator — green positive, red negative, grey no data
 function ChangeChip({ value }) {
   if (value === null || value === undefined) {
-    return <span style={{ fontSize: 10, color: "#6a6a9a", fontFamily: "'Space Mono', monospace" }}>—</span>;
+    return <span style={{ fontSize: 10, color: "#8080aa", fontFamily: "'Space Mono', monospace" }}>—</span>;
   }
   const pos = value >= 0;
   const color = pos ? "#00d4aa" : "#ff4d4d";
@@ -120,7 +120,7 @@ function HypeTrend({ history }) {
   const delta = latest - older;
   if (delta > 1) return <span style={{ color: "#00d4aa", fontWeight: 700, fontSize: 13 }}>↑</span>;
   if (delta < -1) return <span style={{ color: "#ff4d4d", fontWeight: 700, fontSize: 13 }}>↓</span>;
-  return <span style={{ color: "#5a5a8a", fontWeight: 700, fontSize: 13 }}>→</span>;
+  return <span style={{ color: "#8080aa", fontWeight: 700, fontSize: 13 }}>→</span>;
 }
 
 function Sparkline({ data, color = "#00d4aa", height = 48 }) {
@@ -429,7 +429,7 @@ export default function ProjectHype() {
         <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#e8e8ff" }}>
           Unable to reach the Project Hype API
         </div>
-        <div style={{ fontSize: 13, color: "#5a5a8a", maxWidth: 380, textAlign: "center", lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13, color: "#8080aa", maxWidth: 380, textAlign: "center", lineHeight: 1.6 }}>
           The backend is temporarily unavailable. Check your connection or try again.
         </div>
         <button
@@ -543,14 +543,14 @@ export default function ProjectHype() {
                 </div>
                 {!isMobile && <span style={{ fontSize: 10, color: "#5c5c8a", fontFamily: "'Space Mono',monospace" }}>v1.2.0</span>}
               </div>
-              {!isMobile && <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>}
+              {!isMobile && <div style={{ fontSize: 10, color: "#8080aa", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 20 }}>
             <LiveDot />
             {!isMobile && (() => {
               const mom = tickerCurrency?.momentum_7d ?? 0;
-              const momColor = mom > 0 ? "#00d4aa" : mom < 0 ? "#ff4d4d" : "#5a5a8a";
+              const momColor = mom > 0 ? "#00d4aa" : mom < 0 ? "#ff4d4d" : "#8080aa";
               return (
                 <div style={{
                   display: "flex", alignItems: "stretch",
@@ -565,10 +565,10 @@ export default function ProjectHype() {
                         <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>{tickerCurrency?.code}</span>
                       </div>
                       <div style={{ padding: "6px 12px", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                        <span style={{ color: "#4a6a8a", fontSize: 9, letterSpacing: 2, textTransform: "uppercase" }}>Catalyst</span>
+                        <span style={{ color: "#4a6a8a", fontSize: 9, letterSpacing: 2, textTransform: "uppercase" }}>Hype</span>
                       </div>
                       <div style={{ padding: "6px 14px", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                        <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13 }}>{Math.round(tickerCurrency?.catalyst_score ?? 0)}</span>
+                        <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13 }}>{Math.round(tickerCurrency?.hype_score ?? tickerCurrency?.hype ?? 0)}</span>
                       </div>
                       <div style={{ padding: "6px 12px", display: "flex", alignItems: "center" }}>
                         <span style={{ color: momColor, fontSize: 15, fontWeight: 700 }}>{mom > 0 ? "↑" : mom < 0 ? "↓" : "→"}</span>
@@ -591,7 +591,7 @@ export default function ProjectHype() {
             {!isMobile && (
               <div style={{
                 background: "#0d0d2e", border: "1px solid #1e1e3f",
-                borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#5a5a8a"
+                borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#8080aa"
               }}>
                 {currencies.length} currencies tracked
               </div>
@@ -607,11 +607,11 @@ export default function ProjectHype() {
               title="Set Catalyst Score alerts"
               style={{
                 background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
-                color: "#5a5a8a", fontSize: 16, cursor: "pointer",
+                color: "#8080aa", fontSize: 16, cursor: "pointer",
                 padding: "5px 9px", lineHeight: 1, transition: "all 0.15s",
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#5a5a8a"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
             >🔔</button>
           </div>
         </div>
@@ -641,7 +641,7 @@ export default function ProjectHype() {
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
                 background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
-                color: activeTab === tab ? "#e8e8ff" : "#5a5a8a",
+                color: activeTab === tab ? "#e8e8ff" : "#8080aa",
                 fontSize: 13, textTransform: "capitalize", fontWeight: 600,
                 transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none"
               }}>
@@ -662,7 +662,7 @@ export default function ProjectHype() {
                 marginBottom: 20, animation: "glow 4s ease infinite"
               }}>
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                  <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                     Select Currency
                   </label>
                   <div style={{ position: "relative" }}>
@@ -707,41 +707,23 @@ export default function ProjectHype() {
                   <div>
                     <div style={{ fontSize: 24, marginBottom: 4 }}>{selected.flag}</div>
                     <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#00d4aa" }}>
-                      {selected.rate.toFixed(8)} <span style={{ fontSize: 12, color: "#5a5a8a" }}>USD</span>
+                      {selected.rate.toFixed(8)} <span style={{ fontSize: 12, color: "#8080aa" }}>USD</span>
                       <RateBadge live={selected.live} />
                     </div>
                     <div style={{ marginTop: 4, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 1 }}>24H</span>
+                      <span style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1 }}>24H</span>
                       <ChangeChip value={selected.change_24h} />
                     </div>
-                    <div style={{ fontSize: 12, color: "#5a5a8a", marginTop: 2 }}>{selected.story}</div>
+                    <div style={{ fontSize: 12, color: "#8080aa", marginTop: 2 }}>{selected.story}</div>
                   </div>
-                  <div style={{ textAlign: "right", minWidth: 160 }}>
-                    <div style={{ display: "flex", gap: 18, justifyContent: "flex-end", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 1, marginBottom: 4 }}>HYPE</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: (selected.hype_score ?? selected.hype) >= 80 ? "#ff4d4d" : (selected.hype_score ?? selected.hype) >= 55 ? "#ffa500" : "#00d4aa" }}>
-                            {Math.round(selected.hype_score ?? selected.hype)}
-                          </div>
-                          <HypeTrend history={hypeHistory} />
-                        </div>
-                      </div>
-                      {selected.catalyst_score != null && (
-                        <div>
-                          <div style={{ fontSize: 10, color: "#9b59b6", letterSpacing: 1, marginBottom: 4 }}>CATALYST</div>
-                          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: catalystColor(selected.catalyst_score) }}>
-                            {Math.round(selected.catalyst_score)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <HypeTrend history={hypeHistory} />
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                   <div>
-                    <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                    <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                       Amount Held ({selected.code})
                     </label>
                     <input
@@ -757,7 +739,7 @@ export default function ProjectHype() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                    <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                       Target Rate (USD) <span style={{ color: "#1e1e3f" }}>optional</span>
                     </label>
                     <input
@@ -837,17 +819,17 @@ export default function ProjectHype() {
                   background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
                   border: "1px solid #1e1e3f", borderRadius: 12, padding: "18px 20px", flex: 1
                 }}>
-                  <div style={{ fontSize: 10, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>HYPE <span style={{ color: "#6a6a9a" }}>· noise</span></div>
+                  <div style={{ fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>HYPE <span style={{ color: "#8080aa" }}>· noise</span></div>
                   <HypeBar score={Math.round(selected.hype_score ?? selected.hype)} />
                   {selected.catalyst_score != null ? (
                     <>
                       <div style={{ fontSize: 10, color: "#9b59b6", letterSpacing: 2, textTransform: "uppercase", marginTop: 10, marginBottom: 6 }}>
-                        CATALYST <span style={{ color: "#6a6a9a", textTransform: "none", letterSpacing: 0.5 }}>· appreciation potential</span>
+                        CATALYST <span style={{ color: "#8080aa", textTransform: "none", letterSpacing: 0.5 }}>· appreciation potential</span>
                       </div>
                       <CatalystBar score={Math.round(selected.catalyst_score)} />
                     </>
                   ) : (
-                    <div style={{ fontSize: 11, color: "#5a5a8a", marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: "#8080aa", marginTop: 8 }}>
                       {(selected.hype_score ?? selected.hype) >= 80 ? "🔥 Extreme speculation" : (selected.hype_score ?? selected.hype) >= 55 ? "⚡ Elevated interest" : "📊 Moderate tracking"}
                     </div>
                   )}
@@ -870,26 +852,26 @@ export default function ProjectHype() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>🎯 Signal Strength</div>
+                        <div style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>🎯 Signal Strength</div>
                         <div style={{ fontSize: 11, color: catColor }}>{signal}</div>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: catColor }}>{Math.round(cat)}</div>
-                        <div style={{ fontSize: 10, color: "#5a5a8a" }}>/ 100</div>
+                        <div style={{ fontSize: 10, color: "#8080aa" }}>/ 100</div>
                       </div>
                     </div>
                     <div style={{ height: 6, background: "#1a1a2e", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
                       <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 3, boxShadow: `0 0 8px ${catColor}` }} />
                     </div>
                     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
-                      <div style={{ fontSize: 11, color: sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#5a5a8a" }}>
+                      <div style={{ fontSize: 11, color: sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#8080aa" }}>
                         📰 {sentLabel}
                       </div>
-                      <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#5a5a8a" }}>
+                      <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#8080aa" }}>
                         📈 {momLabel}
                       </div>
                     </div>
-                    <div style={{ fontSize: 10, color: "#6a6a9a", borderTop: "1px solid #1a1a2e", paddingTop: 8 }}>
+                    <div style={{ fontSize: 10, color: catColor, borderTop: "1px solid #1a1a2e", paddingTop: 8 }}>
                       Signal strength reflects news activity & rate movement only — not a prediction or investment advice.
                     </div>
                   </div>
@@ -916,7 +898,7 @@ export default function ProjectHype() {
                 {marketSearch && (
                   <button onClick={() => setMarketSearch("")} style={{
                     position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                    background: "none", border: "none", color: "#5a5a8a", cursor: "pointer", fontSize: 16,
+                    background: "none", border: "none", color: "#8080aa", cursor: "pointer", fontSize: 16,
                   }}>×</button>
                 )}
               </div>
@@ -926,16 +908,16 @@ export default function ProjectHype() {
                 <div style={{
                   display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px",
                   gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
-                  fontSize: 10, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase"
+                  fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase"
                 }}>
                   <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div style={{ textAlign: "center" }}>24h</div><div>Market Cap</div>
                   <div
-                    style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#5a5a8a", userSelect: "none" }}
+                    style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#8080aa", userSelect: "none" }}
                     onClick={() => setMarketSort("hype")}
                     title="Sort by Hype Score"
                   >Hype {marketSort === "hype" ? "▼" : ""}</div>
                   <div
-                    style={{ cursor: "pointer", color: marketSort === "catalyst" ? "#00b4ff" : "#5a5a8a", userSelect: "none" }}
+                    style={{ cursor: "pointer", color: marketSort === "catalyst" ? "#00b4ff" : "#8080aa", userSelect: "none" }}
                     onClick={() => setMarketSort("catalyst")}
                     title="Sort by Catalyst Score"
                   >Cat {marketSort === "catalyst" ? "▼" : ""}</div>
@@ -983,7 +965,7 @@ export default function ProjectHype() {
                           <RateBadge live={c.live} />
                         </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ChangeChip value={c.change_24h} /></div>
-                        <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
+                        <div style={{ fontSize: 12, color: "#8080aa" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}
                           title={`Hype Score ${Math.round(c.hype_score ?? c.hype)}/100`}>
                           {Math.round(c.hype_score ?? c.hype)}
@@ -996,10 +978,10 @@ export default function ProjectHype() {
                               <span style={{ fontSize: 12, fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
                             </>
                           ) : (
-                            <span style={{ fontSize: 10, color: "#6a6a9a" }}>—</span>
+                            <span style={{ fontSize: 10, color: "#8080aa" }}>—</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
+                        <div style={{ fontSize: 10, color: "#8080aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           <button
                             onClick={e => {
@@ -1017,11 +999,11 @@ export default function ProjectHype() {
                             title={`Add 1 ${c.code} to portfolio`}
                             style={{
                               background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
-                              color: "#6a6a9a", fontSize: 13, cursor: "pointer",
+                              color: "#8080aa", fontSize: 13, cursor: "pointer",
                               padding: "2px 6px", lineHeight: 1, transition: "all 0.15s",
                             }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = "#00d4aa"; e.currentTarget.style.color = "#00d4aa"; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#6a6a9a"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
                           >+</button>
                         </div>
                       </div>
@@ -1037,12 +1019,12 @@ export default function ProjectHype() {
                   c.name.toLowerCase().includes(marketSearch.toLowerCase())
                 ).length;
                 if (isSearching && matchCount === 0) return (
-                  <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#6a6a9a" }}>
+                  <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#8080aa" }}>
                     No currencies match "{marketSearch}"
                   </div>
                 );
                 if (!isSearching) return (
-                  <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#6a6a9a" }}>
+                  <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#8080aa" }}>
                     Showing top 15 by {marketSort === "catalyst" ? "catalyst score" : "hype score"} — search to find any currency
                   </div>
                 );
@@ -1102,7 +1084,7 @@ export default function ProjectHype() {
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 12 }}>
                     <div>
-                      <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Currency</label>
+                      <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Currency</label>
                       <input
                         placeholder="Search..."
                         value={pfSearch}
@@ -1134,7 +1116,7 @@ export default function ProjectHype() {
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Amount</label>
+                      <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Amount</label>
                       <input
                         type="number"
                         placeholder="e.g. 1000000"
@@ -1212,9 +1194,9 @@ export default function ProjectHype() {
                     padding: "40px 24px", textAlign: "center", flex: 1,
                   }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>💼</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#5a5a8a", marginBottom: 6 }}>No positions yet</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#8080aa", marginBottom: 6 }}>No positions yet</div>
                     <div style={{ fontSize: 13, color: "#5c5c8a", lineHeight: 1.6 }}>
-                      Add your first position above, or use the <strong style={{ color: "#6a6a9a" }}>+</strong> button in the Markets table to add a currency instantly.
+                      Add your first position above, or use the <strong style={{ color: "#8080aa" }}>+</strong> button in the Markets table to add a currency instantly.
                     </div>
                   </div>
                 ) : (
@@ -1235,7 +1217,7 @@ export default function ProjectHype() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
                               <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa" }}>{cur.code}</span>
-                              <span style={{ fontSize: 12, color: "#5a5a8a" }}>{cur.name}</span>
+                              <span style={{ fontSize: 12, color: "#8080aa" }}>{cur.name}</span>
                               <RateBadge live={cur.live} />
                             </div>
                             <div style={{ fontSize: 12, color: "#9999cc", marginBottom: 6 }}>
@@ -1249,7 +1231,7 @@ export default function ProjectHype() {
                                 boxShadow: `0 0 6px ${hypeColor}`,
                               }} />
                             </div>
-                            <div style={{ fontSize: 10, color: "#5a5a8a", marginTop: 4 }}>{pct.toFixed(1)}% of portfolio</div>
+                            <div style={{ fontSize: 10, color: "#8080aa", marginTop: 4 }}>{pct.toFixed(1)}% of portfolio</div>
                           </div>
                           <div style={{ textAlign: "right", flexShrink: 0 }}>
                             <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, color: "#e8e8ff" }}>
@@ -1269,11 +1251,11 @@ export default function ProjectHype() {
                             title="Remove position"
                             style={{
                               background: "none", border: "1px solid #1e1e3f", borderRadius: 6,
-                              color: "#6a6a9a", fontSize: 14, cursor: "pointer",
+                              color: "#8080aa", fontSize: 14, cursor: "pointer",
                               padding: "4px 8px", flexShrink: 0, lineHeight: 1, transition: "all 0.15s",
                             }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff4d4d"; e.currentTarget.style.color = "#ff4d4d"; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#6a6a9a"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
                           >
                             ✕
                           </button>
@@ -1292,7 +1274,7 @@ export default function ProjectHype() {
               background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
               border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24,
             }}>
-              <div style={{ marginBottom: 16, color: "#5a5a8a", fontSize: 13 }}>
+              <div style={{ marginBottom: 16, color: "#8080aa", fontSize: 13 }}>
                 Tile size = hype score. Color = intensity. Click to analyze.
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1337,18 +1319,18 @@ export default function ProjectHype() {
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: 1, marginBottom: 6 }}>
                     🎯 SPECULATIVE SIGNAL STRENGTH
                   </div>
-                  <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.6 }}>
                     Currencies ranked by <strong style={{ color: "#9999cc" }}>Catalyst Score</strong> — a composite of news sentiment and 7-day rate momentum. High scores indicate active narratives and recent movement, <strong style={{ color: "#7a6a40" }}>not a prediction or recommendation</strong>. Updated every 12 hours.
                   </div>
                 </div>
 
                 {/* Legend */}
                 <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-                  {[["#00d4aa", "Bullish", ">10 sentiment"], ["#5a5a8a", "Neutral", "±10"], ["#ff4d4d", "Bearish", "<−10 sentiment"]].map(([color, label, sub]) => (
+                  {[["#00d4aa", "Bullish", ">10 sentiment"], ["#8080aa", "Neutral", "±10"], ["#ff4d4d", "Bearish", "<−10 sentiment"]].map(([color, label, sub]) => (
                     <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
                       <span style={{ fontSize: 11, color, fontWeight: 700 }}>{label}</span>
-                      <span style={{ fontSize: 10, color: "#6a6a9a" }}>{sub}</span>
+                      <span style={{ fontSize: 10, color: "#8080aa" }}>{sub}</span>
                     </div>
                   ))}
                 </div>
@@ -1368,7 +1350,7 @@ export default function ProjectHype() {
                   {signalSearch && (
                     <button onClick={() => setSignalSearch("")} style={{
                       position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                      background: "none", border: "none", color: "#5a5a8a", cursor: "pointer", fontSize: 16,
+                      background: "none", border: "none", color: "#8080aa", cursor: "pointer", fontSize: 16,
                     }}>×</button>
                   )}
                 </div>
@@ -1377,7 +1359,7 @@ export default function ProjectHype() {
                 <div style={{
                   display: "grid", gridTemplateColumns: "28px 32px 160px 1fr 90px 72px",
                   gap: 10, padding: "8px 12px",
-                  fontSize: 9, color: "#6a6a9a", letterSpacing: 2, textTransform: "uppercase",
+                  fontSize: 9, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase",
                   borderBottom: "1px solid #1e1e3f"
                 }}>
                   <div>#</div><div></div><div>Currency</div><div>Signal</div><div>Sentiment</div><div>7d Move</div>
@@ -1401,8 +1383,8 @@ export default function ProjectHype() {
                     const sent = c.sentiment ?? 0;
                     const mom = c.momentum_7d ?? 0;
                     const catColor = cat >= 65 ? "#00d4aa" : cat >= 40 ? "#ffa500" : "#ff4d4d";
-                    const sentColor = sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#5a5a8a";
-                    const momColor = mom > 0 ? "#00d4aa" : mom < 0 ? "#ff4d4d" : "#5a5a8a";
+                    const sentColor = sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#8080aa";
+                    const momColor = mom > 0 ? "#00d4aa" : mom < 0 ? "#ff4d4d" : "#8080aa";
                     const sentLabel = sent > 10 ? "BULLISH" : sent < -10 ? "BEARISH" : "NEUTRAL";
                     return (
                       <div
@@ -1428,7 +1410,7 @@ export default function ProjectHype() {
                         {/* Name */}
                         <div>
                           <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: "#e8e8ff" }}>{c.code}</div>
-                          <div style={{ fontSize: 10, color: "#5a5a8a", marginTop: 1 }}>{c.name}</div>
+                          <div style={{ fontSize: 10, color: "#8080aa", marginTop: 1 }}>{c.name}</div>
                         </div>
 
                         {/* Catalyst bar */}
@@ -1464,7 +1446,7 @@ export default function ProjectHype() {
                 {(() => {
                   const withScores = currencies.filter(c => c.catalyst_score != null);
                   if (withScores.length === 0) return (
-                    <div style={{ textAlign: "center", padding: "40px 0", color: "#6a6a9a", fontSize: 13 }}>
+                    <div style={{ textAlign: "center", padding: "40px 0", color: "#8080aa", fontSize: 13 }}>
                       Signal scores are computed on startup — check back in a moment.
                     </div>
                   );
@@ -1476,12 +1458,12 @@ export default function ProjectHype() {
                       ).length
                     : null;
                   if (isSearching && matchCount === 0) return (
-                    <div style={{ textAlign: "center", padding: "24px 0", color: "#6a6a9a", fontSize: 13 }}>
+                    <div style={{ textAlign: "center", padding: "24px 0", color: "#8080aa", fontSize: 13 }}>
                       No currencies match "{signalSearch}"
                     </div>
                   );
                   if (!isSearching) return (
-                    <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#6a6a9a" }}>
+                    <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#8080aa" }}>
                       Showing top 10 of {withScores.length} — search to find any currency
                     </div>
                   );
@@ -1536,9 +1518,9 @@ export default function ProjectHype() {
                         </div>
                       ))}
                     </div>
-                    <p style={{ fontSize: 12, color: "#5a5a8a", marginBottom: 0 }}>
+                    <p style={{ fontSize: 12, color: "#8080aa", marginBottom: 0 }}>
                       <strong style={{ color: "#9999cc" }}>Scale:</strong>{" "}
-                      <span style={{ color: "#5a5a8a" }}>0–30</span> quiet ·{" "}
+                      <span style={{ color: "#8080aa" }}>0–30</span> quiet ·{" "}
                       <span style={{ color: "#00d4aa" }}>31–60</span> elevated ·{" "}
                       <span style={{ color: "#ffa500" }}>61–80</span> active ·{" "}
                       <span style={{ color: "#ff4d4d" }}>81–100</span> extreme
@@ -1578,7 +1560,7 @@ export default function ProjectHype() {
                         </div>
                       </div>
                     </div>
-                    <p style={{ marginBottom: 0, fontSize: 12, color: "#5a5a8a" }}>Catalyst Score updates every 12 hours alongside Hype Score. If NewsAPI key is absent, Catalyst is 100% rate momentum.</p>
+                    <p style={{ marginBottom: 0, fontSize: 12, color: "#8080aa" }}>Catalyst Score updates every 12 hours alongside Hype Score. If NewsAPI key is absent, Catalyst is 100% rate momentum.</p>
                   </div>
                 ),
               },
@@ -1613,9 +1595,9 @@ export default function ProjectHype() {
                         <div>Target value: <span style={{ color: "#ffa500" }}>$20,000,000</span></div>
                         <div>Multiplier: <span style={{ color: "#ff4d4d" }}>~1,300×</span></div>
                       </div>
-                      <div style={{ fontSize: 11, color: "#5a5a8a", marginTop: 8 }}>The 1:1 scenario is a community meme, not an analyst projection. No credible FX analysis supports it. But it illustrates why the multiplier matters more than the ROI %.</div>
+                      <div style={{ fontSize: 11, color: "#8080aa", marginTop: 8 }}>The 1:1 scenario is a community meme, not an analyst projection. No credible FX analysis supports it. But it illustrates why the multiplier matters more than the ROI %.</div>
                     </div>
-                    <p style={{ marginBottom: 0, fontSize: 12, color: "#5a5a8a" }}>Use the Quick Scenarios panel to model 2×, 5×, 10×, 50×, and 100× revaluations instantly without entering a target rate manually.</p>
+                    <p style={{ marginBottom: 0, fontSize: 12, color: "#8080aa" }}>Use the Quick Scenarios panel to model 2×, 5×, 10×, 50×, and 100× revaluations instantly without entering a target rate manually.</p>
                   </div>
                 ),
               },
@@ -1659,7 +1641,7 @@ export default function ProjectHype() {
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: 1, marginBottom: 6 }}>
                     ℹ️ About Project Hype
                   </div>
-                  <div style={{ fontSize: 13, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, color: "#8080aa", lineHeight: 1.6, marginBottom: 12 }}>
                     A field guide to speculative currency intelligence — what the scores mean, where the data comes from, and how to use the tools.
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
@@ -1753,7 +1735,7 @@ export default function ProjectHype() {
               </div>
 
               {/* ── Section: News ── */}
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#6a6a9a", textTransform: "uppercase", marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 10 }}>
                 NEWS · {selected.code}
               </div>
               <div style={{ flex: 1, overflowY: "auto", minHeight: 0, scrollbarWidth: "thin" }}>
@@ -1789,7 +1771,7 @@ export default function ProjectHype() {
                             {h.title}
                           </a>
                         ) : (
-                          <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
+                          <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.4 }}>{h.title}</div>
                         )}
                       </div>
                     ))}
@@ -1801,7 +1783,7 @@ export default function ProjectHype() {
               <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
 
               {/* ── Section: Top Movers 24H ── */}
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#6a6a9a", textTransform: "uppercase", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12 }}>
                 📊 TOP MOVERS · 24H
               </div>
               {(() => {
@@ -1828,7 +1810,7 @@ export default function ProjectHype() {
                           <span style={{ fontSize: 16 }}>{c.flag}</span>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
-                            <div style={{ fontSize: 10, color: "#6a6a9a" }}>{c.name}</div>
+                            <div style={{ fontSize: 10, color: "#8080aa" }}>{c.name}</div>
                           </div>
                           <div style={{
                             fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono', monospace",
@@ -1850,7 +1832,7 @@ export default function ProjectHype() {
 
               {/* ── Section: Top Signals ── */}
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#6a6a9a", textTransform: "uppercase", marginBottom: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12 }}>
                   ⚡ TOP SIGNALS
                 </div>
                 {(() => {
@@ -1877,7 +1859,7 @@ export default function ProjectHype() {
                             <span style={{ fontSize: 16 }}>{c.flag}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 12, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
-                              <div style={{ fontSize: 10, color: "#6a6a9a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+                              <div style={{ fontSize: 10, color: "#8080aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                               <div style={{ width: 40, height: 4, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
@@ -1909,12 +1891,12 @@ export default function ProjectHype() {
                 <button onClick={() => setBottomView("hype")} style={{
                   padding: "5px 12px", borderRadius: 6, border: "none", cursor: "pointer",
                   background: bottomView === "hype" ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
-                  color: bottomView === "hype" ? "#ffa500" : "#5a5a8a", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
+                  color: bottomView === "hype" ? "#ffa500" : "#8080aa", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
                 }}>🔥 TOP HYPE</button>
                 <button onClick={() => setBottomView("catalyst")} style={{
                   padding: "5px 12px", borderRadius: 6, border: "none", cursor: "pointer",
                   background: bottomView === "catalyst" ? "linear-gradient(135deg, #0d1a2e, #0d2040)" : "transparent",
-                  color: bottomView === "catalyst" ? "#00b4ff" : "#5a5a8a", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
+                  color: bottomView === "catalyst" ? "#00b4ff" : "#8080aa", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
                 }}>⚡ TOP CATALYST</button>
               </div>
             </div>
@@ -1928,7 +1910,7 @@ export default function ProjectHype() {
                 <div style={{ fontSize: 22 }}>{c.flag}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
-                  <div style={{ fontSize: 11, color: "#5a5a8a" }}>{c.name}</div>
+                  <div style={{ fontSize: 11, color: "#8080aa" }}>{c.name}</div>
                 </div>
                 <div><HypeBar score={Math.round(c.hype_score ?? c.hype)} /></div>
               </div>
@@ -1942,7 +1924,7 @@ export default function ProjectHype() {
                 <div style={{ fontSize: 22 }}>{c.flag}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
-                  <div style={{ fontSize: 11, color: "#5a5a8a" }}>{c.name}</div>
+                  <div style={{ fontSize: 11, color: "#8080aa" }}>{c.name}</div>
                 </div>
                 <div><CatalystBar score={Math.round(c.catalyst_score)} /></div>
               </div>
@@ -1952,7 +1934,7 @@ export default function ProjectHype() {
           {/* Quick Scenarios */}
           <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, marginBottom: 16 }}>⚡ QUICK SCENARIOS</div>
-            <div style={{ fontSize: 12, color: "#5a5a8a", marginBottom: 14 }}>{selected.code} · {parseFloat(amount || 0).toLocaleString()} units</div>
+            <div style={{ fontSize: 12, color: "#8080aa", marginBottom: 14 }}>{selected.code} · {parseFloat(amount || 0).toLocaleString()} units</div>
             {[2, 5, 10, 50, 100].map(mult => {
               const tgt = selected.rate * mult;
               const val = parseFloat(amount || 0) * tgt;
@@ -1965,11 +1947,11 @@ export default function ProjectHype() {
                 >
                   <div>
                     <span style={{ color: "#ffa500", fontWeight: 700, fontSize: 13 }}>{mult}x</span>
-                    <span style={{ color: "#5a5a8a", fontSize: 11, marginLeft: 8 }}>revaluation</span>
+                    <span style={{ color: "#8080aa", fontSize: 11, marginLeft: 8 }}>revaluation</span>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#00d4aa", fontFamily: "'Space Mono', monospace" }}>{fmt(val)}</div>
-                    <div style={{ fontSize: 10, color: "#5a5a8a" }}>+{fmt(gain)}</div>
+                    <div style={{ fontSize: 10, color: "#8080aa" }}>+{fmt(gain)}</div>
                   </div>
                 </div>
               );
@@ -1980,11 +1962,11 @@ export default function ProjectHype() {
           <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
-              <div style={{ fontSize: 11, color: "#5a5a8a" }}>{selected.code} · last {rateHistory.length} snapshots</div>
+              <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · last {rateHistory.length} snapshots</div>
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
               {rateHistory.length >= 2 ? (() => {
-                const sparkColor = selected.change_24h == null ? "#5a5a8a" : selected.change_24h >= 0 ? "#00d4aa" : "#ff4d4d";
+                const sparkColor = selected.change_24h == null ? "#8080aa" : selected.change_24h >= 0 ? "#00d4aa" : "#ff4d4d";
                 const pts = [...rateHistory].reverse();
                 return (
                   <>
@@ -1992,7 +1974,7 @@ export default function ProjectHype() {
                       <Sparkline data={rateHistory} color={sparkColor} height={100} />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginTop: 10 }}>
-                      <div style={{ fontSize: 10, color: "#5a5a8a", fontFamily: "'Space Mono', monospace" }}>{pts[0]?.rate.toFixed(8)}</div>
+                      <div style={{ fontSize: 10, color: "#8080aa", fontFamily: "'Space Mono', monospace" }}>{pts[0]?.rate.toFixed(8)}</div>
                       <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: sparkColor, fontWeight: 700 }}>{pts[pts.length - 1]?.rate.toFixed(8)}</div>
                     </div>
                   </>
@@ -2035,7 +2017,7 @@ export default function ProjectHype() {
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
               🔗 Share Portfolio
             </div>
-            <div style={{ fontSize: 12, color: "#5a5a8a", marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: "#8080aa", marginBottom: 20 }}>
               Anyone with this link can view your current positions.
             </div>
             <div style={{
@@ -2066,7 +2048,7 @@ export default function ProjectHype() {
               onClick={() => setShareModal(false)}
               style={{
                 width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #1e1e3f",
-                background: "transparent", color: "#5a5a8a", fontSize: 13, cursor: "pointer",
+                background: "transparent", color: "#8080aa", fontSize: 13, cursor: "pointer",
               }}
             >
               Close
@@ -2100,7 +2082,7 @@ export default function ProjectHype() {
                 <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
                   You're subscribed
                 </div>
-                <div style={{ fontSize: 13, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, color: "#8080aa", lineHeight: 1.6, marginBottom: 16 }}>
                   We'll email you when any tracked currency's Catalyst Score jumps 15+ points.
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 20 }}>
@@ -2113,10 +2095,10 @@ export default function ProjectHype() {
                     );
                   })}
                 </div>
-                <div style={{ fontSize: 11, color: "#6a6a9a" }}>Unsubscribe anytime from the email.</div>
+                <div style={{ fontSize: 11, color: "#8080aa" }}>Unsubscribe anytime from the email.</div>
                 <button onClick={() => setAlertModal(false)} style={{
                   marginTop: 20, padding: "10px 28px", borderRadius: 8, border: "1px solid #1e1e3f",
-                  background: "transparent", color: "#5a5a8a", fontSize: 13, cursor: "pointer",
+                  background: "transparent", color: "#8080aa", fontSize: 13, cursor: "pointer",
                 }}>Close</button>
               </div>
             ) : (
@@ -2124,12 +2106,12 @@ export default function ProjectHype() {
                 <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 6 }}>
                   🔔 Catalyst Score Alerts
                 </div>
-                <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.6, marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.6, marginBottom: 20 }}>
                   We'll email you when any tracked currency's Catalyst Score jumps <strong style={{ color: "#00b4ff" }}>15+ points</strong> between scoring runs. Unsubscribe anytime.
                 </div>
 
                 {/* Email input */}
-                <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                   Email
                 </label>
                 <input
@@ -2145,7 +2127,7 @@ export default function ProjectHype() {
                 />
 
                 {/* Currency checkboxes */}
-                <label style={{ fontSize: 11, color: "#5a5a8a", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>
+                <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>
                   Track these currencies
                 </label>
                 <div style={{
@@ -2177,7 +2159,7 @@ export default function ProjectHype() {
                         />
                         <span style={{ fontSize: 16 }}>{c.flag}</span>
                         <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 12, color: "#00d4aa" }}>{c.code}</span>
-                        <span style={{ fontSize: 12, color: "#5a5a8a" }}>{c.name}</span>
+                        <span style={{ fontSize: 12, color: "#8080aa" }}>{c.name}</span>
                         {c.catalyst_score != null && (
                           <span style={{ marginLeft: "auto", fontSize: 11, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono',monospace" }}>
                             {Math.round(c.catalyst_score)}
@@ -2229,7 +2211,7 @@ export default function ProjectHype() {
                   style={{
                     width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: alertLoading ? "default" : "pointer",
                     background: alertLoading ? "#1a1a3a" : "linear-gradient(135deg, #0d1a2e, #0d2040)",
-                    color: alertLoading ? "#6a6a9a" : "#00b4ff", fontSize: 13, fontWeight: 700,
+                    color: alertLoading ? "#8080aa" : "#00b4ff", fontSize: 13, fontWeight: 700,
                     letterSpacing: 1, border: "1px solid #00b4ff33", transition: "opacity 0.15s",
                     opacity: alertLoading ? 0.7 : 1, marginBottom: 12,
                   }}
@@ -2239,7 +2221,7 @@ export default function ProjectHype() {
 
                 <button onClick={() => setAlertModal(false)} style={{
                   width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #1e1e3f",
-                  background: "transparent", color: "#5a5a8a", fontSize: 13, cursor: "pointer",
+                  background: "transparent", color: "#8080aa", fontSize: 13, cursor: "pointer",
                 }}>Cancel</button>
               </>
             )}
