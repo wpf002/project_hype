@@ -1042,7 +1042,7 @@ export default function ProjectHype() {
             }, 0);
 
             return (
-              <div style={{ animation: "slideIn 0.3s ease", display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ animation: "slideIn 0.3s ease", display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
 
                 {/* Shared-view banner */}
                 {isSharedView && (
@@ -1189,7 +1189,7 @@ export default function ProjectHype() {
                 {portfolio.length === 0 ? (
                   <div style={{
                     background: "#0d0d1a", border: "1px dashed #1e1e3f", borderRadius: 16,
-                    padding: "40px 24px", textAlign: "center",
+                    padding: "40px 24px", textAlign: "center", flex: 1,
                   }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>💼</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#5a5a8a", marginBottom: 6 }}>No positions yet</div>
@@ -1267,7 +1267,11 @@ export default function ProjectHype() {
           })()}
 
           {activeTab === "heatmap" && (
-            <div style={{ animation: "slideIn 0.3s ease" }}>
+            <div style={{
+              animation: "slideIn 0.3s ease", flex: 1, display: "flex", flexDirection: "column",
+              background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+              border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24,
+            }}>
               <div style={{ marginBottom: 16, color: "#5a5a8a", fontSize: 13 }}>
                 Tile size = hype score. Color = intensity. Click to analyze.
               </div>
@@ -1304,10 +1308,10 @@ export default function ProjectHype() {
 
           {/* ── Signals Tab ─────────────────────────────────────────────── */}
           {activeTab === "signals" && (
-            <div style={{ animation: "slideIn 0.3s ease" }}>
+            <div style={{ animation: "slideIn 0.3s ease", flex: 1, display: "flex", flexDirection: "column" }}>
               <div style={{
                 background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-                border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24, marginBottom: 20
+                border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24, flex: 1
               }}>
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: 1, marginBottom: 6 }}>
@@ -1627,10 +1631,10 @@ export default function ProjectHype() {
             ];
 
             return (
-              <div style={{ animation: "slideIn 0.3s ease" }}>
+              <div style={{ animation: "slideIn 0.3s ease", flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{
                   background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-                  border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 28, marginBottom: 20
+                  border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 28, flex: 1
                 }}>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: 1, marginBottom: 6 }}>
                     ℹ️ About Project Hype
