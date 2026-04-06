@@ -22,7 +22,7 @@ init_db()
 async def _hype_engine_loop() -> None:
     while True:
         await calculate_all_hype_scores()
-        await asyncio.sleep(3600)
+        await asyncio.sleep(43200)  # 12 hours — 40 req/run × 2 = 80 req/day (free tier: 100)
 
 
 @app.on_event("startup")

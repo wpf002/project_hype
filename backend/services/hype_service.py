@@ -1,7 +1,10 @@
 """
-Hype Score Engine + Catalyst Engine — run together every hour.
+Hype Score Engine + Catalyst Engine — run together every 12 hours.
 
-HYPE SCORE (0–100)  — backward-looking: how much noise is there right now?
+News source: NewsAPI.org — 40 req per run × 2 runs/day = 80 req/day,
+within the 100 req/day free-tier limit.
+
+HYPE SCORE (0–100)  — backward-looking: how much noise right now?
   40%  News volume      — article count in last 7 days (normalised)
   30%  Recency weight   — articles <48h count 3×, rest 1× (normalised)
   20%  Rate volatility  — stdev of rate_snapshots over last 24h (normalised)
@@ -9,7 +12,7 @@ HYPE SCORE (0–100)  — backward-looking: how much noise is there right now?
   If NEWSAPI_KEY absent: volatility 67%, baseline 33%
 
 CATALYST SCORE (0–100) — forward-looking: appreciation potential
-  60%  News sentiment   — bullish vs bearish keyword ratio across articles
+  60%  News sentiment   — bullish vs bearish keyword ratio across article text
   40%  Rate momentum    — % rate change over last 7 days (normalised)
   If NEWSAPI_KEY absent: 100% rate momentum
 """
@@ -19,7 +22,7 @@ import logging
 import os
 import statistics
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import httpx
 
@@ -34,8 +37,8 @@ NEWSAPI_URL = "https://newsapi.org/v2/everything"
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
 
 # ── Sentiment keyword lists ────────────────────────────────────────────────
-# Specific to speculative currency narratives — avoid generic finance terms
-# that would match unrelated articles.
+# Tuned for speculative currency narratives — geopolitical signals that
+# precede revaluations, stabilisation events, or depreciations.
 
 BULLISH_KEYWORDS = {
     "revaluation", "revalue", "revalued", "revaluing",
@@ -49,13 +52,13 @@ BULLISH_KEYWORDS = {
     "article viii", "article 8", "imf approval", "imf program", "imf deal",
     "imf agreement", "imf compliance",
     "forex reform", "currency reform", "exchange rate reform",
-    "peg adjustment", "currency peg", "managed float",
+    "peg adjustment", "managed float",
     "foreign reserve", "reserve growth", "reserve increase",
     "stabilization", "stabilisation", "stabilize", "stabilise",
-    "reconstruction", "recovery", "economic recovery",
-    "trade surplus", "export growth", "oil revenue", "oil production increase",
+    "economic recovery", "trade surplus", "export growth",
+    "oil revenue", "oil production increase",
     "fdi", "foreign investment", "investment surge", "investment inflow",
-    "diplomatic", "diplomatic ties", "diplomatic relations",
+    "diplomatic ties", "diplomatic relations",
     "economic reform", "banking reform", "central bank independence",
     "debt relief", "debt restructuring success",
 }
@@ -64,18 +67,17 @@ BEARISH_KEYWORDS = {
     "hyperinflation", "hyper-inflation",
     "devaluation", "devalue", "devalued", "devaluing",
     "currency collapse", "economic collapse", "financial collapse",
-    "sanctions", "sanctioned", "new sanctions", "fresh sanctions",
+    "new sanctions", "fresh sanctions", "additional sanctions",
     "parallel market", "black market", "unofficial rate",
     "capital flight", "capital controls", "capital restriction",
     "military coup", "coup d'état", "coup attempt", "junta",
     "civil war", "armed conflict", "military offensive",
     "currency crisis", "exchange crisis", "balance of payments crisis",
-    "default", "debt default", "sovereign default",
+    "sovereign default", "debt default",
     "embargo", "trade embargo", "trade ban", "economic blockade",
-    "money printing", "currency printing", "printing press",
-    "inflation crisis", "inflation spiral",
-    "banking collapse", "bank run", "financial freeze",
-    "asset freeze", "asset seizure", "frozen assets",
+    "money printing", "currency printing",
+    "inflation spiral", "banking collapse", "bank run",
+    "asset freeze", "frozen assets",
 }
 
 
@@ -96,33 +98,30 @@ def _normalise(values: Dict[str, float]) -> Dict[str, float]:
 
 def _score_sentiment(articles: list) -> float:
     """
-    Score articles list on -100 to +100 scale using keyword matching.
-    Each article title + description is scanned for bullish/bearish keywords.
-    Net score normalised by article count to prevent volume bias.
+    Score a list of NewsAPI article dicts on a -100 to +100 scale.
+    Scans title + description for bullish/bearish keywords.
+    Net score normalised by article count so volume doesn't inflate sentiment.
     """
     if not articles:
         return 0.0
-
     total = 0
     for a in articles:
         text = ((a.get("title") or "") + " " + (a.get("description") or "")).lower()
         bull = sum(1 for kw in BULLISH_KEYWORDS if kw in text)
         bear = sum(1 for kw in BEARISH_KEYWORDS if kw in text)
         total += bull - bear
-
-    # Normalise: divide by articles, scale so ±3 net/article → ±100
     per_article = total / len(articles)
     return max(-100.0, min(100.0, per_article * 33.3))
 
 
-async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float, list]:
+async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
     """
-    Fetch articles from NewsAPI and return:
-      (total_7d, weighted_recency_cnt, sentiment_score, articles)
-    Returns (0, 0, 0.0, []) on any error or missing key.
+    Fetch up to 100 articles from NewsAPI for `query` over the last 7 days.
+    Returns (total_7d, weighted_recency_cnt, sentiment_score).
+    Returns (0, 0, 0.0) on any error or missing key.
     """
     if not NEWSAPI_KEY:
-        return 0, 0, 0.0, []
+        return 0, 0, 0.0
 
     now = datetime.now(timezone.utc)
     from_7d = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -156,15 +155,15 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float, list
                 weighted += 1
 
         sentiment = _score_sentiment(articles)
-        return total_7d, weighted, sentiment, articles
+        return total_7d, weighted, sentiment
 
     except Exception as exc:
         logger.warning("NewsAPI fetch failed for %s: %s", code, exc)
-        return 0, 0, 0.0, []
+        return 0, 0, 0.0
 
 
 def _get_volatility(code: str) -> float:
-    """Stdev of rate snapshots over last 24h, 0 if insufficient data."""
+    """Stdev of rate snapshots over last 24h; 0 if insufficient data."""
     snapshots = get_history(code, limit=96)
     if len(snapshots) < 2:
         return 0.0
@@ -176,11 +175,10 @@ def _get_volatility(code: str) -> float:
 
 def _get_momentum_7d(code: str) -> float:
     """
-    % rate change from oldest to newest snapshot in last 7 days.
-    Positive = currency appreciating vs USD.
-    Returns 0.0 if insufficient history.
+    % rate change oldest→newest across last 7 days of snapshots.
+    Positive = currency appreciating vs USD. Returns 0 if insufficient data.
     """
-    snapshots = get_history(code, limit=672)  # 96 snapshots/day × 7 days
+    snapshots = get_history(code, limit=672)  # 96/day × 7 days
     if len(snapshots) < 2:
         return 0.0
     newest = snapshots[0]["rate"]
@@ -192,8 +190,8 @@ def _get_momentum_7d(code: str) -> float:
 
 async def calculate_all_hype_scores() -> None:
     """
-    Compute hype + catalyst scores for all currencies and persist both.
-    Called on startup then every hour via the background loop in main.py.
+    Compute hype + catalyst scores for all currencies and persist both tables.
+    Called on startup then every 12 hours (2 runs/day = 80 NewsAPI req/day).
     """
     logger.info("Score engine: starting for %d currencies", len(CURRENCIES))
 
@@ -201,7 +199,7 @@ async def calculate_all_hype_scores() -> None:
     if not use_news:
         logger.info("Score engine: NEWSAPI_KEY absent — news components skipped")
 
-    # ── Gather raw signals (one NewsAPI call per currency if key present) ──
+    # ── Gather news data concurrently (semaphore limits concurrent requests) ──
     raw_volume: Dict[str, int] = {}
     raw_recency: Dict[str, int] = {}
     raw_sentiment: Dict[str, float] = {}
@@ -215,7 +213,7 @@ async def calculate_all_hype_scores() -> None:
             code = currency["code"]
             query = currency.get("news_query", currency["name"])
             async with semaphore:
-                total, weighted, sentiment, _ = await _fetch_news_data(code, query)
+                total, weighted, sentiment = await _fetch_news_data(code, query)
                 raw_volume[code] = total
                 raw_recency[code] = weighted
                 raw_sentiment[code] = sentiment
@@ -232,16 +230,17 @@ async def calculate_all_hype_scores() -> None:
         raw_momentum[c["code"]] = _get_momentum_7d(c["code"])
 
     # ── Normalise ──────────────────────────────────────────────────────────
-    norm_volume = _normalise(raw_volume)
-    norm_recency = _normalise(raw_recency)
+    norm_volume     = _normalise(raw_volume)
+    norm_recency    = _normalise(raw_recency)
     norm_volatility = _normalise(raw_volatility)
-    # Sentiment is already -100..+100; shift to 0..100 for normalisation
+
+    # Shift sentiment (-100..+100) to positive domain before normalising
     shifted_sentiment = {k: v + 100 for k, v in raw_sentiment.items()}
     norm_sentiment = _normalise(shifted_sentiment)
-    # Momentum: shift to handle negative values
-    mom_min = min(raw_momentum.values()) if raw_momentum else 0
-    shifted_momentum = {k: v - mom_min for k, v in raw_momentum.items()}
-    norm_momentum = _normalise(shifted_momentum)
+
+    # Shift momentum to handle negative values before normalising
+    mom_min = min(raw_momentum.values(), default=0)
+    norm_momentum = _normalise({k: v - mom_min for k, v in raw_momentum.items()})
 
     # ── Compose scores ─────────────────────────────────────────────────────
     hype_out: Dict[str, dict] = {}
@@ -251,7 +250,7 @@ async def calculate_all_hype_scores() -> None:
         code = c["code"]
         floor = _floor(code)
 
-        # Hype score
+        # Hype — how much attention right now?
         if use_news:
             raw_hype = (
                 0.40 * norm_volume.get(code, 0)
@@ -266,7 +265,7 @@ async def calculate_all_hype_scores() -> None:
             )
         hype_score = round(max(floor, min(100.0, raw_hype)), 2)
 
-        # Catalyst score
+        # Catalyst — forward-looking appreciation potential
         if use_news:
             raw_catalyst = (
                 0.60 * norm_sentiment.get(code, 50)
