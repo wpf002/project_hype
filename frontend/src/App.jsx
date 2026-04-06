@@ -610,6 +610,7 @@ export default function ProjectHype() {
           gap: 24,
           alignItems: "stretch",
           marginBottom: 24,
+          minHeight: "calc(100vh - 64px)",
         }}>
 
         {/* Left: nav tabs + tab content */}
