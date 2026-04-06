@@ -610,7 +610,7 @@ export default function ProjectHype() {
           gap: 24,
           alignItems: "stretch",
           marginBottom: 24,
-          minHeight: "calc(100vh - 64px)",
+          minHeight: "calc(100vh - 128px)",
         }}>
 
         {/* Left: nav tabs + tab content */}
@@ -632,7 +632,7 @@ export default function ProjectHype() {
           </div>
 
           {/* Tab content — flex:1 so this area always fills to the sidebar's bottom */}
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minHeight: "calc(100vh - 196px)", display: "flex", flexDirection: "column" }}>
 
           {activeTab === "calculator" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
