@@ -87,6 +87,50 @@ function RateBadge({ live }) {
   );
 }
 
+function Sparkline({ data, color = "#00d4aa", height = 48 }) {
+  // W/H are the fixed internal coordinate space — always numeric.
+  // The `height` prop only sets the CSS height so it can be "100%" or a number.
+  const W = 300, H = 100;
+
+  if (!data || data.length < 2) {
+    return (
+      <div style={{ height, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontSize: 11, color: "#2a2a4a" }}>Collecting data…</span>
+      </div>
+    );
+  }
+  // data is newest-first from the API; reverse for left→right chronological order
+  const pts = [...data].reverse().map(s => s.rate);
+  const min = Math.min(...pts);
+  const max = Math.max(...pts);
+  const range = max - min || max * 0.001; // avoid division by zero on flat line
+  const points = pts
+    .map((v, i) => `${(i / (pts.length - 1)) * W},${H - ((v - min) / range) * H}`)
+    .join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height, display: "block", overflow: "visible" }}>
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {/* Glow duplicate */}
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="4"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        opacity="0.15"
+      />
+    </svg>
+  );
+}
+
 export default function ProjectHype() {
   const [currencies, setCurrencies] = useState([]);
   const [loadingRates, setLoadingRates] = useState(true);
@@ -99,6 +143,7 @@ export default function ProjectHype() {
   const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  const [rateHistory, setRateHistory] = useState([]);
 
   // ── Portfolio ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => {
@@ -227,6 +272,16 @@ export default function ProjectHype() {
       .then(r => r.json())
       .then(data => { setHeadlines(data); setLoadingNews(false); })
       .catch(() => setLoadingNews(false));
+  }, [selected]);
+
+  // ── Fetch rate history whenever the selected currency changes ─────────────
+  useEffect(() => {
+    if (!selected) return;
+    setRateHistory([]);
+    fetch(`${API}/history/${selected.code}?limit=24`)
+      .then(r => r.json())
+      .then(data => setRateHistory(data))
+      .catch(() => {});
   }, [selected]);
 
   async function calculate() {
@@ -562,6 +617,54 @@ export default function ProjectHype() {
                     {selected.hype >= 80 ? "🔥 Extreme speculation" : selected.hype >= 55 ? "⚡ Elevated interest" : "📊 Moderate tracking"}
                   </div>
                 </div>
+              </div>
+
+              {/* Latest Intel */}
+              <div style={{
+                background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+                border: "1px solid #1e1e3f", borderRadius: 16, padding: 24, marginTop: 20
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📰 LATEST INTEL</div>
+                  {headlines.length > 0 && (
+                    <div style={{
+                      fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, letterSpacing: 1,
+                      background: headlines[0]?.mock ? "#1a1a00" : "#003322",
+                      color: headlines[0]?.mock ? "#ffa500" : "#00d4aa",
+                      border: `1px solid ${headlines[0]?.mock ? "#ffa50033" : "#00d4aa33"}`,
+                    }}>
+                      {headlines[0]?.mock ? "ANALYST" : "LIVE"}
+                    </div>
+                  )}
+                </div>
+                {loadingNews ? (
+                  <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>Loading intel...</div>
+                ) : headlines.length === 0 ? (
+                  <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
+                ) : (
+                  headlines.map((h, i) => (
+                    <div key={i} style={{ padding: "10px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                          background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
+                          maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>{h.source}</span>
+                        {h.published_at && <span style={{ fontSize: 10, color: "#2a2a4a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+                      </div>
+                      {h.url ? (
+                        <a href={h.url} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
+                          onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
+                          {h.title}
+                        </a>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -947,71 +1050,97 @@ export default function ProjectHype() {
             })}
           </div>
 
-          {/* Latest Intel — wired to /api/news/{code} */}
-          <div style={{
-            background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-            border: "1px solid #1e1e3f", borderRadius: 16, padding: 24
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📰 LATEST INTEL</div>
-              {headlines.length > 0 && (
-                <div style={{
-                  fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, letterSpacing: 1,
-                  background: headlines[0]?.mock ? "#1a1a00" : "#003322",
-                  color: headlines[0]?.mock ? "#ffa500" : "#00d4aa",
-                  border: `1px solid ${headlines[0]?.mock ? "#ffa50033" : "#00d4aa33"}`,
-                }}>
-                  {headlines[0]?.mock ? "ANALYST" : "LIVE"}
-                </div>
-              )}
-            </div>
-
-            {loadingNews ? (
-              <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>
-                Loading intel...
+          {/* Latest Intel in sidebar — only on non-calculator tabs to avoid duplication */}
+          {activeTab !== "calculator" && (
+            <div style={{
+              background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+              border: "1px solid #1e1e3f", borderRadius: 16, padding: 24
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📰 LATEST INTEL</div>
+                {headlines.length > 0 && (
+                  <div style={{
+                    fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, letterSpacing: 1,
+                    background: headlines[0]?.mock ? "#1a1a00" : "#003322",
+                    color: headlines[0]?.mock ? "#ffa500" : "#00d4aa",
+                    border: `1px solid ${headlines[0]?.mock ? "#ffa50033" : "#00d4aa33"}`,
+                  }}>
+                    {headlines[0]?.mock ? "ANALYST" : "LIVE"}
+                  </div>
+                )}
               </div>
-            ) : headlines.length === 0 ? (
-              <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>
-                No headlines available
-              </div>
-            ) : (
-              headlines.map((h, i) => (
-                <div
-                  key={i}
-                  style={{ padding: "10px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}
-                >
-                  <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                      background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
-                      maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>
-                      {h.source}
-                    </span>
-                    {h.published_at && (
-                      <span style={{ fontSize: 10, color: "#2a2a4a" }}>
-                        {new Date(h.published_at).toLocaleDateString()}
-                      </span>
+              {loadingNews ? (
+                <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>Loading intel...</div>
+              ) : headlines.length === 0 ? (
+                <div style={{ color: "#2a2a4a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
+              ) : (
+                headlines.map((h, i) => (
+                  <div key={i} style={{ padding: "10px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                        background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
+                        maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{h.source}</span>
+                      {h.published_at && <span style={{ fontSize: 10, color: "#2a2a4a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+                    </div>
+                    {h.url ? (
+                      <a href={h.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
+                        {h.title}
+                      </a>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
                     )}
                   </div>
-                  {h.url ? (
-                    <a
-                      href={h.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
-                      onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}
-                    >
-                      {h.title}
-                    </a>
-                  ) : (
-                    <div style={{ fontSize: 12, color: "#5a5a8a", lineHeight: 1.4 }}>{h.title}</div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Rate History sparkline — flex:1 so it fills remaining sidebar height */}
+          <div style={{
+            background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+            border: "1px solid #1e1e3f", borderRadius: 16, padding: 24,
+            flex: 1, display: "flex", flexDirection: "column",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
+              <div style={{ fontSize: 11, color: "#5a5a8a" }}>{selected.code} · last {rateHistory.length} snapshots</div>
+            </div>
+            {(() => {
+              const sparkColor = selected.change_24h == null ? "#5a5a8a" : selected.change_24h >= 0 ? "#00d4aa" : "#ff4d4d";
+              const pts = [...rateHistory].reverse();
+              const oldest = pts[0]?.rate;
+              const newest = pts[pts.length - 1]?.rate;
+              return (
+                <>
+                  {/* Flex-grow wrapper makes the SVG fill whatever height is available */}
+                  <div style={{ flex: 1, minHeight: 56 }}>
+                    <Sparkline data={rateHistory} color={sparkColor} height="100%" />
+                  </div>
+                  {rateHistory.length >= 2 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+                      <div style={{ fontSize: 10, color: "#5a5a8a", fontFamily: "'Space Mono', monospace" }}>
+                        {oldest?.toFixed(8)}
+                      </div>
+                      <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: sparkColor, fontWeight: 700 }}>
+                        {newest?.toFixed(8)}
+                      </div>
+                    </div>
                   )}
-                </div>
-              ))
-            )}
+                  {rateHistory.length < 2 && (
+                    <div style={{ fontSize: 11, color: "#2a2a4a", marginTop: 8 }}>
+                      Updates every 15 min — check back soon.
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
+
         </div>
       </div>
 
