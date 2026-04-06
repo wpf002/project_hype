@@ -120,32 +120,43 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
         "format": "json",
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(GDELT_URL, params=params)
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.get(GDELT_URL, params=params)
+
+            if resp.status_code == 429:
+                wait = 15 * (attempt + 1)  # 15s, 30s, 45s
+                logger.warning("GDELT 429 for %s (attempt %d), retrying in %ds", code, attempt + 1, wait)
+                await asyncio.sleep(wait)
+                continue
+
             resp.raise_for_status()
             data = resp.json()
 
-        articles = data.get("articles") or []
-        total_7d = len(articles)
+            articles = data.get("articles") or []
+            total_7d = len(articles)
 
-        weighted = 0
-        for a in articles:
-            seen = a.get("seendate", "")
-            try:
-                pub_dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(
-                    tzinfo=timezone.utc
-                )
-                weighted += 3 if pub_dt >= cutoff_48h else 1
-            except (ValueError, TypeError):
-                weighted += 1
+            weighted = 0
+            for a in articles:
+                seen = a.get("seendate", "")
+                try:
+                    pub_dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(
+                        tzinfo=timezone.utc
+                    )
+                    weighted += 3 if pub_dt >= cutoff_48h else 1
+                except (ValueError, TypeError):
+                    weighted += 1
 
-        sentiment = _score_sentiment(articles)
-        return total_7d, weighted, sentiment
+            sentiment = _score_sentiment(articles)
+            return total_7d, weighted, sentiment
 
-    except Exception as exc:
-        logger.warning("GDELT fetch failed for %s: %s", code, exc)
-        return 0, 0, 0.0
+        except Exception as exc:
+            logger.warning("GDELT fetch failed for %s (attempt %d): %s", code, attempt + 1, exc)
+            if attempt < 2:
+                await asyncio.sleep(5)
+
+    return 0, 0, 0.0
 
 
 async def _get_volatility(code: str) -> float:
@@ -220,7 +231,10 @@ async def calculate_all_hype_scores() -> None:
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
-    semaphore = asyncio.Semaphore(8)
+    # Semaphore(2): only 2 concurrent GDELT requests — prevents 429s from
+    # burst traffic. 40 currencies at 2 concurrent takes ~60s which is fine
+    # given the 12-hour scoring interval.
+    semaphore = asyncio.Semaphore(2)
 
     async def fetch_one(currency: dict) -> None:
         code = currency["code"]
@@ -230,6 +244,7 @@ async def calculate_all_hype_scores() -> None:
             raw_volume[code] = total
             raw_recency[code] = weighted
             raw_sentiment[code] = sentiment
+            await asyncio.sleep(0.5)  # courtesy gap between releases
 
     await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
     use_news = any(v > 0 for v in raw_volume.values())
