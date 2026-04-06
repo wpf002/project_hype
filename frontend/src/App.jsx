@@ -157,6 +157,7 @@ export default function ProjectHype() {
   const [rateHistory, setRateHistory] = useState([]);
   const [hypeHistory, setHypeHistory] = useState([]);
   const [signalSearch, setSignalSearch] = useState("");
+  const [marketSearch, setMarketSearch] = useState("");
 
   // ── Portfolio ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => {
@@ -459,7 +460,7 @@ export default function ProjectHype() {
       </div>
 
       {/* Main Grid */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 380px", gap: 24 }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 380px", gap: 24, alignItems: "start" }}>
 
         {/* Left Column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -748,6 +749,26 @@ export default function ProjectHype() {
 
           {activeTab === "markets" && (
             <div style={{ animation: "slideIn 0.3s ease" }}>
+              {/* Search */}
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <input
+                  placeholder="Search currencies..."
+                  value={marketSearch}
+                  onChange={e => setMarketSearch(e.target.value)}
+                  style={{
+                    width: "100%", padding: "10px 16px", boxSizing: "border-box",
+                    background: "#0d0d1a", border: "1px solid #1e1e3f",
+                    borderRadius: 8, color: "#e8e8ff", fontSize: 13,
+                  }}
+                />
+                {marketSearch && (
+                  <button onClick={() => setMarketSearch("")} style={{
+                    position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", color: "#5a5a8a", cursor: "pointer", fontSize: 16,
+                  }}>×</button>
+                )}
+              </div>
+
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
               <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 680 }}>
                 <div style={{
@@ -757,35 +778,62 @@ export default function ProjectHype() {
                 }}>
                   <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div>24h</div><div>Market Cap</div><div>Hype</div><div>Story</div>
                 </div>
-                {currencies.map((c) => (
-                  <div
-                    key={c.code}
-                    onClick={() => { setSelected(c); setActiveTab("calculator"); }}
-                    style={{
-                      display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 80px 60px 80px",
-                      gap: 12, padding: "12px 20px", cursor: "pointer",
-                      borderBottom: "1px solid #0d0d1a",
-                      background: selected.code === c.code ? "#111128" : "transparent",
-                      transition: "background 0.15s",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
-                    onMouseLeave={e => e.currentTarget.style.background = selected.code === c.code ? "#111128" : "transparent"}
-                  >
-                    <div style={{ fontSize: 18 }}>{c.flag}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
-                    <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
-                      {c.rate.toFixed(8)}
-                      <RateBadge live={c.live} />
+                {(() => {
+                  const isSearching = marketSearch.trim().length > 0;
+                  const visible = isSearching
+                    ? currencies.filter(c =>
+                        c.code.toLowerCase().includes(marketSearch.toLowerCase()) ||
+                        c.name.toLowerCase().includes(marketSearch.toLowerCase())
+                      )
+                    : currencies.slice(0, 15);
+                  return visible.map((c) => (
+                    <div
+                      key={c.code}
+                      onClick={() => { setSelected(c); setActiveTab("calculator"); }}
+                      style={{
+                        display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 80px 60px 80px",
+                        gap: 12, padding: "12px 20px", cursor: "pointer",
+                        borderBottom: "1px solid #0d0d1a",
+                        background: selected.code === c.code ? "#111128" : "transparent",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
+                      onMouseLeave={e => e.currentTarget.style.background = selected.code === c.code ? "#111128" : "transparent"}
+                    >
+                      <div style={{ fontSize: 18 }}>{c.flag}</div>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
+                      <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
+                        {c.rate.toFixed(8)}
+                        <RateBadge live={c.live} />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
+                      <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}>{Math.round(c.hype_score ?? c.hype)}</div>
+                      <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center" }}><ChangeChip value={c.change_24h} /></div>
-                    <div style={{ fontSize: 12, color: "#5a5a8a" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}>{Math.round(c.hype_score ?? c.hype)}</div>
-                    <div style={{ fontSize: 10, color: "#5a5a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
+                  ));
+                })()}
+              </div>
+              </div>
+              {(() => {
+                const isSearching = marketSearch.trim().length > 0;
+                const matchCount = currencies.filter(c =>
+                  c.code.toLowerCase().includes(marketSearch.toLowerCase()) ||
+                  c.name.toLowerCase().includes(marketSearch.toLowerCase())
+                ).length;
+                if (isSearching && matchCount === 0) return (
+                  <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#3a3a5a" }}>
+                    No currencies match "{marketSearch}"
                   </div>
-                ))}
-              </div>
-              </div>
+                );
+                if (!isSearching) return (
+                  <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#3a3a5a" }}>
+                    Showing 15 of {currencies.length} — search to find any currency
+                  </div>
+                );
+                return null;
+              })()}
             </div>
           )}
 
@@ -1344,11 +1392,11 @@ export default function ProjectHype() {
             </div>
           )}
 
-          {/* Rate History sparkline — flex:1 so it fills remaining sidebar height */}
+          {/* Rate History sparkline */}
           <div style={{
             background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
             border: "1px solid #1e1e3f", borderRadius: 16, padding: 24,
-            flex: 1, display: "flex", flexDirection: "column",
+            display: "flex", flexDirection: "column",
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
@@ -1361,9 +1409,8 @@ export default function ProjectHype() {
               const newest = pts[pts.length - 1]?.rate;
               return (
                 <>
-                  {/* Flex-grow wrapper makes the SVG fill whatever height is available */}
-                  <div style={{ flex: 1, minHeight: 56 }}>
-                    <Sparkline data={rateHistory} color={sparkColor} height="100%" />
+                  <div style={{ height: 100 }}>
+                    <Sparkline data={rateHistory} color={sparkColor} height={100} />
                   </div>
                   {rateHistory.length >= 2 && (
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
