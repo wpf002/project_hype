@@ -1,20 +1,18 @@
 """
 Hype Score Engine + Catalyst Engine — run together every 12 hours.
 
-News source: NewsAPI.org — 40 req per run × 2 runs/day = 80 req/day,
-within the 100 req/day free-tier limit.
+News source: GDELT Project DOC API — free, no API key, global coverage,
+no meaningful rate limits. Covers 100+ languages; we filter for English.
 
 HYPE SCORE (0–100)  — backward-looking: how much noise right now?
   40%  News volume      — article count in last 7 days (normalised)
   30%  Recency weight   — articles <48h count 3×, rest 1× (normalised)
   20%  Rate volatility  — stdev of rate_snapshots over last 24h (normalised)
   10%  Baseline floor   — exotic/sanctioned currencies floor 60, others floor 20
-  If NEWSAPI_KEY absent: volatility 67%, baseline 33%
 
 CATALYST SCORE (0–100) — forward-looking: appreciation potential
-  60%  News sentiment   — bullish vs bearish keyword ratio across article text
+  60%  News sentiment   — bullish vs bearish keyword ratio across article titles
   40%  Rate momentum    — % rate change over last 7 days (normalised)
-  If NEWSAPI_KEY absent: 100% rate momentum
 """
 
 import asyncio
@@ -31,8 +29,7 @@ from db.db import get_history, write_hype_snapshots, write_catalyst_snapshots
 
 logger = logging.getLogger(__name__)
 
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "")
-NEWSAPI_URL = "https://newsapi.org/v2/everything"
+GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
 
@@ -116,49 +113,50 @@ def _score_sentiment(articles: list) -> float:
 
 async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
     """
-    Fetch up to 100 articles from NewsAPI for `query` over the last 7 days.
+    Fetch up to 100 articles from GDELT DOC API for `query` over the last 7 days.
     Returns (total_7d, weighted_recency_cnt, sentiment_score).
-    Returns (0, 0, 0.0) on any error or missing key.
-    """
-    if not NEWSAPI_KEY:
-        return 0, 0, 0.0
+    Returns (0, 0, 0.0) on any error.
 
+    GDELT is free, requires no API key, and provides broad global coverage
+    across thousands of sources — ideal for exotic and geopolitically sensitive
+    currencies that mainstream financial APIs under-cover.
+    """
     now = datetime.now(timezone.utc)
-    from_7d = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
     cutoff_48h = now - timedelta(hours=48)
 
     params = {
-        "q": query,
-        "from": from_7d,
-        "language": "en",
-        "sortBy": "publishedAt",
-        "pageSize": 100,
-        "apiKey": NEWSAPI_KEY,
+        "query": query,
+        "mode": "artlist",
+        "maxrecords": 100,
+        "timespan": "7d",
+        "sourcelang": "english",
+        "format": "json",
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(NEWSAPI_URL, params=params)
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(GDELT_URL, params=params)
             resp.raise_for_status()
             data = resp.json()
 
-        articles = data.get("articles", [])
+        articles = data.get("articles") or []
         total_7d = len(articles)
 
         weighted = 0
         for a in articles:
-            pub = a.get("publishedAt", "")
+            seen = a.get("seendate", "")
             try:
-                pub_dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                # GDELT seendate format: 20240401T120000Z
+                pub_dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
                 weighted += 3 if pub_dt >= cutoff_48h else 1
-            except ValueError:
+            except (ValueError, TypeError):
                 weighted += 1
 
         sentiment = _score_sentiment(articles)
         return total_7d, weighted, sentiment
 
     except Exception as exc:
-        logger.warning("NewsAPI fetch failed for %s: %s", code, exc)
+        logger.warning("GDELT fetch failed for %s: %s", code, exc)
         return 0, 0, 0.0
 
 
@@ -193,37 +191,29 @@ async def calculate_all_hype_scores() -> None:
     Compute hype + catalyst scores for all currencies and persist both tables.
     Called on startup then every 12 hours (2 runs/day = 80 NewsAPI req/day).
     """
-    logger.info("Score engine: starting for %d currencies", len(CURRENCIES))
+    logger.info("Score engine: starting for %d currencies via GDELT", len(CURRENCIES))
 
-    use_news = bool(NEWSAPI_KEY)
-    if not use_news:
-        logger.info("Score engine: NEWSAPI_KEY absent — news components skipped")
-
-    # ── Gather news data concurrently (semaphore limits concurrent requests) ──
+    # ── Gather news data concurrently via GDELT (free, no API key required) ──
     raw_volume: Dict[str, int] = {}
     raw_recency: Dict[str, int] = {}
     raw_sentiment: Dict[str, float] = {}
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
-    if use_news:
-        semaphore = asyncio.Semaphore(5)
+    # Limit to 8 concurrent GDELT requests to be a good citizen
+    semaphore = asyncio.Semaphore(8)
 
-        async def fetch_one(currency: dict) -> None:
-            code = currency["code"]
-            query = currency.get("news_query", currency["name"])
-            async with semaphore:
-                total, weighted, sentiment = await _fetch_news_data(code, query)
-                raw_volume[code] = total
-                raw_recency[code] = weighted
-                raw_sentiment[code] = sentiment
+    async def fetch_one(currency: dict) -> None:
+        code = currency["code"]
+        query = currency.get("news_query", currency["name"])
+        async with semaphore:
+            total, weighted, sentiment = await _fetch_news_data(code, query)
+            raw_volume[code] = total
+            raw_recency[code] = weighted
+            raw_sentiment[code] = sentiment
 
-        await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
-    else:
-        for c in CURRENCIES:
-            raw_volume[c["code"]] = 0
-            raw_recency[c["code"]] = 0
-            raw_sentiment[c["code"]] = 0.0
+    await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
+    use_news = any(v > 0 for v in raw_volume.values())
 
     for c in CURRENCIES:
         raw_volatility[c["code"]] = _get_volatility(c["code"])

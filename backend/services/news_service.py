@@ -1,28 +1,23 @@
 """
 News Service — returns headlines for speculative currencies.
 
-Swap path:
-  Set NEWSAPI_KEY in .env and the get_news() function will route to NewsAPI.
-  Until then, mock headlines are served. These are not generic placeholders —
-  they're written as a geopolitical analyst would frame each currency's
-  primary market drivers: sanctions, IMF programs, revaluation rumors,
-  black market spreads, regime change risk, and commodity linkages.
+Primary source: GDELT Project DOC API (free, no API key, global coverage).
+Fallback: analyst-written mock headlines that are not generic placeholders —
+they frame each currency's primary market drivers as a geopolitical analyst
+would: sanctions, IMF programs, revaluation rumors, black market spreads,
+regime change risk, and commodity linkages.
 """
 
-import os
 import logging
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import httpx
-from dotenv import load_dotenv
 
 from data.currencies import CURRENCY_MAP
 
-load_dotenv()
-
 logger = logging.getLogger(__name__)
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "")
-NEWSAPI_URL = "https://newsapi.org/v2/everything"
+GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 # ---------------------------------------------------------------------------
 # Geopolitically-informed mock headlines — one analyst's read on each currency
@@ -348,51 +343,67 @@ _DEFAULT_HEADLINES = [
 ]
 
 
-async def _fetch_newsapi(code: str, query: str) -> List[Dict[str, Any]]:
+async def _fetch_gdelt(code: str, query: str) -> List[Dict[str, Any]]:
     """
-    Fetch real headlines from NewsAPI.org.
-    Called only when NEWSAPI_KEY is configured.
+    Fetch live headlines from GDELT Project DOC API.
+    Free, no API key required. Covers thousands of global sources.
+    Returns up to 8 English-language articles from the last 7 days.
     """
     params = {
-        "q": query,
-        "language": "en",
-        "sortBy": "publishedAt",
-        "pageSize": 5,
-        "apiKey": NEWSAPI_KEY,
+        "query": query,
+        "mode": "artlist",
+        "maxrecords": 10,
+        "timespan": "7d",
+        "sourcelang": "english",
+        "format": "json",
     }
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(NEWSAPI_URL, params=params)
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.get(GDELT_URL, params=params)
             resp.raise_for_status()
             data = resp.json()
 
-        articles = data.get("articles", [])
-        return [
-            {
-                "title": a.get("title", ""),
-                "source": a.get("source", {}).get("name", "NewsAPI"),
+        articles = data.get("articles") or []
+        results = []
+        for a in articles:
+            title = (a.get("title") or "").strip()
+            if not title or len(title) < 15:
+                continue
+
+            seen = a.get("seendate", "")
+            pub_at = ""
+            if seen:
+                try:
+                    dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                    pub_at = dt.isoformat()
+                except (ValueError, TypeError):
+                    pass
+
+            results.append({
+                "title": title,
+                "source": a.get("domain", "GDELT"),
                 "url": a.get("url", ""),
-                "published_at": a.get("publishedAt", ""),
-                "description": a.get("description", ""),
-            }
-            for a in articles
-            if a.get("title") and "[Removed]" not in a.get("title", "")
-        ][:5]
+                "published_at": pub_at,
+                "description": "",
+            })
+
+        return results[:8]
 
     except httpx.HTTPStatusError as exc:
-        logger.error("NewsAPI HTTP error %s for %s: %s", exc.response.status_code, code, exc)
+        logger.warning("GDELT HTTP %s for %s", exc.response.status_code, code)
     except httpx.RequestError as exc:
-        logger.error("NewsAPI request failed for %s: %s", code, exc)
+        logger.warning("GDELT request failed for %s: %s", code, exc)
     except Exception as exc:
-        logger.error("Unexpected error fetching news for %s: %s", code, exc)
+        logger.warning("GDELT unexpected error for %s: %s", code, exc)
 
     return []
 
 
 async def get_news(code: str) -> List[Dict[str, Any]]:
     """
-    Returns up to 5 news headlines for a currency code.
-    Routes to NewsAPI when NEWSAPI_KEY is set, otherwise returns mock headlines.
+    Returns up to 8 news headlines for a currency code.
+    Primary: GDELT live feed (free, no key, global).
+    Fallback: analyst-written mock headlines.
     """
     code = code.upper()
     currency = CURRENCY_MAP.get(code)
@@ -400,13 +411,11 @@ async def get_news(code: str) -> List[Dict[str, Any]]:
     if not currency:
         return []
 
-    if NEWSAPI_KEY:
-        live_results = await _fetch_newsapi(code, currency["news_query"])
-        if live_results:
-            return live_results
-        # Fall through to mock on API failure
+    live_results = await _fetch_gdelt(code, currency["news_query"])
+    if live_results:
+        return live_results
 
-    # Return analyst-written mock headlines
+    # Fallback to analyst-written mock headlines
     headlines = MOCK_HEADLINES.get(code, _DEFAULT_HEADLINES)
     return [
         {
