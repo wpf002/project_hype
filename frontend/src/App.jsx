@@ -1405,7 +1405,7 @@ export default function ProjectHype() {
                             border: `1px solid ${sentColor}33`,
                           }}>{sentLabel}</span>
                           <div style={{ fontSize: 10, color: sentColor, fontFamily: "'Space Mono', monospace", marginTop: 3 }}>
-                            {sent === 0 ? "—" : `${sent > 0 ? "+" : ""}${sent.toFixed(0)}`}
+                            {sent === 0 ? "—" : `VSS: ${sent > 0 ? "+" : ""}${sent.toFixed(0)}`}
                           </div>
                         </div>
 
@@ -1938,20 +1938,32 @@ export default function ProjectHype() {
           <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
-              <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · last {rateHistory.length} snapshots</div>
+              <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · {rateHistory.length >= 2 ? `${(rateHistory.length * 15 / 60).toFixed(1)}h` : "—"}</div>
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
               {rateHistory.length >= 2 ? (() => {
                 const sparkColor = selected.change_24h == null ? "#8080aa" : selected.change_24h >= 0 ? "#00d4aa" : "#ff4d4d";
                 const pts = [...rateHistory].reverse();
+                const fmtTime = (ts) => {
+                  if (!ts) return "";
+                  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+                };
+                const midPt = pts[Math.floor(pts.length / 2)];
                 return (
                   <>
                     <div style={{ width: "100%" }}>
                       <Sparkline data={rateHistory} color={sparkColor} height={100} />
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginTop: 10 }}>
+                    {/* Rate labels */}
+                    <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginTop: 8 }}>
                       <div style={{ fontSize: 10, color: "#8080aa", fontFamily: "'Space Mono', monospace" }}>{pts[0]?.rate.toFixed(8)}</div>
                       <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: sparkColor, fontWeight: 700 }}>{pts[pts.length - 1]?.rate.toFixed(8)}</div>
+                    </div>
+                    {/* Timeline */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginTop: 4 }}>
+                      <div style={{ fontSize: 9, color: "#4a4a6a", fontFamily: "'Space Mono', monospace" }}>{fmtTime(pts[0]?.timestamp)}</div>
+                      {midPt && <div style={{ fontSize: 9, color: "#4a4a6a", fontFamily: "'Space Mono', monospace" }}>{fmtTime(midPt.timestamp)}</div>}
+                      <div style={{ fontSize: 9, color: "#4a4a6a", fontFamily: "'Space Mono', monospace" }}>now</div>
                     </div>
                   </>
                 );
