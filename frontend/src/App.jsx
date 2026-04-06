@@ -156,6 +156,7 @@ export default function ProjectHype() {
   const [loadingNews, setLoadingNews] = useState(false);
   const [rateHistory, setRateHistory] = useState([]);
   const [hypeHistory, setHypeHistory] = useState([]);
+  const [signalSearch, setSignalSearch] = useState("");
 
   // ── Portfolio ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => {
@@ -1077,6 +1078,26 @@ export default function ProjectHype() {
                   ))}
                 </div>
 
+                {/* Search bar */}
+                <div style={{ position: "relative", marginBottom: 16 }}>
+                  <input
+                    placeholder="Search currencies..."
+                    value={signalSearch}
+                    onChange={e => setSignalSearch(e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 16px", boxSizing: "border-box",
+                      background: "#070714", border: "1px solid #1e1e3f",
+                      borderRadius: 8, color: "#e8e8ff", fontSize: 13,
+                    }}
+                  />
+                  {signalSearch && (
+                    <button onClick={() => setSignalSearch("")} style={{
+                      position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                      background: "none", border: "none", color: "#5a5a8a", cursor: "pointer", fontSize: 16,
+                    }}>×</button>
+                  )}
+                </div>
+
                 {/* Table header */}
                 <div style={{
                   display: "grid", gridTemplateColumns: "28px 32px 1fr 110px 80px 70px",
@@ -1084,13 +1105,23 @@ export default function ProjectHype() {
                   fontSize: 9, color: "#3a3a5a", letterSpacing: 2, textTransform: "uppercase",
                   borderBottom: "1px solid #1e1e3f"
                 }}>
-                  <div>#</div><div></div><div>Currency</div><div>Catalyst</div><div>Sentiment</div><div>7d Move</div>
+                  <div>#</div><div></div><div>Currency</div><div>Signal</div><div>Sentiment</div><div>7d Move</div>
                 </div>
 
-                {[...currencies]
-                  .filter(c => c.catalyst_score != null)
-                  .sort((a, b) => b.catalyst_score - a.catalyst_score)
-                  .map((c, i) => {
+                {(() => {
+                  const TOP_N = 10;
+                  const sorted = [...currencies]
+                    .filter(c => c.catalyst_score != null)
+                    .sort((a, b) => b.catalyst_score - a.catalyst_score);
+                  const isSearching = signalSearch.trim().length > 0;
+                  const visible = isSearching
+                    ? sorted.filter(c =>
+                        c.code.toLowerCase().includes(signalSearch.toLowerCase()) ||
+                        c.name.toLowerCase().includes(signalSearch.toLowerCase())
+                      )
+                    : sorted.slice(0, TOP_N);
+                  return visible;
+                })().map((c, i) => {
                     const cat = c.catalyst_score ?? 0;
                     const sent = c.sentiment ?? 0;
                     const mom = c.momentum_7d ?? 0;
@@ -1155,11 +1186,32 @@ export default function ProjectHype() {
                     );
                   })}
 
-                {currencies.filter(c => c.catalyst_score != null).length === 0 && (
-                  <div style={{ textAlign: "center", padding: "40px 0", color: "#3a3a5a", fontSize: 13 }}>
-                    Catalyst scores are computed on startup — check back in a moment.
-                  </div>
-                )}
+                {(() => {
+                  const withScores = currencies.filter(c => c.catalyst_score != null);
+                  if (withScores.length === 0) return (
+                    <div style={{ textAlign: "center", padding: "40px 0", color: "#3a3a5a", fontSize: 13 }}>
+                      Signal scores are computed on startup — check back in a moment.
+                    </div>
+                  );
+                  const isSearching = signalSearch.trim().length > 0;
+                  const matchCount = isSearching
+                    ? withScores.filter(c =>
+                        c.code.toLowerCase().includes(signalSearch.toLowerCase()) ||
+                        c.name.toLowerCase().includes(signalSearch.toLowerCase())
+                      ).length
+                    : null;
+                  if (isSearching && matchCount === 0) return (
+                    <div style={{ textAlign: "center", padding: "24px 0", color: "#3a3a5a", fontSize: 13 }}>
+                      No currencies match "{signalSearch}"
+                    </div>
+                  );
+                  if (!isSearching) return (
+                    <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "#3a3a5a" }}>
+                      Showing top 10 of {withScores.length} — search to find any currency
+                    </div>
+                  );
+                  return null;
+                })()}
               </div>
             </div>
           )}
