@@ -528,8 +528,6 @@ export default function ProjectHype() {
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 20 }}>
             <LiveDot />
             {!isMobile && (() => {
-              const mom = tickerCurrency?.momentum_7d ?? 0;
-              const momColor = mom > 0 ? "#00d4aa" : mom < 0 ? "#ff4d4d" : "#8080aa";
               return (
                 <div style={{
                   display: "flex", alignItems: "stretch",
@@ -550,8 +548,13 @@ export default function ProjectHype() {
                           return <span style={{ color: hypeColor, fontWeight: 700, fontSize: 13 }}>{hs}</span>;
                         })()}
                       </div>
-                      <div style={{ padding: "6px 12px", display: "flex", alignItems: "center" }}>
-                        <span style={{ color: momColor, fontSize: 15, fontWeight: 700 }}>{mom > 0 ? "↑" : mom < 0 ? "↓" : "→"}</span>
+                      <div style={{ padding: "6px 14px", display: "flex", alignItems: "center" }}>
+                        {(() => {
+                          const cat = tickerCurrency?.catalyst_score;
+                          if (cat == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
+                          const catColor = catalystColor(cat);
+                          return <span style={{ color: catColor, fontWeight: 700, fontSize: 13 }}>{Math.round(cat)}</span>;
+                        })()}
                       </div>
                     </>
                   ) : (
