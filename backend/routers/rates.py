@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 from pydantic import BaseModel
@@ -7,7 +8,8 @@ from services.fx_service import get_all_rates, get_rate
 from db.db import (
     get_all_changes_24h, get_change_24h,
     get_latest_hype_scores, get_latest_catalyst_scores,
-    get_latest_hype_updated_at,
+    get_latest_hype_updated_at, get_latest_rate_updated_at,
+    get_pool,
 )
 
 router = APIRouter()
@@ -98,11 +100,31 @@ async def get_single_currency_rate(code: str):
 
 @router.get("/status")
 async def get_status():
-    """Return score freshness metadata for the About tab."""
-    last_scored_at = await get_latest_hype_updated_at()
+    """Operational status — version, freshness timestamps, db health, uptime."""
+    import asyncio
+    from main import START_TIME
+
+    last_hype_run, last_rate_fetch = await asyncio.gather(
+        get_latest_hype_updated_at(),
+        get_latest_rate_updated_at(),
+    )
+
+    # Lightweight DB health check
+    db_status = "ok"
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+    except Exception:
+        db_status = "error"
+
     return {
-        "last_scored_at": last_scored_at,
-        "currency_count": len(CURRENCIES),
+        "version": "1.2.0",
+        "currencies_tracked": len(CURRENCIES),
+        "last_hype_run": last_hype_run,
+        "last_rate_fetch": last_rate_fetch,
+        "db_status": db_status,
+        "uptime_seconds": int(time.time() - START_TIME),
     }
 
 

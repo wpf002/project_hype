@@ -5,6 +5,12 @@ import { useState, useEffect, useRef } from "react";
 // In Railway production: VITE_API_URL=https://your-backend.up.railway.app
 const API = `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api`;
 
+function trackEvent(name, props) {
+  if (typeof window.plausible !== "undefined") {
+    window.plausible(name, { props });
+  }
+}
+
 const HYPE_COLORS = {
   high: "#ff4d4d",
   mid: "#ffa500",
@@ -240,6 +246,7 @@ export default function ProjectHype() {
       }
       return [...prev, { code, amount: amt, addedAt: Date.now() }];
     });
+    trackEvent("portfolio_add", { code });
     setPfAmount("");
   }
 
@@ -290,6 +297,7 @@ export default function ProjectHype() {
       setShareUrl(data.url);
       setShareModal(true);
       setShareCopied(false);
+      trackEvent("portfolio_share", {});
     } catch {
       // ignore
     } finally {
@@ -369,6 +377,7 @@ export default function ProjectHype() {
         roi: String(data.roi_percent.toFixed(2)),
         multiplier: data.multiplier,
       });
+      trackEvent("roi_calculated", { code: selected.code, has_target: true });
     } catch (err) {
       if (err.name === "AbortError") return;
       setRoiError("Could not reach the ROI API — showing client-side estimate.");
@@ -376,6 +385,7 @@ export default function ProjectHype() {
       const gain = targetVal - currentVal;
       const roi = ((gain / currentVal) * 100).toFixed(2);
       setResults({ currentVal, targetVal, gain, roi });
+      trackEvent("roi_calculated", { code: selected.code, has_target: true });
     }
   }
 
@@ -621,7 +631,7 @@ export default function ProjectHype() {
           {/* Nav Tabs */}
           <div className="tab-bar" style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexWrap: "nowrap" }}>
             {["calculator", "markets", "heatmap", "signals", "portfolio", "about"].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              <button key={tab} onClick={() => { setActiveTab(tab); trackEvent("tab_changed", { tab }); }} style={{
                 padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
                 background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
                 color: activeTab === tab ? "#e8e8ff" : "#8080aa",
@@ -662,7 +672,11 @@ export default function ProjectHype() {
                     />
                     <select
                       value={selected.code}
-                      onChange={e => setSelected(currencies.find(c => c.code === e.target.value))}
+                      onChange={e => {
+                        const c = currencies.find(c => c.code === e.target.value);
+                        setSelected(c);
+                        if (c) trackEvent("currency_selected", { code: c.code, name: c.name });
+                      }}
                       style={{
                         width: "100%", padding: "12px 16px", boxSizing: "border-box",
                         background: "#070714", border: "1px solid #1e1e3f",
@@ -1263,7 +1277,7 @@ export default function ProjectHype() {
                   return (
                     <div
                       key={c.code}
-                      onClick={() => { setSelected(c); setActiveTab("calculator"); }}
+                      onClick={() => { setSelected(c); setActiveTab("calculator"); trackEvent("heatmap_click", { code: c.code }); }}
                       style={{
                         width: size, height: size, background: color,
                         borderRadius: 8, display: "flex", flexDirection: "column",
@@ -1919,7 +1933,7 @@ export default function ProjectHype() {
               const val = parseFloat(amount || 0) * tgt;
               const gain = val - parseFloat(amount || 0) * selected.rate;
               return (
-                <div key={mult} onClick={() => { setTargetRate(tgt.toFixed(10)); setActiveTab("calculator"); }}
+                <div key={mult} onClick={() => { setTargetRate(tgt.toFixed(10)); setActiveTab("calculator"); trackEvent("scenario_clicked", { multiplier: mult, code: selected.code }); }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, marginBottom: 6, background: "#070714", border: "1px solid #1e1e3f", cursor: "pointer", transition: "all 0.15s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = "#ffa500"; e.currentTarget.style.background = "#111128"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.background = "#070714"; }}
@@ -2192,6 +2206,7 @@ export default function ProjectHype() {
                         setAlertError(d.detail || "Subscription failed — please try again.");
                       } else {
                         setAlertSubmitted(true);
+                        trackEvent("alert_subscribed", { currency_count: alertCodes.size });
                       }
                     } catch {
                       setAlertError("Network error — please check your connection.");

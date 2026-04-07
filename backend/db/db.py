@@ -278,6 +278,20 @@ async def get_latest_hype_scores() -> Dict[str, float]:
         return {}
 
 
+async def get_latest_rate_updated_at() -> Optional[str]:
+    """Return the timestamp of the most recent rate snapshot (any currency)."""
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval(
+                "SELECT MAX(timestamp) FROM rate_snapshots"
+            )
+        return val
+    except Exception:
+        logger.exception("Failed to fetch latest rate timestamp")
+        return None
+
+
 async def get_latest_hype_updated_at() -> Optional[str]:
     """Return the timestamp of the most recent hype snapshot (any currency)."""
     try:

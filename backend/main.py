@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,9 @@ from db.db import init_db
 from services.hype_service import calculate_all_hype_scores
 
 load_dotenv()
+
+# Captured once at import time so /api/status can report uptime_seconds
+START_TIME: float = time.time()
 
 
 async def _hype_engine_loop() -> None:

@@ -157,13 +157,22 @@ async def test_get_status_structure(client):
         "routers.rates.get_latest_hype_updated_at",
         new_callable=AsyncMock,
         return_value="2024-01-15T12:00:00+00:00",
+    ), patch(
+        "routers.rates.get_latest_rate_updated_at",
+        new_callable=AsyncMock,
+        return_value="2024-01-15T12:00:00+00:00",
     ):
         r = await client.get("/api/status")
     assert r.status_code == 200
     data = r.json()
-    assert "last_scored_at" in data
-    assert "currency_count" in data
-    assert data["currency_count"] > 0
+    assert "version" in data
+    assert "currencies_tracked" in data
+    assert "last_hype_run" in data
+    assert "last_rate_fetch" in data
+    assert "db_status" in data
+    assert "uptime_seconds" in data
+    assert data["currencies_tracked"] > 0
+    assert data["version"] == "1.2.0"
 
 
 async def test_get_status_null_when_no_scores(client):
@@ -171,7 +180,12 @@ async def test_get_status_null_when_no_scores(client):
         "routers.rates.get_latest_hype_updated_at",
         new_callable=AsyncMock,
         return_value=None,
+    ), patch(
+        "routers.rates.get_latest_rate_updated_at",
+        new_callable=AsyncMock,
+        return_value=None,
     ):
         r = await client.get("/api/status")
     assert r.status_code == 200
-    assert r.json()["last_scored_at"] is None
+    assert r.json()["last_hype_run"] is None
+    assert r.json()["last_rate_fetch"] is None
