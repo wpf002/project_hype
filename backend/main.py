@@ -6,9 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import rates, roi, news, history, portfolio, hype, alerts
+from routers import rates, roi, news, history, portfolio, hype, alerts, signals
 from db.db import init_db
 from services.hype_service import calculate_all_hype_scores
+from services.signal_service import poll_signals
 
 load_dotenv()
 
@@ -22,10 +23,17 @@ async def _hype_engine_loop() -> None:
         await asyncio.sleep(43200)  # 12 hours
 
 
+async def _signal_polling_loop() -> None:
+    while True:
+        await poll_signals()
+        await asyncio.sleep(14400)  # 4 hours
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     asyncio.create_task(_hype_engine_loop())
+    asyncio.create_task(_signal_polling_loop())
     yield
 
 
@@ -58,6 +66,7 @@ app.include_router(history.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(hype.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
+app.include_router(signals.router, prefix="/api")
 
 
 @app.get("/")
@@ -78,5 +87,6 @@ async def root():
             "GET  /api/portfolio/{id}",
             "POST /api/alerts/subscribe",
             "DELETE /api/alerts/unsubscribe",
+            "GET  /api/signals/{code}",
         ],
     }

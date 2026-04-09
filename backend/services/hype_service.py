@@ -4,6 +4,11 @@ Hype Score Engine + Catalyst Engine — run together every 12 hours.
 News source: GDELT Project DOC API — free, no API key, global coverage,
 no meaningful rate limits. Covers 100+ languages; we filter for English.
 
+Sentiment scoring: Claude API (claude-haiku-4-5-20251001) — understands
+financial/geopolitical context that VADER cannot: "sanctions relief" is
+bullish, "IMF program suspended" is bearish, "CBI reduces auction spread"
+is strongly bullish for IQD. Up to 10 headlines per batch to minimise cost.
+
 HYPE SCORE (0–100)  — backward-looking: how much noise right now?
   40%  News volume      — article count in last 7 days (normalised)
   30%  Recency weight   — articles <48h count 3×, rest 1× (normalised)
@@ -11,18 +16,20 @@ HYPE SCORE (0–100)  — backward-looking: how much noise right now?
   10%  Baseline floor   — exotic/sanctioned currencies floor 60, others floor 20
 
 CATALYST SCORE (0–100) — forward-looking: appreciation potential
-  60%  News sentiment   — VADER compound score averaged across article titles/descriptions
+  60%  News sentiment   — Claude compound score averaged across article titles/descriptions
   40%  Rate momentum    — % rate change over last 7 days (normalised)
 """
 
 import asyncio
+import json
 import logging
+import os
 import statistics
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import httpx
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from dotenv import load_dotenv
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
 from db.db import (
@@ -34,13 +41,17 @@ from db.db import (
 )
 from services.email_service import send_catalyst_alert
 
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
 
-_vader = SentimentIntensityAnalyzer()
+CLAUDE_BATCH_SIZE = 10  # headlines per API call
 
 
 def _floor(code: str) -> float:
@@ -57,29 +68,148 @@ def _normalise(values: Dict[str, float]) -> Dict[str, float]:
     return {k: (v - lo) / (hi - lo) * 100 for k, v in values.items()}
 
 
-def _score_sentiment(articles: list) -> float:
-    """Score sentiment using VADER. Returns -100 to +100."""
-    if not articles:
+async def score_headlines_with_claude(
+    headlines: List[dict],
+    currency_code: str,
+    currency_name: str,
+    story: str,
+) -> float:
+    """
+    Score headlines using Claude API for financial/geopolitical context.
+    Batches up to CLAUDE_BATCH_SIZE headlines per API call.
+    Returns average compound score in range -100 to +100.
+    Falls back to 0.0 on any failure.
+    """
+    if not headlines:
         return 0.0
-    scores = []
-    for a in articles:
+
+    if not ANTHROPIC_API_KEY:
+        logger.warning("ANTHROPIC_API_KEY not set — sentiment scoring skipped for %s", currency_code)
+        return 0.0
+
+    # Build text list from title + description
+    texts = []
+    for a in headlines:
         text = ((a.get("title") or "") + " " + (a.get("description") or "")).strip()
-        if not text:
-            continue
-        compound = _vader.polarity_scores(text)["compound"]
-        scores.append(compound)
-    if not scores:
+        if text:
+            texts.append(text)
+
+    if not texts:
         return 0.0
-    # compound is -1 to +1; scale to -100 to +100
-    return round(sum(scores) / len(scores) * 100, 2)
+
+    # Process in batches of CLAUDE_BATCH_SIZE
+    all_scores: List[float] = []
+    for i in range(0, len(texts), CLAUDE_BATCH_SIZE):
+        batch = texts[i: i + CLAUDE_BATCH_SIZE]
+        batch_scores = await _score_batch_with_claude(batch, currency_code, currency_name, story)
+        all_scores.extend(batch_scores)
+
+    if not all_scores:
+        return 0.0
+
+    avg = sum(all_scores) / len(all_scores)
+    # Scale -1..+1 to -100..+100
+    return round(avg * 100, 2)
 
 
-async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
+async def _score_batch_with_claude(
+    texts: List[str],
+    currency_code: str,
+    currency_name: str,
+    story: str,
+) -> List[float]:
+    """
+    Send one batch to Claude and return a list of scores (-1.0 to +1.0).
+    """
+    headlines_block = "\n".join(f"{idx + 1}. {t}" for idx, t in enumerate(texts))
+
+    user_prompt = f"""Currency: {currency_name} ({currency_code})
+Geopolitical context: {story}
+
+Score each headline for its expected impact on {currency_code} appreciation potential.
+Return a JSON array of objects, one per headline, in order:
+[{{"headline": "<brief title>", "score": <float -1.0 to +1.0>, "reasoning": "<one sentence>"}}]
+
+Scoring guide:
+  +1.0  Strongly bullish: sanctions relief, IMF tranche approved, revaluation confirmed, reserve surge
+  +0.5  Mildly bullish: positive reform signals, improving reserves, political stability
+   0.0  Neutral or ambiguous
+  -0.5  Mildly bearish: FX controls tightened, political uncertainty, minor devaluation
+  -1.0  Strongly bearish: sanctions added, IMF program suspended, hyperinflation, central bank collapse
+
+Headlines:
+{headlines_block}
+
+Respond with ONLY the JSON array. No preamble, no markdown fences."""
+
+    payload = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 1024,
+        "system": (
+            "You are a senior currency analyst specialising in exotic, frontier, and speculative "
+            "foreign exchange markets. You understand revaluation mechanics, sanctions regimes, "
+            "IMF programs, central bank auction systems, black market dynamics, and post-conflict "
+            "reconstruction economics."
+        ),
+        "messages": [{"role": "user", "content": user_prompt}],
+    }
+
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(ANTHROPIC_API_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+
+        raw_text = data["content"][0]["text"].strip()
+        # Strip markdown fences if Claude adds them despite instructions
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("```")[1]
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+        raw_text = raw_text.strip()
+
+        items = json.loads(raw_text)
+        scores = []
+        for item in items:
+            score = float(item.get("score", 0.0))
+            score = max(-1.0, min(1.0, score))
+            scores.append(score)
+            logger.debug(
+                "Claude sentiment [%s] score=%.2f: %s — %s",
+                currency_code,
+                score,
+                item.get("headline", "")[:60],
+                item.get("reasoning", ""),
+            )
+        return scores
+
+    except Exception as exc:
+        logger.warning("Claude sentiment scoring failed for %s: %s", currency_code, exc)
+        return []
+
+
+async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, int, float]:
     now = datetime.now(timezone.utc)
     cutoff_48h = now - timedelta(hours=48)
 
+    # Quality-filter GDELT to known domains (Tier 2)
+    quality_domains = (
+        "domain:reuters.com OR domain:apnews.com OR domain:ft.com OR "
+        "domain:wsj.com OR domain:economist.com OR domain:bloomberg.com OR "
+        "domain:aljazeera.com OR domain:bbc.co.uk OR domain:france24.com OR "
+        "domain:voanews.com OR domain:rferl.org OR domain:nikkei.com OR "
+        "domain:scmp.com"
+    )
+    filtered_query = f"({query}) ({quality_domains})"
+
     params = {
-        "query": query,
+        "query": filtered_query,
         "mode": "artlist",
         "maxrecords": 100,
         "timespan": "7d",
@@ -93,7 +223,7 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
                 resp = await client.get(GDELT_URL, params=params)
 
             if resp.status_code == 429:
-                wait = 15 * (attempt + 1)  # 15s, 30s, 45s
+                wait = 15 * (attempt + 1)
                 logger.warning("GDELT 429 for %s (attempt %d), retrying in %ds", code, attempt + 1, wait)
                 await asyncio.sleep(wait)
                 continue
@@ -102,8 +232,6 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
             try:
                 data = resp.json()
             except Exception:
-                # GDELT returns an empty body (not JSON) when no articles match.
-                # This is a valid "zero results" — don't retry.
                 return 0, 0, 0.0
 
             articles = data.get("articles") or []
@@ -120,12 +248,22 @@ async def _fetch_news_data(code: str, query: str) -> Tuple[int, int, float]:
                 except (ValueError, TypeError):
                     weighted += 1
 
-            sentiment = _score_sentiment(articles)
+            # Score sentiment with Claude
+            sentiment = await score_headlines_with_claude(
+                articles,
+                code,
+                currency.get("name", code),
+                currency.get("story", ""),
+            )
+
+            logger.info(
+                "Sentiment [%s] = %.2f (from %d articles via GDELT Tier 2)",
+                code, sentiment, total_7d,
+            )
             return total_7d, weighted, sentiment
 
         except Exception as exc:
             logger.warning("GDELT fetch failed for %s (attempt %d): %s", code, attempt + 1, exc)
-            # Non-429 errors (timeouts, connection resets) get one quick retry
             if attempt < 2:
                 await asyncio.sleep(1)
 
@@ -190,7 +328,7 @@ async def calculate_all_hype_scores() -> None:
     Compute hype + catalyst scores for all currencies and persist both tables.
     Called on startup then every 12 hours.
     """
-    logger.info("Score engine: starting for %d currencies via GDELT", len(CURRENCIES))
+    logger.info("Score engine: starting for %d currencies via GDELT (Tier 2) + Claude sentiment", len(CURRENCIES))
 
     # Capture previous catalyst scores BEFORE computing new ones (for alert diffing)
     old_catalyst = await get_latest_catalyst_scores()
@@ -204,16 +342,15 @@ async def calculate_all_hype_scores() -> None:
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
-    # Semaphore(2): only 2 concurrent GDELT requests — prevents 429s from
-    # burst traffic. 40 currencies at 2 concurrent takes ~60s which is fine
-    # given the 12-hour scoring interval.
+    # Semaphore(2): only 2 concurrent GDELT requests — prevents 429s.
+    # Claude API calls are nested inside, but haiku is fast and cheap.
     semaphore = asyncio.Semaphore(2)
 
     async def fetch_one(currency: dict) -> None:
         code = currency["code"]
         query = currency.get("news_query", currency["name"])
         async with semaphore:
-            total, weighted, sentiment = await _fetch_news_data(code, query)
+            total, weighted, sentiment = await _fetch_news_data(code, query, currency)
             raw_volume[code] = total
             raw_recency[code] = weighted
             raw_sentiment[code] = sentiment

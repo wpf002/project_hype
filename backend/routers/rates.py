@@ -25,6 +25,7 @@ class CurrencyRate(BaseModel):
     hype: int
     story: str
     live: bool
+    source: str = "analyst"          # "oxr" | "exchangerate-api" | "scraped" | "analyst"
     change_24h: Optional[float] = None
     hype_score: Optional[float] = None
     catalyst_score: Optional[float] = None
@@ -42,7 +43,8 @@ async def get_all_currency_rates():
     result = []
     for currency in CURRENCIES:
         code = currency["code"]
-        rate_value, is_live = all_rates.get(code, (currency["rate"], False))
+        rate_entry = all_rates.get(code, (currency["rate"], False, "analyst"))
+        rate_value, is_live, source = rate_entry
         cat = latest_catalyst.get(code, {})
         result.append(
             CurrencyRate(
@@ -55,6 +57,7 @@ async def get_all_currency_rates():
                 hype=currency["hype"],
                 story=currency["story"],
                 live=is_live,
+                source=source,
                 change_24h=changes.get(code),
                 hype_score=latest_hype.get(code, float(currency["hype"])),
                 catalyst_score=cat.get("catalyst_score"),
@@ -75,7 +78,8 @@ async def get_single_currency_rate(code: str):
             detail=f"Currency '{code}' is not tracked. Use GET /api/rates for the full list.",
         )
 
-    rate_value, is_live = await get_rate(code)
+    rate_entry = await get_rate(code)
+    rate_value, is_live, source = rate_entry
     latest_hype, latest_catalyst = await _gather_single_data()
     cat = latest_catalyst.get(code, {})
 
@@ -90,6 +94,7 @@ async def get_single_currency_rate(code: str):
         story=currency["story"],
         news_query=currency["news_query"],
         live=is_live,
+        source=source,
         change_24h=await get_change_24h(code),
         hype_score=latest_hype.get(code, float(currency["hype"])),
         catalyst_score=cat.get("catalyst_score"),
@@ -109,7 +114,6 @@ async def get_status():
         get_latest_rate_updated_at(),
     )
 
-    # Lightweight DB health check
     db_status = "ok"
     try:
         pool = get_pool()

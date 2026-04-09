@@ -103,17 +103,26 @@ function ChangeChip({ value }) {
   );
 }
 
-// Small badge shown next to exchange rates — distinguishes live API data from fallback estimates
-function RateBadge({ live }) {
+// 4-state rate badge — shows exactly where the rate came from
+function RateBadge({ live, source }) {
+  const src = source || (live ? "exchangerate-api" : "analyst");
+  const cfg = {
+    oxr:               { label: "OXR",     bg: "#001a3a", color: "#4da6ff", border: "#4da6ff33", tooltip: "Source: Open Exchange Rates (live)" },
+    "exchangerate-api":{ label: "LIVE",    bg: "#003322", color: "#00d4aa", border: "#00d4aa33", tooltip: "Source: ExchangeRate-API (live)" },
+    scraped:           { label: "SCRAPED", bg: "#2a1500", color: "#ffa500", border: "#ffa50033", tooltip: "Source: Scraped from parallel-market tracker" },
+    analyst:           { label: "EST",     bg: "#1a1a00", color: "#8080aa", border: "#8080aa33", tooltip: "Source: Analyst estimate — official rate may not reflect parallel market" },
+  }[src] || { label: "EST", bg: "#1a1a00", color: "#8080aa", border: "#8080aa33", tooltip: "Analyst estimate" };
+
   return (
-    <span style={{
-      fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, letterSpacing: 1,
-      background: live ? "#003322" : "#1a1a00",
-      color: live ? "#00d4aa" : "#ffa500",
-      border: `1px solid ${live ? "#00d4aa33" : "#ffa50033"}`,
-      marginLeft: 8, verticalAlign: "middle",
-    }}>
-      {live ? "LIVE" : "EST"}
+    <span
+      title={cfg.tooltip}
+      style={{
+        fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, letterSpacing: 1,
+        background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+        marginLeft: 8, verticalAlign: "middle", cursor: "help",
+      }}
+    >
+      {cfg.label}
     </span>
   );
 }
@@ -177,6 +186,8 @@ export default function ProjectHype() {
   const [loadingNews, setLoadingNews] = useState(false);
   const [rateHistory, setRateHistory] = useState([]);
   const [signalSearch, setSignalSearch] = useState("");
+  const [institutionalSignals, setInstitutionalSignals] = useState([]);
+  const [loadingSignals, setLoadingSignals] = useState(false);
   const [marketSearch, setMarketSearch] = useState("");
   const [marketSort, setMarketSort] = useState("hype"); // "hype" | "catalyst"
   const [bottomView, setBottomView] = useState("hype"); // "hype" | "catalyst"
@@ -336,6 +347,17 @@ export default function ProjectHype() {
       .then(r => r.json())
       .then(data => setRateHistory(data))
       .catch(() => {});
+  }, [selected]);
+
+  // ── Fetch institutional signals whenever the selected currency changes ─────
+  useEffect(() => {
+    if (!selected) return;
+    setInstitutionalSignals([]);
+    setLoadingSignals(true);
+    fetch(`${API}/signals/${selected.code}`)
+      .then(r => r.json())
+      .then(data => { setInstitutionalSignals(data); setLoadingSignals(false); })
+      .catch(() => setLoadingSignals(false));
   }, [selected]);
 
   async function calculate() {
@@ -574,7 +596,7 @@ export default function ProjectHype() {
                       </div>
                       <div style={{ padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ color: "#9999cc", fontSize: 12 }}>{tickerCurrency?.rate.toFixed(8)}</span>
-                        {tickerCurrency && <RateBadge live={tickerCurrency.live} />}
+                        {tickerCurrency && <RateBadge live={tickerCurrency.live} source={tickerCurrency.source} />}
                       </div>
                     </>
                   )}
@@ -703,13 +725,22 @@ export default function ProjectHype() {
                   <div style={{ fontSize: 24, marginBottom: 4 }}>{selected.flag}</div>
                   <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#00d4aa" }}>
                     {selected.rate.toFixed(8)} <span style={{ fontSize: 12, color: "#8080aa" }}>USD</span>
-                    <RateBadge live={selected.live} />
+                    <RateBadge live={selected.live} source={selected.source} />
+                    {selected.source === "analyst" && (
+                      <span title="Official rate — black market rate may differ significantly" style={{ marginLeft: 6, cursor: "help", fontSize: 13 }}>⚠️</span>
+                    )}
+                    {selected.source === "scraped" && (
+                      <span title={`Scraped from parallel-market tracker`} style={{ marginLeft: 6, cursor: "help", fontSize: 13 }}>🔍</span>
+                    )}
                   </div>
                   <div style={{ marginTop: 4, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1 }}>24H</span>
                     <ChangeChip value={selected.change_24h} />
                   </div>
                   <div style={{ fontSize: 12, color: "#8080aa", marginTop: 2 }}>{selected.story}</div>
+                  <div style={{ fontSize: 10, color: "#4a4a6a", marginTop: 6 }}>
+                    Rates: {selected.source === "oxr" ? "OXR" : selected.source === "exchangerate-api" ? "ExchangeRate-API" : selected.source === "scraped" ? "Scraped" : "EST"} · News: Tier 1+2+3 · Sentiment: Claude
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
@@ -953,7 +984,7 @@ export default function ProjectHype() {
                         <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
                         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
                           {c.rate.toFixed(8)}
-                          <RateBadge live={c.live} />
+                          <RateBadge live={c.live} source={c.source} />
                         </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ChangeChip value={c.change_24h} /></div>
                         <div style={{ fontSize: 12, color: "#8080aa" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
@@ -1209,7 +1240,7 @@ export default function ProjectHype() {
                             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
                               <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa" }}>{cur.code}</span>
                               <span style={{ fontSize: 12, color: "#8080aa" }}>{cur.name}</span>
-                              <RateBadge live={cur.live} />
+                              <RateBadge live={cur.live} source={cur.source} />
                             </div>
                             <div style={{ fontSize: 12, color: "#9999cc", marginBottom: 6 }}>
                               {p.amount.toLocaleString()} units · {cur.rate.toFixed(8)} USD
@@ -1867,6 +1898,64 @@ export default function ProjectHype() {
                   );
                 })()}
               </div>{/* end Top Signals */}
+
+              {/* ── Divider ── */}
+              <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
+
+              {/* ── Section: Institutional Signals ── */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12 }}>
+                  🚨 INSTITUTIONAL SIGNALS
+                </div>
+                {loadingSignals ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {[1, 2].map(i => (
+                      <div key={i} style={{ height: 10, width: "100%", borderRadius: 4, background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)", backgroundSize: "400px 100%", animation: "shimmer 1.5s infinite linear" }} />
+                    ))}
+                  </div>
+                ) : institutionalSignals.length === 0 ? (
+                  <div style={{ fontSize: 11, color: "#5c5c8a", padding: "4px 0" }}>No active institutional signals</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {institutionalSignals.map(sig => {
+                      const isPositive = sig.signal_type === "IMF_POSITIVE" || sig.signal_type === "SANCTIONS_RELIEF";
+                      const color = isPositive ? "#00d4aa" : "#ff4d4d";
+                      const bg = isPositive ? "#00d4aa11" : "#ff4d4d11";
+                      const border = isPositive ? "#00d4aa33" : "#ff4d4d33";
+                      const label = {
+                        IMF_POSITIVE: "🟢 IMF POSITIVE",
+                        IMF_NEGATIVE: "🔴 IMF NEGATIVE",
+                        SANCTIONS_RELIEF: "🟢 SANCTIONS RELIEF",
+                        SANCTIONS_ADDED: "🔴 SANCTIONS ADDED",
+                      }[sig.signal_type] || sig.signal_type;
+                      return (
+                        <div key={sig.id} style={{ padding: "8px 10px", borderRadius: 8, background: bg, border: `1px solid ${border}` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color, letterSpacing: 1 }}>{label}</span>
+                            {sig.published_at && (
+                              <span style={{ fontSize: 9, color: "#5c5c8a" }}>
+                                {new Date(sig.published_at).toLocaleDateString([], { month: "short", day: "numeric" })}
+                              </span>
+                            )}
+                          </div>
+                          {sig.url ? (
+                            <a href={sig.url} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 11, color: "#9999cc", textDecoration: "none", lineHeight: 1.4, display: "block" }}
+                              onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
+                              onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
+                              {sig.headline.length > 90 ? sig.headline.slice(0, 87) + "…" : sig.headline}
+                            </a>
+                          ) : (
+                            <div style={{ fontSize: 11, color: "#8080aa", lineHeight: 1.4 }}>
+                              {sig.headline.length > 90 ? sig.headline.slice(0, 87) + "…" : sig.headline}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>{/* end Institutional Signals */}
 
             </div>{/* end sidebar inner */}
           </div>

@@ -101,6 +101,21 @@ async def init_db() -> None:
                 created_at TEXT             NOT NULL
             )
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS signals (
+                id           BIGSERIAL PRIMARY KEY,
+                code         TEXT      NOT NULL,
+                signal_type  TEXT      NOT NULL,
+                headline     TEXT      NOT NULL,
+                url          TEXT      NOT NULL DEFAULT '',
+                published_at TEXT      NOT NULL DEFAULT '',
+                processed_at TEXT      NOT NULL
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_signals_code_ts "
+            "ON signals (code, processed_at DESC)"
+        )
 
     logger.info("DB pool initialised, all tables ready.")
 
@@ -420,4 +435,68 @@ async def get_subscribers_for_code(code: str) -> List[str]:
         return [r["email"] for r in rows]
     except Exception:
         logger.exception("Failed to fetch subscribers for %s", code)
+        return []
+
+
+# ── Signals ───────────────────────────────────────────────────────────────────
+
+async def insert_signal(
+    code: str,
+    signal_type: str,
+    headline: str,
+    url: str,
+    published_at: str,
+) -> None:
+    """Insert an institutional signal if a matching one doesn't already exist (dedup by headline)."""
+    now = datetime.now(timezone.utc).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            # Dedup: skip if same headline + code already stored
+            exists = await conn.fetchval(
+                "SELECT 1 FROM signals WHERE code = $1 AND headline = $2 LIMIT 1",
+                code.upper(), headline,
+            )
+            if not exists:
+                await conn.execute(
+                    "INSERT INTO signals (code, signal_type, headline, url, published_at, processed_at) "
+                    "VALUES ($1, $2, $3, $4, $5, $6)",
+                    code.upper(), signal_type, headline, url, published_at, now,
+                )
+            # Prune old signals
+            await conn.execute(
+                "DELETE FROM signals WHERE processed_at < $1", cutoff
+            )
+    except Exception:
+        logger.exception("Failed to insert signal for %s", code)
+
+
+async def get_signals(code: str, limit: int = 10) -> List[dict]:
+    """Return the latest `limit` signals for a currency, newest first."""
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT id, code, signal_type, headline, url, published_at, processed_at
+                   FROM signals
+                   WHERE code = $1
+                   ORDER BY processed_at DESC
+                   LIMIT $2""",
+                code.upper(), limit,
+            )
+        return [
+            {
+                "id": r["id"],
+                "code": r["code"],
+                "signal_type": r["signal_type"],
+                "headline": r["headline"],
+                "url": r["url"],
+                "published_at": r["published_at"],
+                "processed_at": r["processed_at"],
+            }
+            for r in rows
+        ]
+    except Exception:
+        logger.exception("Failed to fetch signals for %s", code)
         return []

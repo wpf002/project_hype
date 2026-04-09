@@ -1,16 +1,17 @@
 """
 News Service — returns headlines for speculative currencies.
 
-Primary source: GDELT Project DOC API (free, no API key, global coverage).
-Fallback: analyst-written mock headlines that are not generic placeholders —
-they frame each currency's primary market drivers as a geopolitical analyst
-would: sanctions, IMF programs, revaluation rumors, black market spreads,
-regime change risk, and commodity linkages.
+3-tier source architecture:
+  Tier 1 (weight 3×): Institutional RSS feeds — IMF, World Bank, US Treasury OFAC, BIS
+  Tier 2 (weight 2×): Quality financial news via GDELT domain-filtered feed
+  Tier 3 (weight 1×): Currency-specific regional/specialist RSS feeds
+  Fallback: analyst-written mock headlines (geopolitically informed, not generic)
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Any, Optional, Tuple
 
 import httpx
 
@@ -18,6 +19,72 @@ from data.currencies import CURRENCY_MAP
 
 logger = logging.getLogger(__name__)
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
+
+# ── Tier 1: Institutional RSS feeds ─────────────────────────────────────────
+TIER1_FEEDS = [
+    ("IMF", "https://www.imf.org/en/News/rss?language=eng"),
+    ("World Bank", "https://feeds.worldbank.org/worldbank/news"),
+    ("US Treasury OFAC", "https://home.treasury.gov/rss.xml"),
+    ("BIS", "https://www.bis.org/doclist/all_speeches.rss"),
+]
+
+# ── Tier 2: Quality-filtered GDELT domains ───────────────────────────────────
+TIER2_QUALITY_DOMAINS = (
+    "domain:reuters.com OR domain:apnews.com OR domain:ft.com OR "
+    "domain:wsj.com OR domain:economist.com OR domain:bloomberg.com OR "
+    "domain:aljazeera.com OR domain:bbc.co.uk OR domain:france24.com OR "
+    "domain:voanews.com OR domain:rferl.org OR domain:nikkei.com OR "
+    "domain:scmp.com"
+)
+
+# ── Tier 3: Currency-specific regional/specialist RSS feeds ──────────────────
+CURRENCY_RSS_MAP: Dict[str, List[Tuple[str, str]]] = {
+    "IQD": [
+        ("Iraq Business News", "https://www.iraq-businessnews.com/feed/"),
+        ("Rudaw", "https://www.rudaw.net/english/rss"),
+        ("Kurdistan 24", "https://Kurdistan24.net/en/rss"),
+    ],
+    "IRR": [
+        ("Radio Farda", "https://www.radiofarda.com/api/z-yqpiqe$qepmit"),
+        ("Iran International", "https://www.iranintl.com/en/rss"),
+    ],
+    "LBP": [
+        ("L'Orient Today", "https://today.lorientlejour.com/rss"),
+        ("Naharnet", "https://www.naharnet.com/stories/en/rss"),
+    ],
+    "ZWL": [
+        ("NewsDay Zimbabwe", "https://www.newsday.co.zw/feed/"),
+        ("The Herald Zimbabwe", "https://www.herald.co.zw/feed/"),
+    ],
+    "VES": [
+        ("Caracas Chronicles", "https://www.caracaschronicles.com/feed/"),
+        ("El Universal Venezuela", "https://www.eluniversal.com/rss"),
+    ],
+    "NGN": [
+        ("Nairametrics", "https://nairametrics.com/feed/"),
+        ("BusinessDay Nigeria", "https://businessday.ng/feed/"),
+    ],
+    "ARS": [
+        ("Buenos Aires Times", "https://www.batimes.com.ar/rss"),
+        ("Infobae", "https://www.infobae.com/feeds/rss/"),
+    ],
+    "TRY": [
+        ("Daily Sabah", "https://www.dailysabah.com/rss"),
+        ("Hurriyet Daily News", "https://www.hurriyetdailynews.com/rss"),
+    ],
+    "EGP": [
+        ("Egypt Independent", "https://egyptindependent.com/feed/"),
+        ("Ahram Online", "https://english.ahram.org.eg/rss"),
+    ],
+    "KPW": [
+        ("NK News", "https://www.nknews.org/feed/"),
+        ("38 North", "https://www.38north.org/feed/"),
+    ],
+}
+
+# In-memory cache for RSS feeds: {url: (articles_list, fetched_at)}
+_rss_cache: Dict[str, Tuple[List[dict], float]] = {}
+RSS_CACHE_TTL = 2 * 3600  # 2 hours in seconds
 
 # ---------------------------------------------------------------------------
 # Geopolitically-informed mock headlines — one analyst's read on each currency
@@ -343,16 +410,107 @@ _DEFAULT_HEADLINES = [
 ]
 
 
-async def _fetch_gdelt(code: str, query: str) -> List[Dict[str, Any]]:
+import time as _time
+
+
+def _parse_rss(xml_text: str, source_name: str) -> List[dict]:
+    """Parse RSS/Atom XML and return a normalised list of article dicts."""
+    articles = []
+    try:
+        root = ET.fromstring(xml_text)
+        # Handle both RSS (<item>) and Atom (<entry>) formats
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        items = root.findall(".//item") or root.findall(".//atom:entry", ns)
+        for item in items:
+            title = (item.findtext("title") or item.findtext("atom:title", namespaces=ns) or "").strip()
+            link = (item.findtext("link") or item.findtext("atom:link", namespaces=ns) or "").strip()
+            desc = (item.findtext("description") or item.findtext("atom:summary", namespaces=ns) or "").strip()
+            pub_date = (
+                item.findtext("pubDate")
+                or item.findtext("dc:date", namespaces={"dc": "http://purl.org/dc/elements/1.1/"})
+                or item.findtext("atom:published", namespaces=ns)
+                or ""
+            ).strip()
+            if not title or len(title) < 10:
+                continue
+            articles.append({
+                "title": title,
+                "source": source_name,
+                "url": link if isinstance(link, str) else "",
+                "published_at": pub_date,
+                "description": desc[:300] if desc else "",
+            })
+    except ET.ParseError as exc:
+        logger.debug("RSS parse error for %s: %s", source_name, exc)
+    return articles
+
+
+async def _fetch_rss(url: str, source_name: str) -> List[dict]:
     """
-    Fetch live headlines from GDELT Project DOC API.
-    Free, no API key required. Covers thousands of global sources.
-    Returns up to 8 English-language articles from the last 7 days.
+    Fetch and parse an RSS feed with 2-hour in-memory cache.
+    Returns list of article dicts.
     """
+    now = _time.time()
+    cached = _rss_cache.get(url)
+    if cached and (now - cached[1]) < RSS_CACHE_TTL:
+        return cached[0]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ProjectHype/1.2; +https://projecthype.io)"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+        articles = _parse_rss(resp.text, source_name)
+        _rss_cache[url] = (articles, now)
+        return articles
+    except Exception as exc:
+        logger.debug("RSS fetch failed for %s (%s): %s", source_name, url, exc)
+        # Return stale cache if available
+        if cached:
+            return cached[0]
+        return []
+
+
+def _article_matches(article: dict, currency: dict) -> bool:
+    """
+    Return True if an article is relevant to this currency.
+    Checks title + description for country name, currency code, or common aliases.
+    """
+    haystack = (
+        (article.get("title") or "") + " " + (article.get("description") or "")
+    ).lower()
+
+    code = currency["code"].lower()
+    name = currency["name"].lower()
+
+    # Split name into parts (e.g. "Iraqi Dinar" → ["iraqi", "dinar", "iraq"])
+    name_parts = name.split()
+    country_guess = name_parts[0] if name_parts else ""
+
+    checks = [code, name, country_guess]
+    return any(term in haystack for term in checks if len(term) >= 3)
+
+
+async def _fetch_tier1(currency: dict) -> List[dict]:
+    """Fetch and filter Tier 1 institutional RSS feeds for a currency."""
+    results = []
+    for source_name, url in TIER1_FEEDS:
+        articles = await _fetch_rss(url, source_name)
+        for a in articles:
+            if _article_matches(a, currency):
+                results.append({**a, "tier": 1})
+    return results
+
+
+async def _fetch_tier2_gdelt(code: str, query: str) -> List[dict]:
+    """Fetch Tier 2 quality-filtered GDELT articles."""
+    filtered_query = f"({query}) ({TIER2_QUALITY_DOMAINS})"
     params = {
-        "query": query,
+        "query": filtered_query,
         "mode": "artlist",
-        "maxrecords": 10,
+        "maxrecords": 25,
         "timespan": "7d",
         "sourcelang": "english",
         "format": "json",
@@ -369,7 +527,6 @@ async def _fetch_gdelt(code: str, query: str) -> List[Dict[str, Any]]:
             title = (a.get("title") or "").strip()
             if not title or len(title) < 15:
                 continue
-
             seen = a.get("seendate", "")
             pub_at = ""
             if seen:
@@ -378,16 +535,15 @@ async def _fetch_gdelt(code: str, query: str) -> List[Dict[str, Any]]:
                     pub_at = dt.isoformat()
                 except (ValueError, TypeError):
                     pass
-
             results.append({
                 "title": title,
                 "source": a.get("domain", "GDELT"),
                 "url": a.get("url", ""),
                 "published_at": pub_at,
                 "description": "",
+                "tier": 2,
             })
-
-        return results[:8]
+        return results
 
     except httpx.HTTPStatusError as exc:
         logger.warning("GDELT HTTP %s for %s", exc.response.status_code, code)
@@ -395,25 +551,51 @@ async def _fetch_gdelt(code: str, query: str) -> List[Dict[str, Any]]:
         logger.warning("GDELT request failed for %s: %s", code, exc)
     except Exception as exc:
         logger.warning("GDELT unexpected error for %s: %s", code, exc)
-
     return []
+
+
+async def _fetch_tier3(code: str) -> List[dict]:
+    """Fetch Tier 3 specialist regional RSS feeds for a currency."""
+    feeds = CURRENCY_RSS_MAP.get(code, [])
+    results = []
+    for source_name, url in feeds:
+        articles = await _fetch_rss(url, source_name)
+        for a in articles:
+            results.append({**a, "tier": 3})
+    return results[:10]  # cap so they don't dominate
 
 
 async def get_news(code: str) -> List[Dict[str, Any]]:
     """
-    Returns up to 8 news headlines for a currency code.
-    Primary: GDELT live feed (free, no key, global).
-    Fallback: analyst-written mock headlines.
+    Returns up to 10 news headlines for a currency code using the 3-tier source system.
+    Tier 1 articles are prioritised, then Tier 2, then Tier 3.
+    Falls back to analyst-written mock headlines if all tiers return nothing.
     """
     code = code.upper()
     currency = CURRENCY_MAP.get(code)
-
     if not currency:
         return []
 
-    live_results = await _fetch_gdelt(code, currency["news_query"])
-    if live_results:
-        return live_results
+    # Fetch all tiers concurrently
+    import asyncio
+    tier1, tier2, tier3 = await asyncio.gather(
+        _fetch_tier1(currency),
+        _fetch_tier2_gdelt(code, currency["news_query"]),
+        _fetch_tier3(code),
+    )
+
+    # Merge: Tier 1 first, then Tier 2, then Tier 3; deduplicate by title
+    seen_titles: set = set()
+    merged: List[dict] = []
+    for article in tier1 + tier2 + tier3:
+        title_key = article.get("title", "")[:80].lower()
+        if title_key in seen_titles:
+            continue
+        seen_titles.add(title_key)
+        merged.append(article)
+
+    if merged:
+        return merged[:10]
 
     # Fallback to analyst-written mock headlines
     headlines = MOCK_HEADLINES.get(code, _DEFAULT_HEADLINES)
@@ -425,6 +607,7 @@ async def get_news(code: str) -> List[Dict[str, Any]]:
             "published_at": "",
             "description": "",
             "mock": True,
+            "tier": 0,
         }
         for h in headlines[:5]
     ]
