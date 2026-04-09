@@ -29,52 +29,52 @@ function MockDashboardCard() {
   return (
     <div style={{
       background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-      border: "1px solid #1e1e3f", borderRadius: 16, padding: "20px 24px",
-      maxWidth: 420, width: "100%", fontFamily: "'IBM Plex Sans', sans-serif",
+      border: "1px solid #1e1e3f", borderRadius: 20, padding: "32px 36px",
+      width: "100%", boxSizing: "border-box", fontFamily: "'IBM Plex Sans', sans-serif",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div style={{ fontSize: 24 }}>🇮🇶</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <div style={{ fontSize: 32 }}>🇮🇶</div>
         <div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, color: "#00d4aa" }}>IQD</div>
-          <div style={{ fontSize: 11, color: "#8080aa" }}>Iraqi Dinar</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, color: "#00d4aa" }}>IQD</div>
+          <div style={{ fontSize: 13, color: "#8080aa" }}>Iraqi Dinar</div>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, padding: "2px 6px",
-          borderRadius: 4, background: "#003322", color: "#00d4aa", border: "1px solid #00d4aa33" }}>LIVE</div>
+        <div style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, padding: "3px 8px",
+          borderRadius: 5, background: "#003322", color: "#00d4aa", border: "1px solid #00d4aa33" }}>LIVE</div>
       </div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: "#e8e8ff", marginBottom: 16 }}>
-        0.00077341 <span style={{ color: "#8080aa", fontSize: 10 }}>USD</span>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, color: "#e8e8ff", marginBottom: 22 }}>
+        0.00077341 <span style={{ color: "#8080aa", fontSize: 12 }}>USD</span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1, textTransform: "uppercase" }}>Hype Score</span>
-            <span style={{ fontSize: 10, color: "#ffa500", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>72</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#8080aa", letterSpacing: 1, textTransform: "uppercase" }}>Hype Score</span>
+            <span style={{ fontSize: 12, color: "#ffa500", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>72</span>
           </div>
-          <div style={{ height: 5, background: "#1a1a2e", borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ width: "72%", height: "100%", background: "#ffa500", borderRadius: 3, boxShadow: "0 0 8px #ffa500" }} />
+          <div style={{ height: 7, background: "#1a1a2e", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: "72%", height: "100%", background: "#ffa500", borderRadius: 4, boxShadow: "0 0 10px #ffa500" }} />
           </div>
         </div>
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1, textTransform: "uppercase" }}>Catalyst Score</span>
-            <span style={{ fontSize: 10, color: "#7a6acd", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>48</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#8080aa", letterSpacing: 1, textTransform: "uppercase" }}>Catalyst Score</span>
+            <span style={{ fontSize: 12, color: "#7a6acd", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>48</span>
           </div>
-          <div style={{ height: 5, background: "#1a1a2e", borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ width: "48%", height: "100%", background: "linear-gradient(90deg, #9b59b6, #7a6acd)", borderRadius: 3, boxShadow: "0 0 8px #7a6acd" }} />
+          <div style={{ height: 7, background: "#1a1a2e", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: "48%", height: "100%", background: "linear-gradient(90deg, #9b59b6, #7a6acd)", borderRadius: 4, boxShadow: "0 0 10px #7a6acd" }} />
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid #1e1e3f" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 14, borderTop: "1px solid #1e1e3f" }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#8080aa", marginBottom: 2 }}>Hold</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff" }}>20M</div>
+            <div style={{ fontSize: 11, color: "#8080aa", marginBottom: 4 }}>Hold</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, color: "#e8e8ff" }}>20M</div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#8080aa", marginBottom: 2 }}>Value</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#00d4aa" }}>$15.5K</div>
+            <div style={{ fontSize: 11, color: "#8080aa", marginBottom: 4 }}>Value</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, color: "#00d4aa" }}>$15.5K</div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#8080aa", marginBottom: 2 }}>@ 10x</div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#ffa500" }}>$155K</div>
+            <div style={{ fontSize: 11, color: "#8080aa", marginBottom: 4 }}>@ 10x</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, color: "#ffa500" }}>$155K</div>
           </div>
         </div>
       </div>
@@ -92,8 +92,9 @@ function ShowcaseBar({ score, color }) {
 }
 
 // ── Status indicator ─────────────────────────────────────────────────────────
-function StatusIndicator() {
-  const [status, setStatus] = useState(null);
+function StatusIndicator({ compact = false }) {
+  // Start with "ok" so the badge is visible immediately; update when fetch completes
+  const [status, setStatus] = useState({ db_status: "ok" });
 
   useEffect(() => {
     fetch(`${API}/status`)
@@ -102,9 +103,29 @@ function StatusIndicator() {
       .catch(() => setStatus({ db_status: "error" }));
   }, []);
 
-  if (!status) return null;
-
   const ok = status.db_status === "ok";
+
+  if (compact) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "4px 10px", borderRadius: 20,
+        background: ok ? "#00d4aa0f" : "#ff4d4d0f",
+        border: `1px solid ${ok ? "#00d4aa33" : "#ff4d4d33"}`,
+      }}>
+        <div style={{
+          width: 6, height: 6, borderRadius: "50%",
+          background: ok ? "#00d4aa" : "#ff4d4d",
+          boxShadow: ok ? "0 0 5px #00d4aa" : "0 0 5px #ff4d4d",
+          animation: ok ? "pulse 2s infinite" : "none",
+        }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: ok ? "#00d4aa" : "#ff4d4d", whiteSpace: "nowrap" }}>
+          {ok ? "Live data" : "Data may be delayed"}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{
@@ -113,7 +134,7 @@ function StatusIndicator() {
         boxShadow: ok ? "0 0 6px #00d4aa" : "0 0 6px #ff4d4d",
       }} />
       <span style={{ fontSize: 11, color: ok ? "#00d4aa" : "#ff4d4d" }}>
-        {ok ? "All systems operational" : "Degraded"}
+        {ok ? "All systems operational" : "Scores may be up to 12 hrs old"}
       </span>
     </div>
   );
@@ -204,16 +225,19 @@ export default function Landing() {
             PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
           </div>
         </div>
-        <a
-          href="/app"
-          style={{
-            padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700,
-            background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
-            color: "#070714", textDecoration: "none", letterSpacing: 0.5,
-          }}
-        >
-          Open Dashboard
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {!isMobile && <StatusIndicator compact />}
+          <a
+            href="/app"
+            style={{
+              padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+              background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
+              color: "#070714", textDecoration: "none", letterSpacing: 0.5,
+            }}
+          >
+            Open Dashboard
+          </a>
+        </div>
       </nav>
 
       {/* ── HERO ── */}
@@ -272,8 +296,20 @@ export default function Landing() {
             </div>
           </div>
           {/* Right: mock dashboard */}
-          <div style={{ flexShrink: 0 }}>
-            <MockDashboardCard />
+          <div style={{
+            flex: isMobile ? "none" : "0 0 420px",
+            width: isMobile ? "100%" : 420,
+            alignSelf: "center",
+          }}>
+            {/* glow halo behind the card */}
+            <div style={{ position: "relative" }}>
+              <div style={{
+                position: "absolute", inset: -24, borderRadius: 32,
+                background: "radial-gradient(ellipse at center, #00d4aa0d 0%, transparent 70%)",
+                pointerEvents: "none",
+              }} />
+              <MockDashboardCard />
+            </div>
           </div>
         </div>
       </section>
@@ -407,36 +443,37 @@ export default function Landing() {
 
           <FadeIn delay={150}>
             <div style={{
-              background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 16,
-              padding: 24, flexShrink: 0, width: isMobile ? "100%" : 380, fontFamily: "'Space Mono', monospace",
+              background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 20,
+              padding: 28, flexShrink: 0, width: isMobile ? "100%" : 420,
+              maxWidth: "100%", fontFamily: "'Space Mono', monospace",
             }}>
               {/* Mock email preview */}
-              <div style={{ marginBottom: 12, padding: "8px 12px", background: "#070714",
-                borderRadius: 8, border: "1px solid #1e1e3f",
-                display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>⚡</div>
+              <div style={{ marginBottom: 14, padding: "10px 14px", background: "#070714",
+                borderRadius: 10, border: "1px solid #1e1e3f",
+                display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>⚡</div>
                 <div>
-                  <div style={{ fontSize: 10, color: "#8080aa" }}>From: alerts@projecthype.io</div>
-                  <div style={{ fontSize: 11, color: "#e8e8ff", fontWeight: 700 }}>🔔 IQD Catalyst Score spiked +21 pts</div>
+                  <div style={{ fontSize: 11, color: "#8080aa" }}>From: alerts@projecthype.io</div>
+                  <div style={{ fontSize: 12, color: "#e8e8ff", fontWeight: 700 }}>🔔 IQD Catalyst Score spiked +21 pts</div>
                 </div>
               </div>
-              <div style={{ padding: "14px 16px", background: "#070714", borderRadius: 10, border: "1px solid #1e3a5f" }}>
-                <div style={{ fontSize: 11, color: "#5c5c8a", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>
+              <div style={{ padding: "18px 20px", background: "#070714", borderRadius: 12, border: "1px solid #1e3a5f" }}>
+                <div style={{ fontSize: 11, color: "#5c5c8a", marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>
                   Catalyst Alert · Project Hype
                 </div>
-                <div style={{ fontSize: 13, color: "#00b4ff", fontWeight: 700, marginBottom: 6 }}>
+                <div style={{ fontSize: 15, color: "#00b4ff", fontWeight: 700, marginBottom: 8 }}>
                   🇮🇶 IQD  <span style={{ color: "#00d4aa" }}>27 → 48</span>
                 </div>
-                <div style={{ fontSize: 11, color: "#7070aa", lineHeight: 1.6, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: "#7070aa", lineHeight: 1.7, marginBottom: 16 }}>
                   Catalyst Score jumped <span style={{ color: "#00d4aa" }}>+21 points</span> in the last scoring cycle.
                   Sentiment turned positive (VADER: +0.34) on GDELT headlines covering CBI reserve disclosures.
                   7-day rate momentum: <span style={{ color: "#ffa500" }}>+0.8%</span>.
                 </div>
                 <a href="/app" style={{
-                  display: "block", textAlign: "center", padding: "9px", borderRadius: 8,
+                  display: "block", textAlign: "center", padding: "11px", borderRadius: 9,
                   background: "linear-gradient(135deg, #0d1a2e, #0d2040)",
-                  border: "1px solid #00b4ff33", color: "#00b4ff", fontSize: 12,
+                  border: "1px solid #00b4ff33", color: "#00b4ff", fontSize: 13,
                   textDecoration: "none", fontWeight: 700,
                 }}>
                   Open Dashboard →
@@ -448,39 +485,56 @@ export default function Landing() {
       </section>
 
       {/* ── CTA BANNER ── */}
-      <section style={{ padding: isMobile ? "60px 20px" : "80px 48px", background: "#0a0a18" }}>
-        <FadeIn>
+      <FadeIn>
+        <section style={{
+          background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
+          borderTop: "1px solid #1e1e3f", borderBottom: "1px solid #1e1e3f",
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 30% 50%, #00d4aa08 0%, transparent 60%)", pointerEvents: "none" }} />
           <div style={{
-            maxWidth: 700, margin: "0 auto", textAlign: "center",
-            padding: isMobile ? "40px 24px" : "56px 48px",
-            background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
-            border: "1px solid #1e1e3f", borderRadius: 24,
-            position: "relative", overflow: "hidden",
+            maxWidth: 1200, margin: "0 auto",
+            padding: isMobile ? "60px 24px" : "80px 48px",
+            display: "flex", flexDirection: isMobile ? "column" : "row",
+            alignItems: "center", gap: isMobile ? 32 : 80,
+            position: "relative",
           }}>
-            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, #00d4aa06 0%, transparent 70%)", pointerEvents: "none" }} />
-            <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: isMobile ? 28 : 36,
-              margin: "0 0 16px 0", color: "#e8e8ff", position: "relative" }}>
-              The thesis is yours.<br />We track the signal.
-            </h2>
-            <p style={{ fontSize: 15, color: "#8080aa", margin: "0 0 32px 0", lineHeight: 1.7, position: "relative" }}>
-              Free. No account. No paywall. 40 currencies, live rates, NLP sentiment, ROI modeling,
-              portfolio tracking, and catalyst alerts — in one dashboard.
-            </p>
-            <a
-              href="/app"
-              style={{
-                display: "inline-block", padding: "15px 40px", borderRadius: 12,
-                fontSize: 15, fontWeight: 700, letterSpacing: 0.5, textDecoration: "none",
-                background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
-                color: "#070714", animation: "glowPulse 3s ease-in-out infinite",
-                boxShadow: "0 0 24px #00d4aa44", position: "relative",
-              }}
-            >
-              Open Dashboard →
-            </a>
+            {/* Left: headline */}
+            <div style={{ flex: 1 }}>
+              <h2 style={{
+                fontFamily: "'Syne', sans-serif", fontWeight: 800,
+                fontSize: isMobile ? 32 : 48, lineHeight: 1.1,
+                margin: "0 0 20px 0", color: "#e8e8ff",
+              }}>
+                The thesis is yours.<br />
+                <span style={{ background: "linear-gradient(90deg, #00d4aa, #00b4ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  We track the signal.
+                </span>
+              </h2>
+              <p style={{ fontSize: 16, color: "#8080aa", margin: 0, lineHeight: 1.75, maxWidth: 520 }}>
+                Free. No account. No paywall. 40 currencies, live rates, NLP sentiment,
+                ROI modeling, portfolio tracking, and catalyst alerts — in one dashboard.
+              </p>
+            </div>
+            {/* Right: CTA */}
+            <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: isMobile ? "flex-start" : "center", gap: 14 }}>
+              <a
+                href="/app"
+                style={{
+                  display: "inline-block", padding: "16px 48px", borderRadius: 12,
+                  fontSize: 16, fontWeight: 700, letterSpacing: 0.5, textDecoration: "none",
+                  background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
+                  color: "#070714", animation: "glowPulse 3s ease-in-out infinite",
+                  boxShadow: "0 0 28px #00d4aa44", whiteSpace: "nowrap",
+                }}
+              >
+                Open Dashboard →
+              </a>
+              <span style={{ fontSize: 12, color: "#5c5c8a" }}>40 currencies. Always free.</span>
+            </div>
           </div>
-        </FadeIn>
-      </section>
+        </section>
+      </FadeIn>
 
       {/* ── FOOTER ── */}
       <footer style={{
@@ -517,22 +571,20 @@ export default function Landing() {
                 ["Dashboard", "/app"],
                 ["GitHub", "https://github.com/wpf002/project_hype"],
               ].map(([label, href]) => (
-                <a key={label} href={href} style={{
-                  fontSize: 13, color: "#8080aa", textDecoration: "none",
-                  transition: "color 0.15s",
-                }}
+                <a key={label} href={href} target={href.startsWith("http") ? "_blank" : undefined}
+                  rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+                  style={{ fontSize: 13, color: "#8080aa", textDecoration: "none", transition: "color 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
                   onMouseLeave={e => e.currentTarget.style.color = "#8080aa"}
                 >{label}</a>
               ))}
             </div>
 
-            {/* Right: disclaimer + status */}
+            {/* Right: disclaimer */}
             <div style={{ textAlign: isMobile ? "left" : "right" }}>
-              <div style={{ fontSize: 11, color: "#5c5c8a", marginBottom: 8, fontStyle: "italic" }}>
+              <div style={{ fontSize: 11, color: "#5c5c8a", fontStyle: "italic" }}>
                 Not financial advice.<br />Built for speculators, by a speculator.
               </div>
-              <StatusIndicator />
             </div>
           </div>
 

@@ -40,7 +40,9 @@ async def init_db() -> None:
     if dsn.startswith("postgres://"):
         dsn = dsn.replace("postgres://", "postgresql://", 1)
 
-    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=10)
+    # ssl="prefer" tries SSL first but falls back gracefully — works for
+    # both Railway (SSL required) and local Docker (no SSL configured).
+    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=10, ssl="prefer")
 
     async with _pool.acquire() as conn:
         await conn.execute("""
