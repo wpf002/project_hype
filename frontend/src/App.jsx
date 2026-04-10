@@ -190,7 +190,6 @@ export default function ProjectHype() {
   const [targetRate, setTargetRate] = useState("");
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState("calculator");
-  const [search, setSearch] = useState("");
   const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
@@ -415,10 +414,6 @@ export default function ProjectHype() {
     return `$${n.toFixed(4)}`;
   };
 
-  const filtered = currencies.filter(c =>
-    c.code.toLowerCase().includes(search.toLowerCase()) ||
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   const topHype = [...currencies].sort((a, b) => (b.hype_score ?? b.hype) - (a.hype_score ?? a.hype)).slice(0, 6);
   const topCatalyst = [...currencies].filter(c => c.catalyst_score != null).sort((a, b) => b.catalyst_score - a.catalyst_score);
@@ -517,7 +512,6 @@ export default function ProjectHype() {
         @keyframes gradpulse { 0%,100%{opacity:.4} 50%{opacity:.8} }
         ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#0d0d1a} ::-webkit-scrollbar-thumb{background:#1e1e3f;border-radius:2px}
         input:focus{outline:none!important} select:focus{outline:none!important}
-        #currency-search::placeholder{color:#e8e8ff;opacity:1}
         .tab-bar::-webkit-scrollbar{display:none}
       `}</style>
 
@@ -666,61 +660,25 @@ export default function ProjectHype() {
                   <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                     Select Currency
                   </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      id="currency-search"
-                      placeholder={selected ? `${selected.flag} ${selected.code} — ${selected.name}` : "Search currencies..."}
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      onBlur={() => setTimeout(() => setSearch(""), 200)}
-                      style={{
-                        width: "100%", padding: "10px 16px", boxSizing: "border-box",
-                        background: "#070714", border: "1px solid #1e1e3f",
-                        borderRadius: search ? "8px 8px 0 0" : "8px",
-                        color: "#e8e8ff", fontSize: 13, outline: "none",
-                      }}
-                    />
-                    {search && (
-                      <div
-                        ref={el => { if (el) el.onmousedown = e => e.preventDefault(); }}
-                        style={{
-                          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
-                          background: "#0d0d1a", border: "1px solid #1e1e3f", borderTop: "none",
-                          borderRadius: "0 0 8px 8px", maxHeight: 220, overflowY: "auto",
-                          boxShadow: "0 8px 24px #00000088",
-                        }}>
-                        {filtered.length === 0 ? (
-                          <div style={{ padding: "10px 16px", fontSize: 12, color: "#5c5c8a" }}>No matches</div>
-                        ) : filtered.map(c => (
-                          <div
-                            key={c.code}
-                            onClick={() => {
-                              setSelected(c);
-                              setSearch("");
-                              setActiveTab("calculator");
-                              trackEvent("currency_selected", { code: c.code, name: c.name });
-                            }}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 10,
-                              padding: "10px 16px", cursor: "pointer",
-                              background: c.code === selected.code ? "#1e1e3f" : "transparent",
-                              borderBottom: "1px solid #0f0f22",
-                              transition: "background 0.1s",
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "#1a1a2e"}
-                            onMouseLeave={e => e.currentTarget.style.background = c.code === selected.code ? "#1e1e3f" : "transparent"}
-                          >
-                            <span style={{ fontSize: 18 }}>{c.flag}</span>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
-                              <div style={{ fontSize: 10, color: "#8080aa" }}>{c.name}</div>
-                            </div>
-                            {c.code === selected.code && <span style={{ marginLeft: "auto", fontSize: 10, color: "#5a5aaa" }}>✓</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <select
+                    value={selected?.code ?? ""}
+                    onChange={e => {
+                      const c = currencies.find(c => c.code === e.target.value);
+                      if (c) { setSelected(c); trackEvent("currency_selected", { code: c.code, name: c.name }); }
+                    }}
+                    style={{
+                      width: "100%", padding: "10px 16px", boxSizing: "border-box",
+                      background: "#070714", border: "1px solid #1e1e3f", borderRadius: 8,
+                      color: "#e8e8ff", fontSize: 13, fontWeight: 600,
+                      cursor: "pointer", appearance: "none", outline: "none",
+                    }}
+                  >
+                    {currencies.map(c => (
+                      <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
+                        {c.flag}  {c.code} — {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Selected currency info */}
