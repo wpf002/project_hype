@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // In docker-compose / nginx proxy: VITE_API_URL="" (or unset) → relative /api/* URLs
 // In Railway production: VITE_API_URL=https://backend-production-a64b.up.railway.app
@@ -191,6 +191,7 @@ export default function ProjectHype() {
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState("calculator");
   const [search, setSearch] = useState("");
+  const searchDropdownMouseDown = useRef(false);
   const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
@@ -670,7 +671,7 @@ export default function ProjectHype() {
                       placeholder="Search currencies..."
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      onBlur={() => setTimeout(() => setSearch(""), 150)}
+                      onBlur={() => { if (!searchDropdownMouseDown.current) setSearch(""); }}
                       style={{
                         width: "100%", padding: "10px 16px", boxSizing: "border-box",
                         background: "#070714", border: "1px solid #1e1e3f",
@@ -685,14 +686,15 @@ export default function ProjectHype() {
                         background: "#0d0d1a", border: "1px solid #1e1e3f", borderTop: "none",
                         borderRadius: "0 0 8px 8px", maxHeight: 220, overflowY: "auto",
                         boxShadow: "0 8px 24px #00000088",
-                      }}>
+                      }}
+                      onMouseDown={() => { searchDropdownMouseDown.current = true; }}
+                      onMouseUp={() => { searchDropdownMouseDown.current = false; }}>
                         {filtered.length === 0 ? (
                           <div style={{ padding: "10px 16px", fontSize: 12, color: "#5c5c8a" }}>No matches</div>
                         ) : filtered.map(c => (
                           <div
                             key={c.code}
-                            onMouseDown={e => {
-                              e.preventDefault(); // prevent input blur from closing before click
+                            onMouseDown={() => {
                               setSelected(c);
                               setActiveTab("calculator");
                               setSearch("");
