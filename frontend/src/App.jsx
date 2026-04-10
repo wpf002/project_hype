@@ -517,6 +517,7 @@ export default function ProjectHype() {
         @keyframes gradpulse { 0%,100%{opacity:.4} 50%{opacity:.8} }
         ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#0d0d1a} ::-webkit-scrollbar-thumb{background:#1e1e3f;border-radius:2px}
         input:focus{outline:none!important} select:focus{outline:none!important}
+        #currency-search::placeholder{color:#e8e8ff;opacity:1}
         .tab-bar::-webkit-scrollbar{display:none}
       `}</style>
 
@@ -667,6 +668,7 @@ export default function ProjectHype() {
                   </label>
                   <div style={{ position: "relative" }}>
                     <input
+                      id="currency-search"
                       placeholder={selected ? `${selected.flag} ${selected.code} — ${selected.name}` : "Search currencies..."}
                       value={search}
                       onChange={e => setSearch(e.target.value)}
