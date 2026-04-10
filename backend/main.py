@@ -7,9 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from routers import rates, roi, news, history, portfolio, hype, alerts, signals
-from db.db import init_db
+from db.db import init_db, write_snapshots
 from services.hype_service import calculate_all_hype_scores
 from services.signal_service import poll_signals
+from services.fx_service import get_all_rates
 
 load_dotenv()
 
@@ -29,11 +30,23 @@ async def _signal_polling_loop() -> None:
         await asyncio.sleep(14400)  # 4 hours
 
 
+async def _rate_snapshot_loop() -> None:
+    """Write a rate snapshot every 5 minutes so history accumulates quickly."""
+    while True:
+        await asyncio.sleep(300)  # 5 minutes
+        try:
+            result = await get_all_rates()
+            await write_snapshots({code: (r[0], r[1]) for code, r in result.items()})
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     asyncio.create_task(_hype_engine_loop())
     asyncio.create_task(_signal_polling_loop())
+    asyncio.create_task(_rate_snapshot_loop())
     yield
 
 

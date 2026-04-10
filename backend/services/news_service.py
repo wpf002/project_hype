@@ -576,18 +576,18 @@ async def get_news(code: str) -> List[Dict[str, Any]]:
     if not currency:
         return []
 
-    # Fetch all tiers concurrently
+    # Fetch Tier 1 (institutional RSS) and Tier 3 (specialist RSS) concurrently
+    # GDELT (Tier 2) removed — rate-limited to the point of being unusable
     import asyncio
-    tier1, tier2, tier3 = await asyncio.gather(
+    tier1, tier3 = await asyncio.gather(
         _fetch_tier1(currency),
-        _fetch_tier2_gdelt(code, currency["news_query"]),
         _fetch_tier3(code),
     )
 
-    # Merge: Tier 1 first, then Tier 2, then Tier 3; deduplicate by title
+    # Merge: Tier 1 first, then Tier 3; deduplicate by title
     seen_titles: set = set()
     merged: List[dict] = []
-    for article in tier1 + tier2 + tier3:
+    for article in tier1 + tier3:
         title_key = article.get("title", "")[:80].lower()
         if title_key in seen_titles:
             continue

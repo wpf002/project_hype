@@ -80,7 +80,7 @@ async def calculate_roi(req: ROIRequest):
             detail=f"Currency '{code}' is not tracked.",
         )
 
-    current_rate, is_live = await get_rate(code)
+    current_rate, is_live, _source = await get_rate(code)
 
     if current_rate <= 0:
         raise HTTPException(

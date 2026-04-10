@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // In development: VITE_API_URL=http://localhost:8000 (or unset → fallback)
 // In docker-compose: VITE_API_URL="" → relative /api/* URLs, proxied by nginx
@@ -191,6 +191,7 @@ export default function ProjectHype() {
   const [marketSearch, setMarketSearch] = useState("");
   const [marketSort, setMarketSort] = useState("hype"); // "hype" | "catalyst"
   const [bottomView, setBottomView] = useState("hype"); // "hype" | "catalyst"
+  const [historyWindow, setHistoryWindow] = useState("6H");
   const [openAccordion, setOpenAccordion] = useState(null);
 
   // ── Portfolio ─────────────────────────────────────────────────────────────
@@ -218,13 +219,10 @@ export default function ProjectHype() {
 
   // ── Error / loading states ────────────────────────────────────────────────
   const [ratesError, setRatesError] = useState(false);
-  const [roiError, setRoiError] = useState("");
 
   // ── Shared-view banner (loaded from ?portfolio= URL param) ────────────────
   const [isSharedView, setIsSharedView] = useState(false);
 
-  // Ref to cancel in-flight ROI requests when inputs change quickly
-  const roiAbortRef = useRef(null);
 
   // ── Responsive breakpoints ────────────────────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
@@ -339,15 +337,17 @@ export default function ProjectHype() {
       .catch(() => setLoadingNews(false));
   }, [selected]);
 
-  // ── Fetch rate history whenever the selected currency changes ─────────────
+  // ── Fetch rate history whenever selected currency or time window changes ────
+  const HISTORY_LIMITS = { "1H": 12, "6H": 72, "24H": 288, "7D": 672 };
   useEffect(() => {
     if (!selected) return;
     setRateHistory([]);
-    fetch(`${API}/history/${selected.code}?limit=24`)
+    const limit = HISTORY_LIMITS[historyWindow] ?? 72;
+    fetch(`${API}/history/${selected.code}?limit=${limit}`)
       .then(r => r.json())
       .then(data => setRateHistory(data))
       .catch(() => {});
-  }, [selected]);
+  }, [selected, historyWindow]);
 
   // ── Fetch institutional signals whenever the selected currency changes ─────
   useEffect(() => {
@@ -360,55 +360,25 @@ export default function ProjectHype() {
       .catch(() => setLoadingSignals(false));
   }, [selected]);
 
-  async function calculate() {
+  function calculate() {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) { setResults(null); return; }
 
-    // Always show current value immediately using the local rate
     const currentVal = amt * selected.rate;
 
-    // Without a valid target rate, show only current value
     if (!targetRate || parseFloat(targetRate) <= 0) {
-      setResults({ currentVal, targetVal: null, gain: null, roi: null });
+      setResults({ currentVal, targetVal: null, gain: null, roi: null, multiplier: null });
       return;
     }
 
-    // Cancel any previous in-flight request
-    if (roiAbortRef.current) roiAbortRef.current.abort();
-    const controller = new AbortController();
-    roiAbortRef.current = controller;
+    const tgt = parseFloat(targetRate);
+    const targetVal = amt * tgt;
+    const gain = targetVal - currentVal;
+    const roi = ((gain / currentVal) * 100).toFixed(2);
+    const multiplier = tgt / selected.rate;
 
-    try {
-      const res = await fetch(`${API}/roi`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: selected.code,
-          amount: amt,
-          target_rate: parseFloat(targetRate),
-        }),
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`ROI API ${res.status}`);
-      const data = await res.json();
-      setRoiError("");
-      setResults({
-        currentVal: data.current_value,
-        targetVal: data.target_value,
-        gain: data.gain,
-        roi: String(data.roi_percent.toFixed(2)),
-        multiplier: data.multiplier,
-      });
-      trackEvent("roi_calculated", { code: selected.code, has_target: true });
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      setRoiError("Could not reach the ROI API — showing client-side estimate.");
-      const targetVal = amt * parseFloat(targetRate);
-      const gain = targetVal - currentVal;
-      const roi = ((gain / currentVal) * 100).toFixed(2);
-      setResults({ currentVal, targetVal, gain, roi });
-      trackEvent("roi_calculated", { code: selected.code, has_target: true });
-    }
+    setResults({ currentVal, targetVal, gain, roi: String(roi), multiplier });
+    trackEvent("roi_calculated", { code: selected.code, has_target: true });
   }
 
   const fmt = (n) => {
@@ -685,36 +655,75 @@ export default function ProjectHype() {
                       placeholder="Search currencies..."
                       value={search}
                       onChange={e => setSearch(e.target.value)}
+                      onBlur={() => setTimeout(() => setSearch(""), 150)}
                       style={{
                         width: "100%", padding: "10px 16px", boxSizing: "border-box",
                         background: "#070714", border: "1px solid #1e1e3f",
-                        borderRadius: "8px 8px 0 0", color: "#e8e8ff", fontSize: 13,
-                        borderBottom: search ? "1px solid #1e1e3f" : "none"
+                        borderRadius: search ? "8px 8px 0 0" : "8px",
+                        color: "#e8e8ff", fontSize: 13, outline: "none",
                       }}
                     />
-                    <select
-                      value={selected.code}
-                      onChange={e => {
-                        const c = currencies.find(c => c.code === e.target.value);
-                        setSelected(c);
-                        if (c) trackEvent("currency_selected", { code: c.code, name: c.name });
-                      }}
-                      style={{
-                        width: "100%", padding: "12px 16px", boxSizing: "border-box",
-                        background: "#070714", border: "1px solid #1e1e3f",
-                        borderTop: search ? "none" : "1px solid #1e1e3f",
-                        borderRadius: search ? "0 0 8px 8px" : "8px",
-                        color: "#e8e8ff", fontSize: 14, fontWeight: 600, cursor: "pointer",
-                        appearance: "none",
-                      }}
-                      size={search ? Math.min(filtered.length, 5) : 1}
-                    >
-                      {(search ? filtered : currencies).map(c => (
-                        <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
-                          {c.flag} {c.code} — {c.name}
-                        </option>
-                      ))}
-                    </select>
+                    {search ? (
+                      /* Custom dropdown — always fires on click regardless of current selection */
+                      <div style={{
+                        position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
+                        background: "#0d0d1a", border: "1px solid #1e1e3f", borderTop: "none",
+                        borderRadius: "0 0 8px 8px", maxHeight: 220, overflowY: "auto",
+                        boxShadow: "0 8px 24px #00000088",
+                      }}>
+                        {filtered.length === 0 ? (
+                          <div style={{ padding: "10px 16px", fontSize: 12, color: "#5c5c8a" }}>No matches</div>
+                        ) : filtered.map(c => (
+                          <div
+                            key={c.code}
+                            onMouseDown={e => {
+                              e.preventDefault(); // prevent input blur from closing before click
+                              setSelected(c);
+                              setActiveTab("calculator");
+                              setSearch("");
+                              trackEvent("currency_selected", { code: c.code, name: c.name });
+                            }}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 10,
+                              padding: "10px 16px", cursor: "pointer",
+                              background: c.code === selected.code ? "#1e1e3f" : "transparent",
+                              borderBottom: "1px solid #0f0f22",
+                              transition: "background 0.1s",
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#1a1a2e"}
+                            onMouseLeave={e => e.currentTarget.style.background = c.code === selected.code ? "#1e1e3f" : "transparent"}
+                          >
+                            <span style={{ fontSize: 18 }}>{c.flag}</span>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
+                              <div style={{ fontSize: 10, color: "#8080aa" }}>{c.name}</div>
+                            </div>
+                            {c.code === selected.code && <span style={{ marginLeft: "auto", fontSize: 10, color: "#5a5aaa" }}>✓</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <select
+                        value={selected.code}
+                        onChange={e => {
+                          const c = currencies.find(c => c.code === e.target.value);
+                          if (c) { setSelected(c); setActiveTab("calculator"); trackEvent("currency_selected", { code: c.code, name: c.name }); }
+                        }}
+                        style={{
+                          width: "100%", padding: "12px 16px", boxSizing: "border-box",
+                          background: "#070714", border: "1px solid #1e1e3f",
+                          borderRadius: 8, color: "#e8e8ff", fontSize: 14,
+                          fontWeight: 600, cursor: "pointer", appearance: "none",
+                          marginTop: 6,
+                        }}
+                      >
+                        {currencies.map(c => (
+                          <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
+                            {c.flag} {c.code} — {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -781,11 +790,6 @@ export default function ProjectHype() {
               </div>
 
               {/* Results */}
-              {roiError && (
-                <div style={{ padding: "10px 16px", borderRadius: 8, background: "#1a0d0d", border: "1px solid #ff4d4d33", color: "#ff8a8a", fontSize: 12, marginBottom: 12 }}>
-                  ⚠ {roiError}
-                </div>
-              )}
               {results ? (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
                   <div style={{
@@ -1740,7 +1744,7 @@ export default function ProjectHype() {
               background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
               border: "1px solid #1e1e3f", borderRadius: 16, padding: 24,
               display: "flex", flexDirection: "column",
-              flex: 1, overflow: "hidden",
+              flex: 1, overflowY: "auto", scrollbarWidth: "thin",
             }}>
 
               {/* Header */}
@@ -1762,7 +1766,7 @@ export default function ProjectHype() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 10 }}>
                 NEWS · {selected.code}
               </div>
-              <div style={{ flex: 1, overflowY: "auto", minHeight: 0, scrollbarWidth: "thin" }}>
+              <div key={selected.code} style={{ maxHeight: 260, overflowY: "auto", scrollbarWidth: "thin" }}>
                 {loadingNews ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
                     {[100, 80, 100, 60].map((w, i) => (
@@ -1777,28 +1781,43 @@ export default function ProjectHype() {
                   <div style={{ color: "#5c5c8a", fontSize: 12, textAlign: "center", padding: "16px 0" }}>No headlines available</div>
                 ) : (
                   <div>
-                    {headlines.map((h, i) => (
-                      <div key={i} style={{ padding: "9px 0", borderBottom: i < headlines.length - 1 ? "1px solid #0f0f22" : "none" }}>
+                    {headlines.map((h, i) => {
+                      const border = i < headlines.length - 1 ? "1px solid #0f0f22" : "none";
+                      const meta = (
                         <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                           <span style={{
-                            fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                            background: "#1e1e3f", color: "#5a5aaa", letterSpacing: 1,
-                            maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          }}>{h.source}</span>
-                          {h.published_at && <span style={{ fontSize: 10, color: "#5c5c8a" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
+                            fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4, flexShrink: 0,
+                            background: h.mock ? "#1a1a00" : "#1e1e3f",
+                            color: h.mock ? "#ffa500" : "#5a5aaa", letterSpacing: 1,
+                            maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>{h.mock ? "ANALYST" : h.source}</span>
+                          {h.published_at && <span style={{ fontSize: 10, color: "#5c5c8a", whiteSpace: "nowrap" }}>{new Date(h.published_at).toLocaleDateString()}</span>}
                         </div>
-                        {h.url ? (
-                          <a href={h.url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 12, color: "#9999cc", textDecoration: "none", lineHeight: 1.4 }}
-                            onMouseEnter={e => e.currentTarget.style.color = "#e8e8ff"}
-                            onMouseLeave={e => e.currentTarget.style.color = "#9999cc"}>
-                            {h.title}
+                      );
+
+                      if (h.url) {
+                        return (
+                          <a key={i} href={h.url} target="_blank" rel="noopener noreferrer"
+                            style={{ display: "block", padding: "9px 0", borderBottom: border, textDecoration: "none", cursor: "pointer" }}
+                            onMouseEnter={e => { e.currentTarget.querySelector(".hl-title").style.color = "#e8e8ff"; e.currentTarget.querySelector(".hl-arrow").style.opacity = "1"; e.currentTarget.style.background = "#0a0a18"; }}
+                            onMouseLeave={e => { e.currentTarget.querySelector(".hl-title").style.color = "#9999cc"; e.currentTarget.querySelector(".hl-arrow").style.opacity = "0"; e.currentTarget.style.background = "transparent"; }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>{meta}</div>
+                              <span className="hl-arrow" style={{ fontSize: 10, color: "#5a5aaa", opacity: 0, transition: "opacity 0.15s", flexShrink: 0, paddingTop: 2 }}>↗</span>
+                            </div>
+                            <div className="hl-title" style={{ fontSize: 12, color: "#9999cc", lineHeight: 1.4, textDecoration: "underline", textDecorationColor: "#2a2a4a", textUnderlineOffset: 3 }}>{h.title}</div>
                           </a>
-                        ) : (
-                          <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.4 }}>{h.title}</div>
-                        )}
-                      </div>
-                    ))}
+                        );
+                      }
+
+                      // Mock/analyst headline — not clickable
+                      return (
+                        <div key={i} style={{ padding: "9px 0", borderBottom: border }}>
+                          {meta}
+                          <div style={{ fontSize: 12, color: "#6a6a8a", lineHeight: 1.4, fontStyle: "italic" }}>{h.title}</div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1826,7 +1845,7 @@ export default function ProjectHype() {
                       return (
                         <div
                           key={c.code}
-                          onClick={() => setSelected(c)}
+                          onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                           style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 8, background: "#070714", cursor: "pointer", transition: "background 0.15s" }}
                           onMouseEnter={e => e.currentTarget.style.background = "#111128"}
                           onMouseLeave={e => e.currentTarget.style.background = "#070714"}
@@ -1875,7 +1894,7 @@ export default function ProjectHype() {
                         return (
                           <div
                             key={c.code}
-                            onClick={() => setSelected(c)}
+                            onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                             style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 8, background: "#070714", cursor: "pointer", transition: "background 0.15s" }}
                             onMouseEnter={e => e.currentTarget.style.background = "#111128"}
                             onMouseLeave={e => e.currentTarget.style.background = "#070714"}
@@ -1983,7 +2002,7 @@ export default function ProjectHype() {
               </div>
             </div>
             {bottomView === "hype" ? topHype.map((c, i) => (
-              <div key={c.code} onClick={() => setSelected(c)}
+              <div key={c.code} onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < topHype.length - 1 ? "1px solid #0f0f22" : "none", cursor: "pointer", transition: "all 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.opacity = "0.7"}
                 onMouseLeave={e => e.currentTarget.style.opacity = "1"}
@@ -1997,7 +2016,7 @@ export default function ProjectHype() {
                 <div><HypeBar score={Math.round(c.hype_score ?? c.hype)} /></div>
               </div>
             )) : topCatalyst.slice(0, 6).map((c, i) => (
-              <div key={c.code} onClick={() => setSelected(c)}
+              <div key={c.code} onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < Math.min(topCatalyst.length, 6) - 1 ? "1px solid #0f0f22" : "none", cursor: "pointer", transition: "all 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.opacity = "0.7"}
                 onMouseLeave={e => e.currentTarget.style.opacity = "1"}
@@ -2042,9 +2061,19 @@ export default function ProjectHype() {
 
           {/* Rate History */}
           <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
-              <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · {rateHistory.length >= 2 ? `${(rateHistory.length * 15 / 60).toFixed(1)}h` : "—"}</div>
+              <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · {rateHistory.length} pts</div>
+            </div>
+            <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+              {["1H", "6H", "24H", "7D"].map(w => (
+                <button key={w} onClick={() => setHistoryWindow(w)} style={{
+                  flex: 1, padding: "4px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                  background: historyWindow === w ? "#1e1e4f" : "#070714",
+                  color: historyWindow === w ? "#9999cc" : "#5c5c8a",
+                  transition: "all 0.15s",
+                }}>{w}</button>
+              ))}
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
               {rateHistory.length >= 2 ? (() => {
@@ -2080,7 +2109,7 @@ export default function ProjectHype() {
                     background: "linear-gradient(90deg, #0d0d1a 0%, #1a1a2e 50%, #0d0d1a 100%)",
                     backgroundSize: "400px 100%", animation: "shimmer 2s infinite linear, gradpulse 2s infinite",
                   }} />
-                  <div style={{ fontSize: 11, color: "#5c5c8a" }}>Accumulating data — updates every 15 min</div>
+                  <div style={{ fontSize: 11, color: "#5c5c8a" }}>Accumulating data — updates every 5 min</div>
                 </div>
               )}
             </div>
