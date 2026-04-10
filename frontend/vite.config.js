@@ -10,7 +10,7 @@ export default defineConfig({
   // Access in code via: import.meta.env.VITE_API_URL
   // No extra config needed — Vite exposes all VITE_* env vars automatically.
   test: {
-    environment: "jsdom",
+    environment: "happy-dom",
     globals: true,
     setupFiles: "./src/setupTests.js",
   },
