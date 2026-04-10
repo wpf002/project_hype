@@ -45,7 +45,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 
@@ -223,79 +222,40 @@ async def _score_batch_with_claude(
 
 
 async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, int, float, str]:
+    """Fetch news via the tiered RSS pipeline (no GDELT) and score sentiment."""
+    from services.news_service import get_news
     now = datetime.now(timezone.utc)
     cutoff_48h = now - timedelta(hours=48)
 
-    # Quality-filter GDELT to known domains (Tier 2)
-    quality_domains = (
-        "domain:reuters.com OR domain:apnews.com OR domain:ft.com OR "
-        "domain:wsj.com OR domain:economist.com OR domain:bloomberg.com OR "
-        "domain:aljazeera.com OR domain:bbc.co.uk OR domain:france24.com OR "
-        "domain:voanews.com OR domain:rferl.org OR domain:nikkei.com OR "
-        "domain:scmp.com"
-    )
-    filtered_query = f"({query}) ({quality_domains})"
+    try:
+        articles = await get_news(code)
+    except Exception as exc:
+        logger.warning("News fetch failed for %s: %s", code, exc)
+        articles = []
 
-    params = {
-        "query": filtered_query,
-        "mode": "artlist",
-        "maxrecords": 100,
-        "timespan": "7d",
-        "sourcelang": "english",
-        "format": "json",
-    }
+    total = len(articles)
 
-    for attempt in range(3):
+    weighted = 0
+    for a in articles:
+        pub_str = a.get("published_at", "")
         try:
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                resp = await client.get(GDELT_URL, params=params)
+            pub_dt = datetime.fromisoformat(pub_str.replace("Z", "+00:00"))
+            weighted += 3 if pub_dt >= cutoff_48h else 1
+        except (ValueError, TypeError, AttributeError):
+            weighted += 1
 
-            if resp.status_code == 429:
-                wait = 15 * (attempt + 1)
-                logger.warning("GDELT 429 for %s (attempt %d), retrying in %ds", code, attempt + 1, wait)
-                await asyncio.sleep(wait)
-                continue
+    sentiment, sentiment_source = await score_headlines_with_claude(
+        articles,
+        code,
+        currency.get("name", code),
+        currency.get("story", ""),
+    )
 
-            resp.raise_for_status()
-            try:
-                data = resp.json()
-            except Exception:
-                return 0, 0, 0.0
-
-            articles = data.get("articles") or []
-            total_7d = len(articles)
-
-            weighted = 0
-            for a in articles:
-                seen = a.get("seendate", "")
-                try:
-                    pub_dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(
-                        tzinfo=timezone.utc
-                    )
-                    weighted += 3 if pub_dt >= cutoff_48h else 1
-                except (ValueError, TypeError):
-                    weighted += 1
-
-            # Score sentiment with Claude
-            sentiment, sentiment_source = await score_headlines_with_claude(
-                articles,
-                code,
-                currency.get("name", code),
-                currency.get("story", ""),
-            )
-
-            logger.info(
-                "Sentiment [%s] = %.2f via %s (from %d articles via GDELT Tier 2)",
-                code, sentiment, sentiment_source, total_7d,
-            )
-            return total_7d, weighted, sentiment, sentiment_source
-
-        except Exception as exc:
-            logger.warning("GDELT fetch failed for %s (attempt %d): %s", code, attempt + 1, exc)
-            if attempt < 2:
-                await asyncio.sleep(1)
-
-    return 0, 0, 0.0, "keyword_fallback"
+    logger.info(
+        "Sentiment [%s] = %.2f via %s (from %d articles via RSS pipeline)",
+        code, sentiment, sentiment_source, total,
+    )
+    return total, weighted, sentiment, sentiment_source
 
 
 async def _get_volatility(code: str) -> float:
@@ -356,7 +316,7 @@ async def calculate_all_hype_scores() -> None:
     Compute hype + catalyst scores for all currencies and persist both tables.
     Called on startup then every 12 hours.
     """
-    logger.info("Score engine: starting for %d currencies via GDELT (Tier 2) + Claude sentiment", len(CURRENCIES))
+    logger.info("Score engine: starting for %d currencies via RSS pipeline + Claude sentiment", len(CURRENCIES))
 
     # Capture previous catalyst scores BEFORE computing new ones (for alert diffing)
     old_catalyst = await get_latest_catalyst_scores()
@@ -371,9 +331,8 @@ async def calculate_all_hype_scores() -> None:
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
-    # Semaphore(2): only 2 concurrent GDELT requests — prevents 429s.
-    # Claude API calls are nested inside, but haiku is fast and cheap.
-    semaphore = asyncio.Semaphore(2)
+    # Semaphore(5): RSS feeds have no rate limits; capped at 5 to avoid exhausting the DB pool.
+    semaphore = asyncio.Semaphore(5)
 
     async def fetch_one(currency: dict) -> None:
         code = currency["code"]

@@ -20,13 +20,25 @@ START_TIME: float = time.time()
 
 async def _hype_engine_loop() -> None:
     while True:
-        await calculate_all_hype_scores()
+        try:
+            await calculate_all_hype_scores()
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Hype engine error — will retry in 1 hour")
+            await asyncio.sleep(3600)
+            continue
         await asyncio.sleep(43200)  # 12 hours
 
 
 async def _signal_polling_loop() -> None:
     while True:
-        await poll_signals()
+        try:
+            await poll_signals()
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Signal polling error — will retry in 1 hour")
+            await asyncio.sleep(3600)
+            continue
         await asyncio.sleep(14400)  # 4 hours
 
 

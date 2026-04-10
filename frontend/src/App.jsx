@@ -538,38 +538,27 @@ export default function ProjectHype() {
                   fontFamily: "'Space Mono', monospace",
                   animation: "tick 3s ease infinite",
                 }}>
-                  {tickerTop3.length >= 3 ? (
-                    <>
-                      <div style={{ padding: "6px 14px", background: "#00b4ff12", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                        <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>{tickerCurrency?.code}</span>
-                      </div>
-                      <div style={{ padding: "6px 14px", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                        {(() => {
-                          const hs = Math.round(tickerCurrency?.hype_score ?? tickerCurrency?.hype ?? 0);
-                          const hypeColor = hs >= 80 ? "#ff4d4d" : hs >= 55 ? "#ffa500" : "#00d4aa";
-                          return <span style={{ color: hypeColor, fontWeight: 700, fontSize: 13 }}>{hs}</span>;
-                        })()}
-                      </div>
-                      <div style={{ padding: "6px 14px", display: "flex", alignItems: "center" }}>
-                        {(() => {
-                          const cat = tickerCurrency?.catalyst_score;
-                          if (cat == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
-                          const catColor = catalystColor(cat);
-                          return <span style={{ color: catColor, fontWeight: 700, fontSize: 13 }}>{Math.round(cat)}</span>;
-                        })()}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ padding: "6px 14px", background: "#00b4ff12", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                        <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13 }}>{tickerCurrency?.code}</span>
-                      </div>
-                      <div style={{ padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ color: "#9999cc", fontSize: 12 }}>{tickerCurrency?.rate.toFixed(8)}</span>
-                        {tickerCurrency && <RateBadge live={tickerCurrency.live} source={tickerCurrency.source} />}
-                      </div>
-                    </>
-                  )}
+                  <>
+                    <div style={{ padding: "6px 14px", background: "#00b4ff12", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
+                      <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>{tickerCurrency?.code}</span>
+                    </div>
+                    <div style={{ padding: "6px 14px", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
+                      {(() => {
+                        const hs = tickerCurrency?.hype_score ?? tickerCurrency?.hype;
+                        if (hs == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
+                        const hypeColor = hs >= 80 ? "#ff4d4d" : hs >= 55 ? "#ffa500" : "#00d4aa";
+                        return <span style={{ color: hypeColor, fontWeight: 700, fontSize: 13 }}>{Math.round(hs)}</span>;
+                      })()}
+                    </div>
+                    <div style={{ padding: "6px 14px", display: "flex", alignItems: "center" }}>
+                      {(() => {
+                        const cat = tickerCurrency?.catalyst_score;
+                        if (cat == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
+                        const catColor = catalystColor(cat);
+                        return <span style={{ color: catColor, fontWeight: 700, fontSize: 13 }}>{Math.round(cat)}</span>;
+                      })()}
+                    </div>
+                  </>
                 </div>
               );
             })()}

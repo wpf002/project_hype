@@ -42,7 +42,7 @@ async def init_db() -> None:
 
     # ssl="prefer" tries SSL first but falls back gracefully — works for
     # both Railway (SSL required) and local Docker (no SSL configured).
-    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=10, ssl="prefer")
+    _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=20, ssl="prefer")
 
     async with _pool.acquire() as conn:
         await conn.execute("""
