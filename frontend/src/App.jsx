@@ -191,7 +191,6 @@ export default function ProjectHype() {
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState("calculator");
   const [search, setSearch] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
@@ -668,26 +667,26 @@ export default function ProjectHype() {
                   </label>
                   <div style={{ position: "relative" }}>
                     <input
-                      placeholder="Search currencies..."
-                      value={searchFocused ? search : (selected ? `${selected.flag} ${selected.code} — ${selected.name}` : "")}
-                      onFocus={() => { setSearchFocused(true); setSearch(""); }}
+                      placeholder={selected ? `${selected.flag} ${selected.code} — ${selected.name}` : "Search currencies..."}
+                      value={search}
                       onChange={e => setSearch(e.target.value)}
-                      onBlur={() => setTimeout(() => { setSearch(""); setSearchFocused(false); }, 200)}
+                      onBlur={() => setTimeout(() => setSearch(""), 200)}
                       style={{
                         width: "100%", padding: "10px 16px", boxSizing: "border-box",
                         background: "#070714", border: "1px solid #1e1e3f",
-                        borderRadius: (searchFocused && search) ? "8px 8px 0 0" : "8px",
+                        borderRadius: search ? "8px 8px 0 0" : "8px",
                         color: "#e8e8ff", fontSize: 13, outline: "none",
-                        cursor: searchFocused ? "text" : "pointer",
                       }}
                     />
-                    {searchFocused && search && (
-                      <div style={{
-                        position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
-                        background: "#0d0d1a", border: "1px solid #1e1e3f", borderTop: "none",
-                        borderRadius: "0 0 8px 8px", maxHeight: 220, overflowY: "auto",
-                        boxShadow: "0 8px 24px #00000088",
-                      }}>
+                    {search && (
+                      <div
+                        ref={el => { if (el) el.onmousedown = e => e.preventDefault(); }}
+                        style={{
+                          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
+                          background: "#0d0d1a", border: "1px solid #1e1e3f", borderTop: "none",
+                          borderRadius: "0 0 8px 8px", maxHeight: 220, overflowY: "auto",
+                          boxShadow: "0 8px 24px #00000088",
+                        }}>
                         {filtered.length === 0 ? (
                           <div style={{ padding: "10px 16px", fontSize: 12, color: "#5c5c8a" }}>No matches</div>
                         ) : filtered.map(c => (
@@ -696,7 +695,6 @@ export default function ProjectHype() {
                             onClick={() => {
                               setSelected(c);
                               setSearch("");
-                              setSearchFocused(false);
                               setActiveTab("calculator");
                               trackEvent("currency_selected", { code: c.code, name: c.name });
                             }}
