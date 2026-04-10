@@ -191,6 +191,7 @@ export default function ProjectHype() {
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState("calculator");
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
@@ -668,25 +669,25 @@ export default function ProjectHype() {
                   <div style={{ position: "relative" }}>
                     <input
                       placeholder="Search currencies..."
-                      value={search}
+                      value={searchFocused ? search : (selected ? `${selected.flag} ${selected.code} — ${selected.name}` : "")}
+                      onFocus={() => { setSearchFocused(true); setSearch(""); }}
                       onChange={e => setSearch(e.target.value)}
-                      onBlur={() => setTimeout(() => setSearch(""), 200)}
+                      onBlur={() => setTimeout(() => { setSearch(""); setSearchFocused(false); }, 200)}
                       style={{
                         width: "100%", padding: "10px 16px", boxSizing: "border-box",
                         background: "#070714", border: "1px solid #1e1e3f",
-                        borderRadius: search ? "8px 8px 0 0" : "8px",
+                        borderRadius: (searchFocused && search) ? "8px 8px 0 0" : "8px",
                         color: "#e8e8ff", fontSize: 13, outline: "none",
+                        cursor: searchFocused ? "text" : "pointer",
                       }}
                     />
-                    {search ? (
-                      /* Custom dropdown — always fires on click regardless of current selection */
+                    {searchFocused && search && (
                       <div style={{
                         position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
                         background: "#0d0d1a", border: "1px solid #1e1e3f", borderTop: "none",
                         borderRadius: "0 0 8px 8px", maxHeight: 220, overflowY: "auto",
                         boxShadow: "0 8px 24px #00000088",
-                      }}
->
+                      }}>
                         {filtered.length === 0 ? (
                           <div style={{ padding: "10px 16px", fontSize: 12, color: "#5c5c8a" }}>No matches</div>
                         ) : filtered.map(c => (
@@ -694,8 +695,9 @@ export default function ProjectHype() {
                             key={c.code}
                             onClick={() => {
                               setSelected(c);
-                              setActiveTab("calculator");
                               setSearch("");
+                              setSearchFocused(false);
+                              setActiveTab("calculator");
                               trackEvent("currency_selected", { code: c.code, name: c.name });
                             }}
                             style={{
@@ -717,27 +719,6 @@ export default function ProjectHype() {
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <select
-                        value={selected.code}
-                        onChange={e => {
-                          const c = currencies.find(c => c.code === e.target.value);
-                          if (c) { setSelected(c); setActiveTab("calculator"); trackEvent("currency_selected", { code: c.code, name: c.name }); }
-                        }}
-                        style={{
-                          width: "100%", padding: "12px 16px", boxSizing: "border-box",
-                          background: "#070714", border: "1px solid #1e1e3f",
-                          borderRadius: 8, color: "#e8e8ff", fontSize: 14,
-                          fontWeight: 600, cursor: "pointer", appearance: "none",
-                          marginTop: 6,
-                        }}
-                      >
-                        {currencies.map(c => (
-                          <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
-                            {c.flag} {c.code} — {c.name}
-                          </option>
-                        ))}
-                      </select>
                     )}
                   </div>
                 </div>
