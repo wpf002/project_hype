@@ -18,8 +18,8 @@ MOCK_CHANGES = {"IQD": 0.52, "IRR": -0.10, "VES": 1.8}
 MOCK_HYPE_SCORES = {"IQD": 72.5, "IRR": 81.0, "VES": 55.3}
 
 MOCK_CATALYST = {
-    "IQD": {"catalyst_score": 64.0, "sentiment": 0.4, "momentum_7d": 1.2},
-    "IRR": {"catalyst_score": 78.0, "sentiment": 0.8, "momentum_7d": 2.1},
+    "IQD": {"catalyst_score": 64.0, "sentiment": 0.4, "momentum_7d": 1.2, "sentiment_source": "claude"},
+    "IRR": {"catalyst_score": 78.0, "sentiment": 0.8, "momentum_7d": 2.1, "sentiment_source": "keyword_fallback"},
 }
 
 

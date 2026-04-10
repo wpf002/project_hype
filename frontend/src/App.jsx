@@ -748,7 +748,7 @@ export default function ProjectHype() {
                   </div>
                   <div style={{ fontSize: 12, color: "#8080aa", marginTop: 2 }}>{selected.story}</div>
                   <div style={{ fontSize: 10, color: "#4a4a6a", marginTop: 6 }}>
-                    Rates: {selected.source === "oxr" ? "OXR" : selected.source === "exchangerate-api" ? "ExchangeRate-API" : selected.source === "scraped" ? "Scraped" : "EST"} · News: Tier 1+2+3 · Sentiment: Claude
+                    Rates: {selected.source === "oxr" ? "OXR" : selected.source === "exchangerate-api" ? "ExchangeRate-API" : selected.source === "scraped" ? "Scraped" : "EST"} · News: Tier 1+2+3 · Sentiment: {selected.sentiment_source === "claude" ? "Claude AI" : "Keyword"}
                   </div>
                 </div>
 

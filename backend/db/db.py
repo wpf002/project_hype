@@ -81,13 +81,19 @@ async def init_db() -> None:
         )
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS catalyst_snapshots (
-                id        BIGSERIAL        PRIMARY KEY,
-                code      TEXT             NOT NULL,
-                score     DOUBLE PRECISION NOT NULL,
-                sentiment DOUBLE PRECISION NOT NULL DEFAULT 0,
-                momentum  DOUBLE PRECISION NOT NULL DEFAULT 0,
-                timestamp TEXT             NOT NULL
+                id               BIGSERIAL        PRIMARY KEY,
+                code             TEXT             NOT NULL,
+                score            DOUBLE PRECISION NOT NULL,
+                sentiment        DOUBLE PRECISION NOT NULL DEFAULT 0,
+                momentum         DOUBLE PRECISION NOT NULL DEFAULT 0,
+                timestamp        TEXT             NOT NULL,
+                sentiment_source TEXT             NOT NULL DEFAULT 'keyword_fallback'
             )
+        """)
+        # Migrate existing tables that predate the sentiment_source column
+        await conn.execute("""
+            ALTER TABLE catalyst_snapshots
+            ADD COLUMN IF NOT EXISTS sentiment_source TEXT NOT NULL DEFAULT 'keyword_fallback'
         """)
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_catalyst_code_ts "
@@ -331,7 +337,14 @@ async def write_catalyst_snapshots(data: Dict[str, dict]) -> None:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
     rows = [
-        (code, v["score"], v.get("sentiment", 0.0), v.get("momentum", 0.0), now)
+        (
+            code,
+            v["score"],
+            v.get("sentiment", 0.0),
+            v.get("momentum", 0.0),
+            now,
+            v.get("sentiment_source", "keyword_fallback"),
+        )
         for code, v in data.items()
     ]
 
@@ -339,8 +352,9 @@ async def write_catalyst_snapshots(data: Dict[str, dict]) -> None:
         pool = get_pool()
         async with pool.acquire() as conn:
             await conn.executemany(
-                "INSERT INTO catalyst_snapshots (code, score, sentiment, momentum, timestamp) "
-                "VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO catalyst_snapshots "
+                "(code, score, sentiment, momentum, timestamp, sentiment_source) "
+                "VALUES ($1, $2, $3, $4, $5, $6)",
                 rows,
             )
             await conn.execute(
@@ -356,7 +370,7 @@ async def get_latest_catalyst_scores() -> Dict[str, dict]:
         pool = get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                """SELECT DISTINCT ON (code) code, score, sentiment, momentum
+                """SELECT DISTINCT ON (code) code, score, sentiment, momentum, sentiment_source
                    FROM catalyst_snapshots
                    ORDER BY code, timestamp DESC"""
             )
@@ -365,6 +379,7 @@ async def get_latest_catalyst_scores() -> Dict[str, dict]:
                 "catalyst_score": r["score"],
                 "sentiment": r["sentiment"],
                 "momentum_7d": r["momentum"],
+                "sentiment_source": r["sentiment_source"],
             }
             for r in rows
         }

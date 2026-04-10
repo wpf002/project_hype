@@ -11,7 +11,7 @@ async def test_roi_basic_calculation(client):
     with patch(
         "routers.roi.get_rate",
         new_callable=AsyncMock,
-        return_value=(0.000763, True),
+        return_value=(0.000763, True, "oxr"),
     ):
         r = await client.post(
             "/api/roi",
@@ -33,7 +33,7 @@ async def test_roi_case_insensitive(client):
     with patch(
         "routers.roi.get_rate",
         new_callable=AsyncMock,
-        return_value=(0.000763, False),
+        return_value=(0.000763, False, "analyst"),
     ):
         r = await client.post(
             "/api/roi",
@@ -47,7 +47,7 @@ async def test_roi_fallback_rate_not_live(client):
     with patch(
         "routers.roi.get_rate",
         new_callable=AsyncMock,
-        return_value=(0.000763, False),
+        return_value=(0.000763, False, "analyst"),
     ):
         r = await client.post(
             "/api/roi",
@@ -62,7 +62,7 @@ async def test_roi_negative_return_when_target_below_current(client):
     with patch(
         "routers.roi.get_rate",
         new_callable=AsyncMock,
-        return_value=(0.001, True),
+        return_value=(0.001, True, "oxr"),
     ):
         r = await client.post(
             "/api/roi",
@@ -121,7 +121,7 @@ async def test_roi_zero_current_rate_rejected(client):
     with patch(
         "routers.roi.get_rate",
         new_callable=AsyncMock,
-        return_value=(0.0, False),
+        return_value=(0.0, False, "analyst"),
     ):
         r = await client.post(
             "/api/roi",
@@ -141,7 +141,7 @@ async def test_roi_response_fields_complete(client):
     with patch(
         "routers.roi.get_rate",
         new_callable=AsyncMock,
-        return_value=(0.000763, True),
+        return_value=(0.000763, True, "oxr"),
     ):
         r = await client.post(
             "/api/roi",

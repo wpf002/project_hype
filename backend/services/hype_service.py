@@ -51,7 +51,10 @@ ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
 
-CLAUDE_BATCH_SIZE = 10  # headlines per API call
+CLAUDE_BATCH_SIZE = 8  # headlines per API call
+
+BULLISH_KEYWORDS = {"reform", "agreement", "tranche", "revaluation", "surplus", "growth", "recovery"}
+BEARISH_KEYWORDS = {"sanctions", "default", "collapse", "crisis", "inflation", "devaluation", "suspended"}
 
 
 def _floor(code: str) -> float:
@@ -68,24 +71,34 @@ def _normalise(values: Dict[str, float]) -> Dict[str, float]:
     return {k: (v - lo) / (hi - lo) * 100 for k, v in values.items()}
 
 
+def _keyword_score(texts: List[str]) -> float:
+    """Simple keyword-based sentiment fallback when ANTHROPIC_API_KEY is absent."""
+    total = 0.0
+    for text in texts:
+        lower = text.lower()
+        bull = sum(1 for w in BULLISH_KEYWORDS if w in lower)
+        bear = sum(1 for w in BEARISH_KEYWORDS if w in lower)
+        if bull + bear > 0:
+            total += (bull - bear) / (bull + bear)
+    if not texts:
+        return 0.0
+    return round((total / len(texts)) * 100, 2)
+
+
 async def score_headlines_with_claude(
     headlines: List[dict],
     currency_code: str,
     currency_name: str,
     story: str,
-) -> float:
+) -> tuple:
     """
     Score headlines using Claude API for financial/geopolitical context.
     Batches up to CLAUDE_BATCH_SIZE headlines per API call.
-    Returns average compound score in range -100 to +100.
-    Falls back to 0.0 on any failure.
+    Returns (compound_score, sentiment_source) where compound_score is -100..+100
+    and sentiment_source is 'claude' | 'keyword_fallback'.
     """
     if not headlines:
-        return 0.0
-
-    if not ANTHROPIC_API_KEY:
-        logger.warning("ANTHROPIC_API_KEY not set — sentiment scoring skipped for %s", currency_code)
-        return 0.0
+        return 0.0, "keyword_fallback"
 
     # Build text list from title + description
     texts = []
@@ -95,21 +108,34 @@ async def score_headlines_with_claude(
             texts.append(text)
 
     if not texts:
-        return 0.0
+        return 0.0, "keyword_fallback"
+
+    if not ANTHROPIC_API_KEY:
+        logger.warning("ANTHROPIC_API_KEY not set — using keyword fallback for %s", currency_code)
+        score = _keyword_score(texts)
+        logger.info("Sentiment [%s] = %.2f (keyword_fallback)", currency_code, score)
+        return score, "keyword_fallback"
 
     # Process in batches of CLAUDE_BATCH_SIZE
     all_scores: List[float] = []
+    sample_reasoning: str = ""
     for i in range(0, len(texts), CLAUDE_BATCH_SIZE):
         batch = texts[i: i + CLAUDE_BATCH_SIZE]
-        batch_scores = await _score_batch_with_claude(batch, currency_code, currency_name, story)
+        batch_scores, reasoning = await _score_batch_with_claude(batch, currency_code, currency_name, story)
         all_scores.extend(batch_scores)
+        if not sample_reasoning and reasoning:
+            sample_reasoning = reasoning
 
     if not all_scores:
-        return 0.0
+        score = _keyword_score(texts)
+        logger.info("Sentiment [%s] = %.2f (keyword_fallback after Claude error)", currency_code, score)
+        return score, "keyword_fallback"
 
     avg = sum(all_scores) / len(all_scores)
     # Scale -1..+1 to -100..+100
-    return round(avg * 100, 2)
+    compound = round(avg * 100, 2)
+    logger.info("Sentiment [%s] = %.2f (claude) — sample: %s", currency_code, compound, sample_reasoning)
+    return compound, "claude"
 
 
 async def _score_batch_with_claude(
@@ -117,39 +143,44 @@ async def _score_batch_with_claude(
     currency_code: str,
     currency_name: str,
     story: str,
-) -> List[float]:
+) -> tuple:
     """
-    Send one batch to Claude and return a list of scores (-1.0 to +1.0).
+    Send one batch to Claude and return (scores, sample_reasoning).
+    scores is a list of floats (-1.0 to +1.0), sample_reasoning is one sentence.
     """
     headlines_block = "\n".join(f"{idx + 1}. {t}" for idx, t in enumerate(texts))
 
-    user_prompt = f"""Currency: {currency_name} ({currency_code})
-Geopolitical context: {story}
-
-Score each headline for its expected impact on {currency_code} appreciation potential.
-Return a JSON array of objects, one per headline, in order:
-[{{"headline": "<brief title>", "score": <float -1.0 to +1.0>, "reasoning": "<one sentence>"}}]
-
-Scoring guide:
-  +1.0  Strongly bullish: sanctions relief, IMF tranche approved, revaluation confirmed, reserve surge
-  +0.5  Mildly bullish: positive reform signals, improving reserves, political stability
-   0.0  Neutral or ambiguous
-  -0.5  Mildly bearish: FX controls tightened, political uncertainty, minor devaluation
-  -1.0  Strongly bearish: sanctions added, IMF program suspended, hyperinflation, central bank collapse
-
-Headlines:
-{headlines_block}
-
-Respond with ONLY the JSON array. No preamble, no markdown fences."""
+    user_prompt = (
+        f"Score the sentiment of these headlines for {currency_name} ({currency_code}).\n"
+        f"Context: {story}\n\n"
+        f"Headlines:\n{headlines_block}\n\n"
+        "Return a JSON object:\n"
+        "{\n"
+        '  "scores": [\n'
+        '    {"headline": "...", "score": 0.0, "reasoning": "..."}\n'
+        "  ],\n"
+        '  "compound": 0.0\n'
+        "}\n"
+        "Where score is -1.0 (strongly bearish) to +1.0 (strongly bullish),\n"
+        "and compound is the weighted average across all headlines.\n"
+        "reasoning is one sentence max."
+    )
 
     payload = {
         "model": "claude-haiku-4-5-20251001",
         "max_tokens": 1024,
         "system": (
-            "You are a senior currency analyst specialising in exotic, frontier, and speculative "
-            "foreign exchange markets. You understand revaluation mechanics, sanctions regimes, "
-            "IMF programs, central bank auction systems, black market dynamics, and post-conflict "
-            "reconstruction economics."
+            "You are a senior currency analyst specializing in exotic, frontier, "
+            "and speculative foreign exchange markets. You have deep expertise in "
+            "revaluation mechanics, IMF program structures, sanctions regimes, "
+            "central bank auction systems (including CBI USD auction spreads), "
+            "black market dynamics, post-conflict reconstruction economics, and "
+            "the retail speculative communities that follow these currencies. "
+            "You understand that context determines sentiment — 'CBI reduces "
+            "auction spread' is strongly bullish for IQD, 'IMF tranche released' "
+            "is bullish for ARS or EGP, 'OFAC designation' is bearish for IRR, "
+            "'parallel market premium widens' is bearish for any currency. "
+            "Return only valid JSON, no commentary, no markdown."
         ),
         "messages": [{"role": "user", "content": user_prompt}],
     }
@@ -174,27 +205,24 @@ Respond with ONLY the JSON array. No preamble, no markdown fences."""
                 raw_text = raw_text[4:]
         raw_text = raw_text.strip()
 
-        items = json.loads(raw_text)
+        parsed = json.loads(raw_text)
+        items = parsed.get("scores", [])
         scores = []
+        sample_reasoning = ""
         for item in items:
             score = float(item.get("score", 0.0))
             score = max(-1.0, min(1.0, score))
             scores.append(score)
-            logger.debug(
-                "Claude sentiment [%s] score=%.2f: %s — %s",
-                currency_code,
-                score,
-                item.get("headline", "")[:60],
-                item.get("reasoning", ""),
-            )
-        return scores
+            if not sample_reasoning:
+                sample_reasoning = item.get("reasoning", "")
+        return scores, sample_reasoning
 
     except Exception as exc:
         logger.warning("Claude sentiment scoring failed for %s: %s", currency_code, exc)
-        return []
+        return [], ""
 
 
-async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, int, float]:
+async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, int, float, str]:
     now = datetime.now(timezone.utc)
     cutoff_48h = now - timedelta(hours=48)
 
@@ -249,7 +277,7 @@ async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, 
                     weighted += 1
 
             # Score sentiment with Claude
-            sentiment = await score_headlines_with_claude(
+            sentiment, sentiment_source = await score_headlines_with_claude(
                 articles,
                 code,
                 currency.get("name", code),
@@ -257,17 +285,17 @@ async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, 
             )
 
             logger.info(
-                "Sentiment [%s] = %.2f (from %d articles via GDELT Tier 2)",
-                code, sentiment, total_7d,
+                "Sentiment [%s] = %.2f via %s (from %d articles via GDELT Tier 2)",
+                code, sentiment, sentiment_source, total_7d,
             )
-            return total_7d, weighted, sentiment
+            return total_7d, weighted, sentiment, sentiment_source
 
         except Exception as exc:
             logger.warning("GDELT fetch failed for %s (attempt %d): %s", code, attempt + 1, exc)
             if attempt < 2:
                 await asyncio.sleep(1)
 
-    return 0, 0, 0.0
+    return 0, 0, 0.0, "keyword_fallback"
 
 
 async def _get_volatility(code: str) -> float:
@@ -339,6 +367,7 @@ async def calculate_all_hype_scores() -> None:
     raw_volume: Dict[str, int] = {}
     raw_recency: Dict[str, int] = {}
     raw_sentiment: Dict[str, float] = {}
+    raw_sentiment_source: Dict[str, str] = {}
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
@@ -350,10 +379,11 @@ async def calculate_all_hype_scores() -> None:
         code = currency["code"]
         query = currency.get("news_query", currency["name"])
         async with semaphore:
-            total, weighted, sentiment = await _fetch_news_data(code, query, currency)
+            total, weighted, sentiment, sentiment_source = await _fetch_news_data(code, query, currency)
             raw_volume[code] = total
             raw_recency[code] = weighted
             raw_sentiment[code] = sentiment
+            raw_sentiment_source[code] = sentiment_source
             await asyncio.sleep(0.5)  # courtesy gap between releases
 
     await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
@@ -418,6 +448,7 @@ async def calculate_all_hype_scores() -> None:
             "score": catalyst_score,
             "sentiment": round(raw_sentiment.get(code, 0.0), 2),
             "momentum": round(raw_momentum.get(code, 0.0), 4),
+            "sentiment_source": raw_sentiment_source.get(code, "keyword_fallback"),
         }
 
     await write_hype_snapshots(hype_out)
