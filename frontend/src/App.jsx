@@ -71,7 +71,13 @@ function StatCard({ label, value, sub }) {
   );
 }
 
-function LiveDot() {
+function LiveDot({ secondsSince }) {
+  const label = secondsSince == null
+    ? null
+    : secondsSince < 60
+    ? `${secondsSince}s ago`
+    : `${Math.floor(secondsSince / 60)}m ago`;
+
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span style={{
@@ -79,6 +85,11 @@ function LiveDot() {
         background: "#00d4aa", boxShadow: "0 0 8px #00d4aa", animation: "pulse 2s infinite"
       }} />
       <span style={{ color: "#00d4aa", fontSize: 12, letterSpacing: 1 }}>LIVE</span>
+      {label && (
+        <span style={{ color: "#5c5c8a", fontSize: 10, fontFamily: "'Space Mono', monospace" }}>
+          · {label}
+        </span>
+      )}
     </span>
   );
 }
@@ -219,6 +230,8 @@ export default function ProjectHype() {
 
   // ── Error / loading states ────────────────────────────────────────────────
   const [ratesError, setRatesError] = useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = useState(null);
+  const [secondsSince, setSecondsSince] = useState(0);
 
   // ── Shared-view banner (loaded from ?portfolio= URL param) ────────────────
   const [isSharedView, setIsSharedView] = useState(false);
@@ -264,19 +277,33 @@ export default function ProjectHype() {
   }
 
   // ── Fetch all 40 currencies with live rates on mount ──────────────────────
-  const fetchRates = () => {
+  const fetchRates = (showLoading = false) => {
     setRatesError(false);
-    setLoadingRates(true);
+    if (showLoading) setLoadingRates(true);
     fetch(`${API}/rates`)
       .then(r => { if (!r.ok) throw new Error("API error"); return r.json(); })
       .then(data => {
         setCurrencies(data);
         setSelected(prev => prev ? (data.find(c => c.code === prev.code) ?? data[0]) : data[0]);
         setLoadingRates(false);
+        setLastFetchedAt(Date.now());
+        setSecondsSince(0);
       })
       .catch(() => { setLoadingRates(false); setRatesError(true); });
   };
-  useEffect(() => { fetchRates(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    fetchRates(true); // initial load — show loading screen
+    const refreshId = setInterval(() => fetchRates(false), 60_000); // background refresh — silent
+    return () => clearInterval(refreshId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tick secondsSince every second so the "Updated X ago" label stays current
+  useEffect(() => {
+    if (!lastFetchedAt) return;
+    setSecondsSince(0);
+    const id = setInterval(() => setSecondsSince(Math.floor((Date.now() - lastFetchedAt) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [lastFetchedAt]);
 
   // ── Load shared portfolio from ?portfolio= URL param ──────────────────────
   useEffect(() => {
@@ -528,7 +555,7 @@ export default function ProjectHype() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 20 }}>
-            <LiveDot />
+            <LiveDot secondsSince={secondsSince} />
             {!isMobile && (() => {
               return (
                 <div style={{
