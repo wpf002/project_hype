@@ -24,6 +24,7 @@ const MOCK_CURRENCIES = [
     hype: 3,
     story: "Post-war reconstruction speculation.",
     live: true,
+    source: "oxr",
     change_24h: 0.52,
     hype_score: 72.5,
     catalyst_score: 64.0,
@@ -40,6 +41,7 @@ const MOCK_CURRENCIES = [
     hype: 4,
     story: "Sanctions relief speculation.",
     live: false,
+    source: "analyst",
     change_24h: -0.1,
     hype_score: 81.0,
     catalyst_score: 78.0,
@@ -90,6 +92,9 @@ function makeMockFetch(overrides = {}) {
       });
     }
     if (str.includes("/history/")) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }
+    if (str.includes("/signals/")) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
     }
     if (str.includes("/hype/")) {

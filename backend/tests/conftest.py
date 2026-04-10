@@ -30,13 +30,18 @@ from httpx import AsyncClient, ASGITransport  # noqa: E402
 # main so that the patched names are what main binds at import time.
 import db.db as _db_module  # noqa: E402
 import services.hype_service as _hype_module  # noqa: E402
+import services.signal_service as _signal_module  # noqa: E402
 
 _patch_init_db = patch.object(_db_module, "init_db", new_callable=AsyncMock)
 _patch_hype_engine = patch.object(
     _hype_module, "calculate_all_hype_scores", new_callable=AsyncMock
 )
+_patch_signal_poll = patch.object(
+    _signal_module, "poll_signals", new_callable=AsyncMock
+)
 _patch_init_db.start()
 _patch_hype_engine.start()
+_patch_signal_poll.start()
 
 # Import main AFTER patches are live so from-imports bind to mocks
 from main import app  # noqa: E402

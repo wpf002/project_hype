@@ -8,9 +8,9 @@ import pytest
 # ── shared mock data ───────────────────────────────────────────────────────
 
 MOCK_RATES = {
-    "IQD": (0.000763, True),
-    "IRR": (0.0000238, False),
-    "VES": (0.027, True),
+    "IQD": (0.000763, True, "oxr"),
+    "IRR": (0.0000238, False, "analyst"),
+    "VES": (0.027, True, "scraped"),
 }
 
 MOCK_CHANGES = {"IQD": 0.52, "IRR": -0.10, "VES": 1.8}
@@ -56,7 +56,7 @@ async def test_get_rates_fields(client):
     with p1, p2, p3, p4:
         r = await client.get("/api/rates")
     item = r.json()[0]
-    required = {"code", "name", "flag", "rate", "mcap", "vol", "hype", "story", "live"}
+    required = {"code", "name", "flag", "rate", "mcap", "vol", "hype", "story", "live", "source"}
     assert required.issubset(item.keys())
 
 
@@ -70,13 +70,24 @@ async def test_get_rates_iqd_present(client):
 
 
 async def test_get_rates_live_flag_propagated(client):
-    """IQD should be marked live=True per mock."""
+    """IQD should be marked live=True and source=oxr per mock."""
     p1, p2, p3, p4 = _rates_patches()
     with p1, p2, p3, p4:
         r = await client.get("/api/rates")
     iqd = next(c for c in r.json() if c["code"] == "IQD")
     assert iqd["live"] is True
+    assert iqd["source"] == "oxr"
     assert iqd["rate"] == pytest.approx(0.000763)
+
+
+async def test_get_rates_source_field_variants(client):
+    """Different source values (scraped, analyst) should pass through correctly."""
+    p1, p2, p3, p4 = _rates_patches()
+    with p1, p2, p3, p4:
+        r = await client.get("/api/rates")
+    data = {c["code"]: c for c in r.json()}
+    assert data["IRR"]["source"] == "analyst"
+    assert data["VES"]["source"] == "scraped"
 
 
 async def test_get_rates_hype_score_populated(client):
@@ -118,7 +129,7 @@ async def test_get_rates_missing_hype_falls_back_to_currency_default(client):
 
 async def test_get_single_rate_ok(client):
     with (
-        patch("routers.rates.get_rate", new_callable=AsyncMock, return_value=(0.000763, True)),
+        patch("routers.rates.get_rate", new_callable=AsyncMock, return_value=(0.000763, True, "oxr")),
         patch("routers.rates.get_latest_hype_scores", new_callable=AsyncMock, return_value=MOCK_HYPE_SCORES),
         patch("routers.rates.get_latest_catalyst_scores", new_callable=AsyncMock, return_value=MOCK_CATALYST),
         patch("routers.rates.get_change_24h", new_callable=AsyncMock, return_value=0.52),
@@ -129,12 +140,13 @@ async def test_get_single_rate_ok(client):
     assert data["code"] == "IQD"
     assert data["rate"] == pytest.approx(0.000763)
     assert data["live"] is True
+    assert data["source"] == "oxr"
     assert "news_query" in data
 
 
 async def test_get_single_rate_case_insensitive(client):
     with (
-        patch("routers.rates.get_rate", new_callable=AsyncMock, return_value=(0.000763, True)),
+        patch("routers.rates.get_rate", new_callable=AsyncMock, return_value=(0.000763, True, "oxr")),
         patch("routers.rates.get_latest_hype_scores", new_callable=AsyncMock, return_value={}),
         patch("routers.rates.get_latest_catalyst_scores", new_callable=AsyncMock, return_value={}),
         patch("routers.rates.get_change_24h", new_callable=AsyncMock, return_value=None),
