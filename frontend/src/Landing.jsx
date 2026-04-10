@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-const API = `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api`;
+const API = import.meta.env.VITE_API_URL || "";
 
 // ── Animated gradient mesh background ──────────────────────────────────────
 function GradientMesh() {
@@ -97,7 +97,7 @@ function StatusIndicator({ compact = false }) {
   const [status, setStatus] = useState({ db_status: "ok" });
 
   useEffect(() => {
-    fetch(`${API}/status`)
+    fetch(`${API}/api/status`)
       .then(r => r.json())
       .then(d => setStatus(d))
       .catch(() => setStatus({ db_status: "error" }));

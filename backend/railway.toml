@@ -1,13 +1,8 @@
 [build]
-builder = "dockerfile"
+builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-restartPolicyType = "on_failure"
+healthcheckPath = "/api/status"
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
-
-[[services.variables]]
-# Set these in the Railway dashboard under Variables:
-# FX_API_KEY      = your ExchangeRate-API v6 key
-# NEWSAPI_KEY     = your NewsAPI.org key
-# ALLOWED_ORIGINS = https://your-frontend.up.railway.app

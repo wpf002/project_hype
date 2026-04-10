@@ -159,40 +159,50 @@ npm test
 
 ---
 
-## Deployment (Railway)
+## Railway Deployment
 
-Railway runs backend and frontend as two separate services from the same monorepo.
+Two Railway services, one monorepo (`wpf002/project_hype`):
 
-### 1 — Create a Railway project
+| Service | Railway root directory | URL |
+| --- | --- | --- |
+| **backend** | `backend/` | <https://backend-production-a64b.up.railway.app> |
+| **frontend** | `frontend/` | <https://frontend-production-3fb7.up.railway.app> |
 
-New Project → Deploy from GitHub repo → select `wpf002/project_hype`.
+### Required environment variables
 
-### 2 — Deploy the Backend service
+#### Backend service (set in Railway dashboard → Variables)
 
-- **Root Directory:** `backend`
-- **Variables:**
-  ```
-  DATABASE_URL=<Railway PostgreSQL URL>
-  FX_API_KEY=<your key>
-  NEWSAPI_KEY=<your key>
-  SENDGRID_API_KEY=<your key>
-  SENDGRID_FROM_EMAIL=alerts@yourdomain.com
-  ALLOWED_ORIGINS=https://your-frontend.up.railway.app
-  ```
+| Variable | Description |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL DSN — **injected automatically** by the Railway Postgres plugin |
+| `ANTHROPIC_API_KEY` | Claude Haiku API key for geopolitical sentiment scoring |
+| `OXR_APP_ID` | Open Exchange Rates app ID — primary live FX feed |
+| `FX_API_KEY` | ExchangeRate-API v6 key — fallback FX feed |
+| `NEWSAPI_KEY` | NewsAPI.org key — Tier 2 news headlines |
+| `SENDGRID_API_KEY` | SendGrid API key for catalyst spike alert emails |
+| `ALERT_FROM_EMAIL` | Verified sender address for alert emails (e.g. `alerts@yourdomain.com`) |
+| `APP_URL` | `https://frontend-production-3fb7.up.railway.app` |
+| `ALLOWED_ORIGINS` | `https://frontend-production-3fb7.up.railway.app` |
 
-### 3 — Deploy the Frontend service
+#### Frontend service (build-time variable — triggers a full image rebuild)
 
-- **Root Directory:** `frontend`
-- **Variables:**
-  ```
-  VITE_API_URL=https://your-backend.up.railway.app
-  ```
+| Variable | Value |
+| --- | --- |
+| `VITE_API_URL` | `https://backend-production-a64b.up.railway.app` |
 
-### 4 — Update backend CORS
+> `VITE_API_URL` is baked into the JS bundle at build time. After setting or changing it, trigger a redeploy — a restart alone is not enough.
 
-After the frontend deploys, update `ALLOWED_ORIGINS` in the backend service to the actual frontend URL and redeploy.
+### Setup order
 
-> `VITE_API_URL` is baked into the JS bundle at build time — changing it in Railway requires a full redeploy (not just a restart).
+1. **Add the Postgres plugin** to your Railway project first. Railway injects `DATABASE_URL` automatically once the plugin is provisioned.
+2. **Deploy the Backend service** — set root directory to `backend/`, add all backend env vars above, then deploy.
+3. **Deploy the Frontend service** — set root directory to `frontend/`, add `VITE_API_URL`, then deploy.
+
+### Force a redeploy
+
+Push any commit to `main` — both services auto-deploy via the Railway GitHub integration.
+
+To redeploy without a code change: Railway dashboard → service → **Redeploy**.
 
 ---
 

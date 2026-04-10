@@ -31,7 +31,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-OXR_APP_ID = os.getenv("OPEN_EXCHANGE_RATES_APP_ID", "")
+OXR_APP_ID = os.getenv("OXR_APP_ID", "")
 FX_API_KEY  = os.getenv("FX_API_KEY", "")
 
 OXR_URL        = "https://openexchangerates.org/api/latest.json"

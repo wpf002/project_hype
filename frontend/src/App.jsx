@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 
-// In development: VITE_API_URL=http://localhost:8000 (or unset → fallback)
-// In docker-compose: VITE_API_URL="" → relative /api/* URLs, proxied by nginx
-// In Railway production: VITE_API_URL=https://your-backend.up.railway.app
-const API = `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api`;
+// In docker-compose / nginx proxy: VITE_API_URL="" (or unset) → relative /api/* URLs
+// In Railway production: VITE_API_URL=https://backend-production-a64b.up.railway.app
+const API = import.meta.env.VITE_API_URL || "";
 
 function trackEvent(name, props) {
   if (typeof window.plausible !== "undefined") {
@@ -280,7 +279,7 @@ export default function ProjectHype() {
   const fetchRates = (showLoading = false) => {
     setRatesError(false);
     if (showLoading) setLoadingRates(true);
-    fetch(`${API}/rates`)
+    fetch(`${API}/api/rates`)
       .then(r => { if (!r.ok) throw new Error("API error"); return r.json(); })
       .then(data => {
         setCurrencies(data);
@@ -310,7 +309,7 @@ export default function ProjectHype() {
     const params = new URLSearchParams(window.location.search);
     const shareId = params.get("portfolio");
     if (!shareId) return;
-    fetch(`${API}/portfolio/${shareId}`)
+    fetch(`${API}/api/portfolio/${shareId}`)
       .then(r => { if (!r.ok) throw new Error("not found"); return r.json(); })
       .then(positions => {
         setPortfolio(positions.map(p => ({ ...p, addedAt: Date.now() })));
@@ -324,7 +323,7 @@ export default function ProjectHype() {
     if (portfolio.length === 0) return;
     setShareLoading(true);
     try {
-      const res = await fetch(`${API}/portfolio/share`, {
+      const res = await fetch(`${API}/api/portfolio/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ positions: portfolio.map(p => ({ code: p.code, amount: p.amount })) }),
@@ -358,7 +357,7 @@ export default function ProjectHype() {
     if (!selected) return;
     setHeadlines([]);
     setLoadingNews(true);
-    fetch(`${API}/news/${selected.code}`)
+    fetch(`${API}/api/news/${selected.code}`)
       .then(r => r.json())
       .then(data => { setHeadlines(data); setLoadingNews(false); })
       .catch(() => setLoadingNews(false));
@@ -370,7 +369,7 @@ export default function ProjectHype() {
     if (!selected) return;
     setRateHistory([]);
     const limit = HISTORY_LIMITS[historyWindow] ?? 72;
-    fetch(`${API}/history/${selected.code}?limit=${limit}`)
+    fetch(`${API}/api/history/${selected.code}?limit=${limit}`)
       .then(r => r.json())
       .then(data => setRateHistory(data))
       .catch(() => {});
@@ -381,7 +380,7 @@ export default function ProjectHype() {
     if (!selected) return;
     setInstitutionalSignals([]);
     setLoadingSignals(true);
-    fetch(`${API}/signals/${selected.code}`)
+    fetch(`${API}/api/signals/${selected.code}`)
       .then(r => r.json())
       .then(data => { setInstitutionalSignals(data); setLoadingSignals(false); })
       .catch(() => setLoadingSignals(false));
@@ -2330,7 +2329,7 @@ export default function ProjectHype() {
                     setAlertError("");
                     setAlertLoading(true);
                     try {
-                      const res = await fetch(`${API}/alerts/subscribe`, {
+                      const res = await fetch(`${API}/api/alerts/subscribe`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ email, codes: [...alertCodes] }),

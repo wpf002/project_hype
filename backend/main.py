@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Project Hype API",
     description="Speculative foreign currency intelligence — rates, ROI modeling, and geopolitical news.",
-    version="1.2.0",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -98,7 +98,7 @@ app.include_router(signals.router, prefix="/api")
 async def root():
     return {
         "service": "Project Hype API",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "docs": "/docs",
         "endpoints": [
             "GET  /api/rates",
