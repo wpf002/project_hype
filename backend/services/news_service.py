@@ -52,9 +52,13 @@ CURRENCY_RSS_MAP: Dict[str, List[Tuple[str, str]]] = {
         ("L'Orient Today", "https://today.lorientlejour.com/rss"),
         ("Naharnet", "https://www.naharnet.com/stories/en/rss"),
     ],
-    "ZWL": [
+    "ZWG": [
         ("NewsDay Zimbabwe", "https://www.newsday.co.zw/feed/"),
         ("The Herald Zimbabwe", "https://www.herald.co.zw/feed/"),
+    ],
+    "VND": [
+        ("VnExpress International", "https://e.vnexpress.net/rss/business.rss"),
+        ("Vietnam Investment Review", "https://vir.com.vn/rss/rss.rss"),
     ],
     "VES": [
         ("Caracas Chronicles", "https://www.caracaschronicles.com/feed/"),
@@ -146,7 +150,7 @@ MOCK_HEADLINES: Dict[str, List[Dict[str, str]]] = {
         {"title": "Gulf states pledge $25B reconstruction fund contingent on transitional government formation", "source": "GCC Development Monitor"},
         {"title": "IMF Article IV consultation with Syria scheduled for first time since 2010 — precursor to program discussions", "source": "Bretton Woods Observer"},
     ],
-    "ZWL": [
+    "ZWG": [
         {"title": "RBZ launches ZiG gold-backed currency — second redenomination in 5 years replaces ZWL at 2,500:1", "source": "Zimbabwe Financial Gazette"},
         {"title": "ZiG trades at 3% premium to official gold parity in Bulawayo informal markets — early adoption positive", "source": "Southern Africa Monitor"},
         {"title": "ZIMSTAT: dollarization index rises to 78% — ZiG adoption requires reversing deep USD dependency", "source": "RBZ Economic Review"},
@@ -485,11 +489,21 @@ def _article_matches(article: dict, currency: dict) -> bool:
     code = currency["code"].lower()
     name = currency["name"].lower()
 
-    # Split name into parts (e.g. "Iraqi Dinar" → ["iraqi", "dinar", "iraq"])
+    # Split name into parts (e.g. "Iraqi Dinar" → ["iraqi", "dinar"])
     name_parts = name.split()
     country_guess = name_parts[0] if name_parts else ""
 
+    # Derive the uninflected country root from common adjective suffixes
+    # e.g. "iraqi" → "iraq", "vietnamese" → "vietnam", "iranian" → "iran"
+    country_root = country_guess
+    for suffix in ("ese", "ian", "ean", "an", "i"):
+        if len(country_guess) > len(suffix) + 3 and country_guess.endswith(suffix):
+            country_root = country_guess[: -len(suffix)]
+            break
+
     checks = [code, name, country_guess]
+    if country_root != country_guess:
+        checks.append(country_root)
     return any(term in haystack for term in checks if len(term) >= 3)
 
 
