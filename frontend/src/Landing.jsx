@@ -591,8 +591,8 @@ export default function Landing() {
           {/* Bottom disclaimer */}
           <div style={{ borderTop: "1px solid #1e1e3f", paddingTop: 20, fontSize: 11, color: "#404060", lineHeight: 1.7 }}>
             Exchange rates: ExchangeRate-API (live, updated every 15 min) + analyst fallback rates for sanctioned currencies
-            (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS). News and sentiment: GDELT Project via NewsAPI.
-            NLP: VADER (Valence Aware Dictionary and sEntiment Reasoner). Alerts: SendGrid.
+            (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS). News: 3-tier RSS pipeline — IMF/World Bank/OFAC/BIS institutional feeds,
+            GDELT Project (quality domain-filtered), and currency-specific regional sources. Sentiment: Claude AI (Haiku). Alerts: SendGrid.
             Scores reflect news activity and short-term rate signals — not financial fundamentals.
             Data may be delayed up to 12 hours. All prices in USD.
           </div>

@@ -22,11 +22,11 @@ async def get_currency_news(code: str):
     """
     Returns up to 5 headlines for a given currency code.
 
-    When NEWSAPI_KEY is set in .env, fetches real articles via NewsAPI.org
-    using the currency's curated news_query string.
+    Fetches real articles via the 3-tier RSS pipeline (IMF/World Bank/OFAC/BIS
+    institutional feeds, GDELT quality-domain filter, currency-specific regional
+    RSS). No external API key required.
 
-    Without an API key, returns analyst-written mock headlines that reflect
-    the actual geopolitical and macroeconomic drivers for each currency.
+    Falls back to analyst-written mock headlines if all live feeds fail.
 
     The `mock` field on each headline indicates whether the data is real.
     """

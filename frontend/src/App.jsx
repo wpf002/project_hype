@@ -1564,7 +1564,7 @@ export default function ProjectHype() {
                         </div>
                       </div>
                     </div>
-                    <p style={{ marginBottom: 0, fontSize: 12, color: "#8080aa" }}>Catalyst Score updates every 12 hours alongside Hype Score. If NewsAPI key is absent, Catalyst is 100% rate momentum.</p>
+                    <p style={{ marginBottom: 0, fontSize: 12, color: "#8080aa" }}>Catalyst Score updates every 12 hours alongside Hype Score. If the Claude API key is absent, sentiment scoring falls back to keyword-based analysis and Catalyst is weighted more heavily toward rate momentum.</p>
                   </div>
                 ),
               },
@@ -1616,7 +1616,8 @@ export default function ProjectHype() {
                       {[
                         ["ExchangeRate-API", "#00d4aa", "Live market feed for ~30 of 40 tracked currencies. Updates every 15 minutes. Reliable for mainstream and semi-exotic currencies. Currencies with a LIVE badge use this feed."],
                         ["Analyst Fallback Rates", "#ffa500", "10 exotic and sanctioned currencies (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS) use analyst-maintained fallback rates. Reason: no reliable market feed exists. Black market rates, sanctions distortions, and dual exchange rate systems make any single 'live' rate misleading. EST badge = fallback rate. These rates are updated manually when significant changes are confirmed."],
-                        ["NewsAPI", "#9999cc", "Free tier: 100 requests/day. Hype and Catalyst scores refresh every 12 hours. This means scores lag real-world events by up to 12 hours. During fast-moving situations, check primary news sources directly."],
+                        ["News Pipeline", "#9999cc", "3-tier RSS architecture with no API key or rate limits. Tier 1 (3× weight): institutional feeds — IMF, World Bank, US Treasury OFAC, BIS. Tier 2 (2× weight): GDELT Project filtered to quality domains (Reuters, FT, Bloomberg, Al Jazeera, BBC, etc.). Tier 3 (1× weight): currency-specific regional sources (Iraq Business News, NK News, Caracas Chronicles, Nairametrics, etc.). Scores refresh every 12 hours — during fast-moving situations, check primary sources directly."],
+                        ["Claude AI Sentiment", "#7b7bcc", "Headlines are scored by Claude (Haiku model) which understands financial and geopolitical context: 'sanctions relief' is bullish, 'IMF program suspended' is bearish, 'CBI reduces auction spread' is strongly bullish for IQD. Sentiment accounts for 60% of the Catalyst Score. Falls back to keyword scoring if no API key is present."],
                         ["Rate History", "#5a5aaa", "Snapshots stored every 15 minutes, retained for 7 days. Hype and Catalyst history retained for 30 days. The sparkline and trend indicators reflect this window."],
                       ].map(([label, color, desc]) => (
                         <div key={label} style={{ display: "flex", gap: 12, padding: "12px 16px", background: "#070714", borderRadius: 10, border: "1px solid #1e1e3f" }}>
