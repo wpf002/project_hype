@@ -15,7 +15,7 @@ from typing import Set
 EXOTIC_NO_LIVE: Set[str] = {
     "IRR",  # Iran — SWIFT-banned, dual black market / official rate
     "KPW",  # North Korea — no external market whatsoever
-    "ZWL",  # Zimbabwe — replaced by ZiG gold-backed currency, API unreliable
+    "ZWG",  # Zimbabwe — ZiG gold-backed currency (replaced ZWL April 2024), API unreliable
     "MMK",  # Myanmar — junta fixed rate vs. black market diverge 3x
     "SYP",  # Syria — sanctioned, parallel market only
     "VES",  # Venezuela — hyperinflationary, API data lags black market
@@ -104,14 +104,14 @@ CURRENCIES = [
         "news_query": "Laos kip BRI debt trap inflation currency crisis Bank of Lao PDR IMF fiscal deficit",
     },
     {
-        "code": "ZWL",
-        "name": "Zimbabwe Dollar",
+        "code": "ZWG",
+        "name": "Zimbabwe Gold Dollar",
         "flag": "🇿🇼",
-        "rate": 0.000777,
+        "rate": 0.0396,
         "mcap": "N/A",
         "vol": "N/A",
         "hype": 89,
-        "story": "Hyperinflation, USD adoption, reset talk",
+        "story": "Gold-backed ZiG replaced ZWL (April 2024), RBZ managed rate",
         "news_query": "Zimbabwe ZiG gold-backed currency Reserve Bank hyperinflation USD dollarization redenomination",
     },
     {

@@ -44,7 +44,7 @@ IMF_CURRENCY_TERMS = {
     "LBP": ["lebanon", "lebanese", "bdl", "banque du liban"],
     "SDG": ["sudan", "sudanese", "cbos"],
     "MMK": ["myanmar", "burma", "cbm"],
-    "ZWL": ["zimbabwe", "zimbabwean", "rbz"],
+    "ZWG": ["zimbabwe", "zimbabwean", "rbz"],
     "VES": ["venezuela", "venezuelan", "bcv"],
     "YER": ["yemen", "yemeni", "cby"],
     "IRR": ["iran", "iranian"],
@@ -57,7 +57,7 @@ OFAC_CURRENCY_TERMS = {
     "SYP":  ["syria", "syrian", "damascus"],
     "MMK":  ["myanmar", "burma", "tatmadaw", "min aung"],
     "SDG":  ["sudan", "sudanese", "rsf", "khartoum"],
-    "ZWL":  ["zimbabwe", "zimbabwean", "zanu"],
+    "ZWG":  ["zimbabwe", "zimbabwean", "zanu"],
     "YER":  ["yemen", "yemeni", "houthi", "ansarallah"],
     "VES":  ["venezuela", "venezuelan", "maduro", "pdvsa"],
 }

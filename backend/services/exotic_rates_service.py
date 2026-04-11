@@ -200,7 +200,7 @@ async def _fetch_zwl() -> Optional[Tuple[float, str, str]]:
     Requires FX_API_KEY (ExchangeRate-API v6) in environment.
     Rate is ZWG per 1 USD — we invert to USD per 1 ZWG.
     """
-    cached = _cache_get("ZWL")
+    cached = _cache_get("ZWG")
     if cached:
         return cached
 
@@ -226,7 +226,7 @@ async def _fetch_zwl() -> Optional[Tuple[float, str, str]]:
                 logger.warning("ZWL/ZWG: ExchangeRate-API rate %.4f outside sanity range", raw)
                 return None
             rate = 1.0 / raw
-            _cache_set("ZWL", rate, "ExchangeRate-API (ZWG)", "live")
+            _cache_set("ZWG", rate, "ExchangeRate-API (ZWG)", "live")
             logger.info("ZWL/ZiG scraped from ExchangeRate-API (%s): %.4f ZWG/USD → %.10f USD/ZWG",
                         "exchangerate-api.com", raw, rate)
             return rate, "ExchangeRate-API (ZWG)", "live"
@@ -292,7 +292,7 @@ _SCRAPER_MAP = {
     "IRR": _fetch_irr,
     "VES": _fetch_ves,
     "LBP": _fetch_lbp,
-    "ZWL": _fetch_zwl,
+    "ZWG": _fetch_zwl,
     "MMK": _fetch_mmk,
 }
 
