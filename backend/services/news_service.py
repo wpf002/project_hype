@@ -88,7 +88,7 @@ CURRENCY_RSS_MAP: Dict[str, List[Tuple[str, str]]] = {
 
 # In-memory cache for RSS feeds: {url: (articles_list, fetched_at)}
 _rss_cache: Dict[str, Tuple[List[dict], float]] = {}
-RSS_CACHE_TTL = 2 * 3600  # 2 hours in seconds
+RSS_CACHE_TTL = 30 * 60  # 30 minutes in seconds
 
 # ---------------------------------------------------------------------------
 # Geopolitically-informed mock headlines — one analyst's read on each currency

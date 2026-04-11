@@ -58,6 +58,7 @@ CURRENCIES = [
         "hype": 91,
         "story": "Sanctions, black market divergence",
         "news_query": "Iran rial SWIFT sanctions black market toman rate nuclear deal JCPOA oil exports",
+        "sanctions": "comprehensive",
     },
     {
         "code": "IDR",
@@ -91,6 +92,7 @@ CURRENCIES = [
         "hype": 83,
         "story": "Military junta, dual exchange rates",
         "news_query": "Myanmar kyat junta exchange rate black market coup sanctions parallel rate CBM",
+        "sanctions": "targeted",
     },
     {
         "code": "LAK",
@@ -113,6 +115,7 @@ CURRENCIES = [
         "hype": 89,
         "story": "Gold-backed ZiG replaced ZWL (April 2024), RBZ managed rate",
         "news_query": "Zimbabwe ZiG gold-backed currency Reserve Bank hyperinflation USD dollarization redenomination",
+        "sanctions": "targeted",
     },
     {
         "code": "VES",
@@ -124,6 +127,7 @@ CURRENCIES = [
         "hype": 87,
         "story": "Oil wealth vs. socialist collapse",
         "news_query": "Venezuela bolivar parallel rate oil sanctions BCV Maduro dollarization petrodollar black market",
+        "sanctions": "targeted",
     },
     {
         "code": "ARS",
@@ -168,6 +172,7 @@ CURRENCIES = [
         "hype": 80,
         "story": "Post-conflict reconstruction potential",
         "news_query": "Syria pound reconstruction sanctions Caesar Act HTS exchange rate post-Assad parallel market",
+        "sanctions": "comprehensive",
     },
     {
         "code": "AFN",
@@ -179,6 +184,7 @@ CURRENCIES = [
         "hype": 68,
         "story": "Taliban sanctions, frozen reserves",
         "news_query": "Afghanistan afghani Taliban sanctions Da Afghanistan Bank frozen reserves hawala exchange rate OFAC",
+        "sanctions": "targeted",
     },
     {
         "code": "GHS",
@@ -311,6 +317,7 @@ CURRENCIES = [
         "hype": 56,
         "story": "Civil war chaos, oil split aftermath",
         "news_query": "Sudan pound civil war RSF SAF parallel market inflation currency collapse Bank of Sudan hyperinflation",
+        "sanctions": "targeted",
     },
     {
         "code": "CDF",
@@ -443,6 +450,7 @@ CURRENCIES = [
         "hype": 95,
         "story": "Ultimate black market — regime change play",
         "news_query": "North Korea won jangmadang black market sanctions regime change Kim Jong Un OFAC cryptocurrency",
+        "sanctions": "comprehensive",
     },
     {
         "code": "SCR",

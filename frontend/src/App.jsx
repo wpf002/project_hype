@@ -138,6 +138,27 @@ function RateBadge({ live, source }) {
 }
 
 
+// Sanctions badge — comprehensive (illegal for US persons) vs targeted (entity-level OFAC)
+function SanctionsBadge({ sanctions }) {
+  if (!sanctions) return null;
+  const cfg = sanctions === "comprehensive"
+    ? { label: "SANCTIONED", bg: "#2a0000", color: "#ff4d4d", border: "#ff4d4d44", tooltip: "Comprehensive US sanctions (OFAC) — transacting in this currency is illegal for US persons" }
+    : { label: "OFAC",       bg: "#1a0e00", color: "#ff9933", border: "#ff993344", tooltip: "Targeted OFAC sanctions — specific entities/sectors are designated; consult compliance before trading" };
+  return (
+    <span
+      title={cfg.tooltip}
+      style={{
+        fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, letterSpacing: 1,
+        background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+        marginLeft: 6, verticalAlign: "middle", cursor: "help",
+      }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+
 function Sparkline({ data, color = "#00d4aa", height = 48 }) {
   // W/H are the fixed internal coordinate space — always numeric.
   // The `height` prop only sets the CSS height so it can be "100%" or a number.
@@ -700,7 +721,10 @@ export default function ProjectHype() {
                     <span style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1 }}>24H</span>
                     <ChangeChip value={selected.change_24h} />
                   </div>
-                  <div style={{ fontSize: 12, color: "#8080aa", marginTop: 2 }}>{selected.story}</div>
+                  <div style={{ fontSize: 12, color: "#8080aa", marginTop: 2 }}>
+                    {selected.story}
+                    <SanctionsBadge sanctions={selected.sanctions} />
+                  </div>
                   <div style={{ fontSize: 10, color: "#4a4a6a", marginTop: 6 }}>
                     Rates: {selected.source === "oxr" ? "OXR" : selected.source === "exchangerate-api" ? "ExchangeRate-API" : selected.source === "scraped" ? "Scraped" : "EST"} · News: Tier 1+2+3 · Sentiment: {selected.sentiment_source === "claude" ? "Claude AI" : "Keyword"}
                   </div>
@@ -939,7 +963,7 @@ export default function ProjectHype() {
                       >
                         <div style={{ fontSize: 18 }}>{c.flag}</div>
                         <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
-                        <div style={{ fontSize: 13, color: "#9999cc" }}>{c.name}</div>
+                        <div style={{ fontSize: 13, color: "#9999cc", display: "flex", alignItems: "center", gap: 4 }}>{c.name}<SanctionsBadge sanctions={c.sanctions} /></div>
                         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
                           {c.rate.toFixed(8)}
                           <RateBadge live={c.live} source={c.source} />
