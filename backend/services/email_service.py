@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 FROM_EMAIL = os.getenv("ALERT_FROM_EMAIL", "alerts@projecthype.io")
 FROM_NAME = "Project Hype"
-APP_URL = os.getenv("APP_URL", "https://frontend-production-3fb7.up.railway.app")
+APP_URL = os.getenv("APP_URL", "https://frontend-production-f60f1.up.railway.app")
 
 SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
 

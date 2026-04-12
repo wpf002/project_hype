@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 // In docker-compose / nginx proxy: VITE_API_URL="" (or unset) → relative /api/* URLs
-// In Railway production: VITE_API_URL=https://backend-production-a64b.up.railway.app
+// In Railway production: VITE_API_URL=https://backend-production-6057.up.railway.app
 const API = import.meta.env.VITE_API_URL || "";
 
 function trackEvent(name, props) {
