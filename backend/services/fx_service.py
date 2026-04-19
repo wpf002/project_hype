@@ -37,7 +37,7 @@ FX_API_KEY  = os.getenv("FX_API_KEY", "")
 OXR_URL        = "https://openexchangerates.org/api/latest.json"
 FALLBACK_FX_URL = "https://v6.exchangerate-api.com/v6/{key}/latest/USD"
 
-CACHE_TTL_SECONDS = 15 * 60  # 15 minutes
+CACHE_TTL_SECONDS = 60 * 60  # 1 hour — OXR free tier updates hourly; keeps usage ~720 req/month
 
 _cache: Dict = {"rates": {}, "fetched_at": 0.0, "source": "analyst"}
 

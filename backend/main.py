@@ -43,9 +43,9 @@ async def _signal_polling_loop() -> None:
 
 
 async def _rate_snapshot_loop() -> None:
-    """Write a rate snapshot every 5 minutes so history accumulates quickly."""
+    """Write a rate snapshot every hour, aligned with the OXR cache TTL."""
     while True:
-        await asyncio.sleep(300)  # 5 minutes
+        await asyncio.sleep(3600)  # 1 hour
         try:
             result = await get_all_rates()
             await write_snapshots({code: (r[0], r[1]) for code, r in result.items()})
