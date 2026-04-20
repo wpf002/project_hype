@@ -319,7 +319,11 @@ async def get_latest_rates_snapshot() -> Optional[Dict[str, tuple]]:
         result = {}
         for r in rows:
             ts = r["timestamp"]
-            fetched_at = ts.timestamp() if hasattr(ts, "timestamp") else float(ts)
+            if hasattr(ts, "timestamp"):
+                fetched_at = ts.timestamp()
+            else:
+                from datetime import datetime, timezone
+                fetched_at = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
             result[r["code"]] = (r["rate"], r["live"], fetched_at)
         return result
     except Exception:
