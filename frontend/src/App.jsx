@@ -919,6 +919,7 @@ export default function ProjectHype() {
                 <div style={{
                   display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
                   gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
+                  alignItems: "center",
                   fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase"
                 }}>
                   <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div style={{ textAlign: "center" }}>24h</div><div>Market Cap</div>
@@ -960,6 +961,7 @@ export default function ProjectHype() {
                         style={{
                           display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
                           gap: 10, padding: "12px 20px", cursor: "pointer",
+                          alignItems: "center",
                           borderBottom: "1px solid #0d0d1a",
                           borderLeft: isSelected ? "3px solid #00d4aa" : "3px solid transparent",
                           background: isSelected ? "#111128" : "transparent",
