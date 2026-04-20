@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import HOW_TO_BUY from "./howToBuy";
 
 // In docker-compose / nginx proxy: VITE_API_URL="" (or unset) → relative /api/* URLs
 // In Railway production: VITE_API_URL=https://backend-production-6057.up.railway.app
@@ -232,6 +233,9 @@ export default function ProjectHype() {
   const [pfCode, setPfCode] = useState("");
   const [pfAmount, setPfAmount] = useState("");
   const [pfSearch, setPfSearch] = useState("");
+
+  // ── Buy modal ─────────────────────────────────────────────────────────────
+  const [buyModal, setBuyModal] = useState(null); // currency object or null
 
   // ── Share modal ───────────────────────────────────────────────────────────
   const [shareModal, setShareModal] = useState(false);
@@ -910,7 +914,7 @@ export default function ProjectHype() {
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
               <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 800 }}>
                 <div style={{
-                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px",
+                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
                   gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
                   fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase"
                 }}>
@@ -925,7 +929,7 @@ export default function ProjectHype() {
                     onClick={() => setMarketSort("catalyst")}
                     title="Sort by Catalyst Score"
                   >Cat {marketSort === "catalyst" ? "▼" : ""}</div>
-                  <div>Story</div><div></div>
+                  <div>Story</div><div></div><div></div>
                 </div>
                 {(() => {
                   const isSearching = marketSearch.trim().length > 0;
@@ -951,7 +955,7 @@ export default function ProjectHype() {
                         key={c.code}
                         onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                         style={{
-                          display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px",
+                          display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
                           gap: 10, padding: "12px 20px", cursor: "pointer",
                           borderBottom: "1px solid #0d0d1a",
                           borderLeft: isSelected ? "3px solid #00d4aa" : "3px solid transparent",
@@ -1009,6 +1013,19 @@ export default function ProjectHype() {
                             onMouseEnter={e => { e.currentTarget.style.borderColor = "#00d4aa"; e.currentTarget.style.color = "#00d4aa"; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
                           >+</button>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setBuyModal(c); }}
+                            title={`How to buy ${c.code}`}
+                            style={{
+                              background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
+                              color: "#8080aa", fontSize: 10, cursor: "pointer",
+                              padding: "2px 5px", lineHeight: 1, transition: "all 0.15s", whiteSpace: "nowrap",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
+                          >Buy</button>
                         </div>
                       </div>
                     );
@@ -2097,6 +2114,135 @@ export default function ProjectHype() {
         </div>{/* end bottom panels */}
 
       </div>{/* end main layout */}
+
+      {/* How to Buy modal */}
+      {buyModal && (() => {
+        const info = HOW_TO_BUY[buyModal.code];
+        const tierColor = { exchange: "#00d4aa", limited: "#ffa500", dealer: "#7a6acd", sanctioned: "#ff4d4d" };
+        const tierLabel = { exchange: "Available on exchanges", limited: "Limited / P2P only", dealer: "Physical dealers only", sanctioned: "Sanctioned — do not buy" };
+        return (
+          <div
+            onClick={() => setBuyModal(null)}
+            style={{
+              position: "fixed", inset: 0, background: "rgba(7,7,20,0.88)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 1000, padding: 24,
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: "linear-gradient(135deg, #0d0d1a, #111128)",
+                border: "1px solid #1e1e3f", borderRadius: 20, padding: 32,
+                width: "100%", maxWidth: 520, animation: "slideIn 0.2s ease",
+                maxHeight: "90vh", overflowY: "auto",
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <span style={{ fontSize: 28 }}>{buyModal.flag}</span>
+                <div>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20 }}>
+                    How to Buy {buyModal.code}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#8080aa" }}>{buyModal.name}</div>
+                </div>
+              </div>
+
+              {!info ? (
+                <div style={{ fontSize: 13, color: "#8080aa" }}>No buying guide available for this currency yet.</div>
+              ) : (
+                <>
+                  {/* Tier badge */}
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    background: `${tierColor[info.tier]}15`, border: `1px solid ${tierColor[info.tier]}40`,
+                    borderRadius: 8, padding: "4px 12px", marginBottom: 16,
+                  }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: tierColor[info.tier] }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: tierColor[info.tier], letterSpacing: 1 }}>
+                      {tierLabel[info.tier]}
+                    </span>
+                  </div>
+
+                  {/* Summary */}
+                  <p style={{ fontSize: 13, color: "#c8c8ee", lineHeight: 1.6, marginBottom: 20 }}>{info.summary}</p>
+
+                  {/* Steps */}
+                  {info.steps.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>Steps</div>
+                      {info.steps.map((step, i) => (
+                        <div key={i} style={{ display: "flex", gap: 12, marginBottom: 10 }}>
+                          <div style={{
+                            flexShrink: 0, width: 22, height: 22, borderRadius: "50%",
+                            background: "#1a1a3a", border: "1px solid #2a2a5a",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 11, fontWeight: 700, color: "#00d4aa", fontFamily: "'Space Mono', monospace",
+                          }}>{i + 1}</div>
+                          <div style={{ fontSize: 13, color: "#c8c8ee", lineHeight: 1.5, paddingTop: 2 }}>{step}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Platforms */}
+                  {info.platforms.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>Platforms</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {info.platforms.map(p => (
+                          <a
+                            key={p.name}
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              background: "#111128", border: "1px solid #2a2a5a",
+                              borderRadius: 8, padding: "6px 14px",
+                              fontSize: 13, fontWeight: 600, color: "#00b4ff",
+                              textDecoration: "none", transition: "all 0.15s",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.background = "#0d1a2a"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a5a"; e.currentTarget.style.background = "#111128"; }}
+                          >
+                            {p.name} ↗
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Disclaimer */}
+                  {info.disclaimer && (
+                    <div style={{
+                      background: "#1a0a0a", border: "1px solid #3a1515",
+                      borderRadius: 10, padding: "12px 14px", marginBottom: 20,
+                    }}>
+                      <div style={{ fontSize: 11, color: "#ff4d4d", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Important</div>
+                      <div style={{ fontSize: 12, color: "#cc8888", lineHeight: 1.5 }}>{info.disclaimer}</div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div style={{ fontSize: 11, color: "#4a4a6a", marginBottom: 16, lineHeight: 1.5 }}>
+                Project Hype does not provide financial or legal advice. Always do your own research before transacting in any currency.
+              </div>
+
+              <button
+                onClick={() => setBuyModal(null)}
+                style={{
+                  width: "100%", padding: 10, borderRadius: 8, border: "1px solid #1e1e3f",
+                  background: "transparent", color: "#8080aa", fontSize: 13, cursor: "pointer",
+                }}
+              >Close</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Share Portfolio modal */}
       {shareModal && (
