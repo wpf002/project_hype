@@ -301,6 +301,32 @@ async def get_latest_hype_scores() -> Dict[str, float]:
         return {}
 
 
+async def get_latest_rates_snapshot() -> Optional[Dict[str, tuple]]:
+    """
+    Return the most recent rate snapshot per currency as {code: (rate, fetched_at_unix)}.
+    Used to warm the FX in-memory cache on startup so restarts don't burn OXR quota.
+    """
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT DISTINCT ON (code) code, rate, live, timestamp
+                   FROM rate_snapshots
+                   ORDER BY code, timestamp DESC"""
+            )
+        if not rows:
+            return None
+        result = {}
+        for r in rows:
+            ts = r["timestamp"]
+            fetched_at = ts.timestamp() if hasattr(ts, "timestamp") else float(ts)
+            result[r["code"]] = (r["rate"], r["live"], fetched_at)
+        return result
+    except Exception:
+        logger.exception("Failed to fetch latest rate snapshot")
+        return None
+
+
 async def get_latest_rate_updated_at() -> Optional[str]:
     """Return the timestamp of the most recent rate snapshot (any currency)."""
     try:

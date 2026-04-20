@@ -56,6 +56,8 @@ async def _rate_snapshot_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    from services.fx_service import warm_cache_from_db
+    await warm_cache_from_db()
     asyncio.create_task(_hype_engine_loop())
     asyncio.create_task(_signal_polling_loop())
     asyncio.create_task(_rate_snapshot_loop())

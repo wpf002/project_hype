@@ -10,7 +10,7 @@ Architecture decisions:
 - Exotic currencies in EXOTIC_NO_LIVE use exotic_rates_service scrapers
   (real black-market / parallel-market rates) before falling back to
   hardcoded analyst estimates.
-- Cache is per-process in-memory with a 15-minute TTL.
+- Cache is per-process in-memory with a 1-hour TTL, warmed from DB on startup.
 - source enum: "oxr" | "exchangerate-api" | "scraped" | "analyst"
 
 If neither OXR_APP_ID nor FX_API_KEY is set, we skip live fetching entirely.
@@ -134,6 +134,33 @@ async def _fetch_exchangerate_api() -> Optional[Dict[str, float]]:
         logger.error("Unexpected error fetching ExchangeRate-API rates: %s", exc)
 
     return None
+
+
+async def warm_cache_from_db() -> None:
+    """
+    On startup, read the latest rate snapshot from the DB and populate the
+    in-memory cache if the data is still within TTL. This prevents every
+    Railway restart from burning an OXR API call.
+    """
+    from db.db import get_latest_rates_snapshot
+
+    snapshot = await get_latest_rates_snapshot()
+    if not snapshot:
+        return
+
+    # Use the oldest fetched_at among all currencies as the cache timestamp
+    fetched_at = min(v[2] for v in snapshot.values())
+    age = time.time() - fetched_at
+
+    if age >= CACHE_TTL_SECONDS:
+        logger.info("DB rate snapshot is %.0f s old — skipping warm (will fetch fresh)", age)
+        return
+
+    _cache["rates"] = {code: v[0] for code, v in snapshot.items()}
+    _cache["fetched_at"] = fetched_at
+    # Treat DB-warmed data as coming from oxr (it was written by get_all_rates)
+    _cache["source"] = "oxr"
+    logger.info("Cache warmed from DB snapshot (%.0f s old, %d currencies)", age, len(snapshot))
 
 
 async def get_all_rates() -> Dict[str, Tuple[float, bool, str]]:
