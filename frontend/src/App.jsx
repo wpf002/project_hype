@@ -556,7 +556,10 @@ export default function ProjectHype() {
           padding: isMobile ? "0 16px" : "0 40px", height: 64,
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            onClick={() => window.location.href = "/"}
+            style={{ display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}
+          >
             <div style={{
               width: 36, height: 36, borderRadius: 10,
               background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
