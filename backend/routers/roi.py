@@ -19,10 +19,11 @@ Financial model:
   - target_rate < current_rate: valid, returns negative ROI (devaluation scenario)
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
 from data.currencies import CURRENCY_MAP
+from rate_limit import limiter
 from services.fx_service import get_rate
 
 router = APIRouter()
@@ -62,7 +63,8 @@ class ROIResponse(BaseModel):
 
 
 @router.post("/roi", response_model=ROIResponse)
-async def calculate_roi(req: ROIRequest):
+@limiter.limit("30/minute")
+async def calculate_roi(request: Request, req: ROIRequest):
     """
     Calculate ROI for a speculative currency position.
 

@@ -1,13 +1,35 @@
+# Python
 backend/venv/
-backend/db/rates.db
+backend/.venv/
+.venv/
+__pycache__/
 backend/__pycache__/
 backend/**/__pycache__/
-__pycache__/
 *.pyc
-backend/.env
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Environment files (never commit secrets)
 .env
-.venv/
-frontend/node_modules/
-frontend/dist/
+backend/.env
 frontend/.env.local
 frontend/.env*.local
+*.env.local
+
+# Local databases
+*.db
+backend/db/rates.db
+
+# Frontend build artifacts
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log

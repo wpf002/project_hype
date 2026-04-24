@@ -14,10 +14,8 @@ Signal types:
 
 import asyncio
 import logging
-import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 import httpx
 

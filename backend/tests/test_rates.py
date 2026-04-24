@@ -184,7 +184,7 @@ async def test_get_status_structure(client):
     assert "db_status" in data
     assert "uptime_seconds" in data
     assert data["currencies_tracked"] > 0
-    assert data["version"] == "1.2.0"
+    assert data["version"] == "1.3.0"
 
 
 async def test_get_status_null_when_no_scores(client):

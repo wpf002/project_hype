@@ -1,10 +1,16 @@
-from fastapi import APIRouter, HTTPException, Request
+import os
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
 
 from db.db import create_shared_portfolio, get_shared_portfolio
 
 router = APIRouter()
+
+# Built from a server-controlled env var so callers cannot influence the
+# share URL via the Referer header.
+APP_URL = os.getenv("APP_URL", "http://localhost:5173").rstrip("/")
 
 
 class Position(BaseModel):
@@ -22,23 +28,13 @@ class ShareResponse(BaseModel):
 
 
 @router.post("/portfolio/share", response_model=ShareResponse)
-async def share_portfolio(body: ShareRequest, request: Request):
+async def share_portfolio(body: ShareRequest):
     if not body.positions:
         raise HTTPException(status_code=400, detail="positions must not be empty")
 
     positions = [{"code": p.code.upper(), "amount": p.amount} for p in body.positions]
     share_id = await create_shared_portfolio(positions)
-
-    referer = request.headers.get("referer", "")
-    if referer:
-        from urllib.parse import urlparse
-        parsed = urlparse(referer)
-        frontend_origin = f"{parsed.scheme}://{parsed.netloc}"
-    else:
-        frontend_origin = str(request.base_url).rstrip("/")
-
-    url = f"{frontend_origin}?portfolio={share_id}"
-    return ShareResponse(id=share_id, url=url)
+    return ShareResponse(id=share_id, url=f"{APP_URL}?portfolio={share_id}")
 
 
 @router.get("/portfolio/{share_id}")

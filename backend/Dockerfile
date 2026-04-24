@@ -1,11 +1,24 @@
 FROM python:3.13-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 WORKDIR /app
+
+# Create an unprivileged user to run the app
+RUN groupadd --system app && useradd --system --gid app --home-dir /app app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Drop ownership of /app to the non-root user
+RUN chown -R app:app /app
+
+USER app
 
 EXPOSE 8000
 

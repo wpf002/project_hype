@@ -18,6 +18,8 @@ os.environ["FX_API_KEY"] = ""
 os.environ["SENDGRID_API_KEY"] = ""
 os.environ["NEWSAPI_KEY"] = ""
 os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
+# Rate limits would otherwise tip several test files into 429 territory.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 # ── add backend/ to path so all imports resolve from the project root ──────
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

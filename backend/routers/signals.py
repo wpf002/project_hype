@@ -6,7 +6,7 @@ Signal types: IMF_POSITIVE, IMF_NEGATIVE, SANCTIONS_RELIEF, SANCTIONS_ADDED
 """
 
 from fastapi import APIRouter, HTTPException
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
 
 from data.currencies import CURRENCY_MAP

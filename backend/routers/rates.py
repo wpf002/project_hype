@@ -1,9 +1,10 @@
 import time
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List, Optional
 from pydantic import BaseModel
 
 from data.currencies import CURRENCIES, CURRENCY_MAP
+from rate_limit import limiter
 from services.fx_service import get_all_rates, get_rate
 from db.db import (
     get_all_changes_24h, get_change_24h,
@@ -40,7 +41,8 @@ class SingleRate(CurrencyRate):
 
 
 @router.get("/rates", response_model=List[CurrencyRate])
-async def get_all_currency_rates():
+@limiter.limit("60/minute")
+async def get_all_currency_rates(request: Request):
     all_rates, changes, latest_hype, latest_catalyst = await _gather_rates_data()
     result = []
     for currency in CURRENCIES:

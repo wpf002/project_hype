@@ -1,10 +1,11 @@
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List
 
 from db.db import upsert_subscriber, delete_subscriber
 from data.currencies import CURRENCY_MAP
+from rate_limit import limiter
 
 router = APIRouter()
 
@@ -21,7 +22,8 @@ class UnsubscribeRequest(BaseModel):
 
 
 @router.post("/alerts/subscribe")
-async def subscribe(body: SubscribeRequest):
+@limiter.limit("5/minute")
+async def subscribe(request: Request, body: SubscribeRequest):
     email = body.email.strip().lower()
     if not _EMAIL_RE.match(email):
         raise HTTPException(status_code=422, detail="Invalid email address.")

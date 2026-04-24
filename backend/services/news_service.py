@@ -1,24 +1,21 @@
 """
 News Service — returns headlines for speculative currencies.
 
-3-tier source architecture:
+2-tier source architecture (GDELT tier was retired due to rate-limiting):
   Tier 1 (weight 3×): Institutional RSS feeds — IMF, World Bank, US Treasury OFAC, BIS
-  Tier 2 (weight 2×): Quality financial news via GDELT domain-filtered feed
   Tier 3 (weight 1×): Currency-specific regional/specialist RSS feeds
   Fallback: analyst-written mock headlines (geopolitically informed, not generic)
 """
 
 import logging
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Tuple
 
 import httpx
 
 from data.currencies import CURRENCY_MAP
 
 logger = logging.getLogger(__name__)
-GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 # ── Tier 1: Institutional RSS feeds ─────────────────────────────────────────
 TIER1_FEEDS = [
@@ -27,15 +24,6 @@ TIER1_FEEDS = [
     ("US Treasury OFAC", "https://home.treasury.gov/rss.xml"),
     ("BIS", "https://www.bis.org/doclist/all_speeches.rss"),
 ]
-
-# ── Tier 2: Quality-filtered GDELT domains ───────────────────────────────────
-TIER2_QUALITY_DOMAINS = (
-    "domain:reuters.com OR domain:apnews.com OR domain:ft.com OR "
-    "domain:wsj.com OR domain:economist.com OR domain:bloomberg.com OR "
-    "domain:aljazeera.com OR domain:bbc.co.uk OR domain:france24.com OR "
-    "domain:voanews.com OR domain:rferl.org OR domain:nikkei.com OR "
-    "domain:scmp.com"
-)
 
 # ── Tier 3: Currency-specific regional/specialist RSS feeds ──────────────────
 CURRENCY_RSS_MAP: Dict[str, List[Tuple[str, str]]] = {
@@ -516,56 +504,6 @@ async def _fetch_tier1(currency: dict) -> List[dict]:
             if _article_matches(a, currency):
                 results.append({**a, "tier": 1})
     return results
-
-
-async def _fetch_tier2_gdelt(code: str, query: str) -> List[dict]:
-    """Fetch Tier 2 quality-filtered GDELT articles."""
-    filtered_query = f"({query}) ({TIER2_QUALITY_DOMAINS})"
-    params = {
-        "query": filtered_query,
-        "mode": "artlist",
-        "maxrecords": 25,
-        "timespan": "7d",
-        "sourcelang": "english",
-        "format": "json",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=12.0) as client:
-            resp = await client.get(GDELT_URL, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-
-        articles = data.get("articles") or []
-        results = []
-        for a in articles:
-            title = (a.get("title") or "").strip()
-            if not title or len(title) < 15:
-                continue
-            seen = a.get("seendate", "")
-            pub_at = ""
-            if seen:
-                try:
-                    dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
-                    pub_at = dt.isoformat()
-                except (ValueError, TypeError):
-                    pass
-            results.append({
-                "title": title,
-                "source": a.get("domain", "GDELT"),
-                "url": a.get("url", ""),
-                "published_at": pub_at,
-                "description": "",
-                "tier": 2,
-            })
-        return results
-
-    except httpx.HTTPStatusError as exc:
-        logger.warning("GDELT HTTP %s for %s", exc.response.status_code, code)
-    except httpx.RequestError as exc:
-        logger.warning("GDELT request failed for %s: %s", code, exc)
-    except Exception as exc:
-        logger.warning("GDELT unexpected error for %s: %s", code, exc)
-    return []
 
 
 async def _fetch_tier3(code: str) -> List[dict]:

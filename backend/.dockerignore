@@ -1,10 +1,15 @@
 .git
+.gitignore
 *.md
 __pycache__
 *.pyc
 *.pyo
 .pytest_cache
 tests
-.env*
+.env
+.env.*
 venv
 .venv
+*.db
+db/rates.db
+.DS_Store
