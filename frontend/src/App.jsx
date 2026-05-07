@@ -483,7 +483,7 @@ export default function ProjectHype() {
         `}</style>
         {/* Header skeleton */}
         <div style={{ height: 64, background: "#0d0d2e", borderBottom: "1px solid #1e1e3f",
-          display: "flex", alignItems: "center", padding: "0 40px", gap: 16 }}>
+          display: "flex", alignItems: "center", padding: isMobile ? "0 16px" : "0 40px", gap: 16 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10,
             background: "linear-gradient(135deg,#ff4d4d,#ff8c00)",
             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, animation: "pulse 1.5s infinite" }}>⚡</div>
@@ -494,8 +494,8 @@ export default function ProjectHype() {
           </div>
         </div>
         {/* Content skeleton */}
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 40px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px" }}>
+          <div style={{ display: isNarrow ? "block" : "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {/* Tab bar skeleton */}
               <div style={{ height: 44, borderRadius: 10, background: "linear-gradient(90deg,#0d0d1a 0%,#1a1a2e 50%,#0d0d1a 100%)",
@@ -914,130 +914,234 @@ export default function ProjectHype() {
                 )}
               </div>
 
-              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
-              <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 800 }}>
-                <div style={{
-                  display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
-                  gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
-                  alignItems: "center",
-                  fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase"
-                }}>
-                  <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div style={{ textAlign: "center" }}>24h</div><div>Market Cap</div>
-                  <div
-                    style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#8080aa", userSelect: "none" }}
-                    onClick={() => setMarketSort("hype")}
-                    title="Sort by Hype Score"
-                  >Hype {marketSort === "hype" ? "▼" : ""}</div>
-                  <div
-                    style={{ cursor: "pointer", color: marketSort === "catalyst" ? "#00b4ff" : "#8080aa", userSelect: "none" }}
-                    onClick={() => setMarketSort("catalyst")}
-                    title="Sort by Catalyst Score"
-                  >Cat {marketSort === "catalyst" ? "▼" : ""}</div>
-                  <div>Story</div><div></div><div></div>
-                </div>
-                {(() => {
-                  const isSearching = marketSearch.trim().length > 0;
-                  let visible;
-                  if (isSearching) {
-                    visible = currencies.filter(c =>
-                      c.code.toLowerCase().includes(marketSearch.toLowerCase()) ||
-                      c.name.toLowerCase().includes(marketSearch.toLowerCase())
-                    );
-                  } else if (marketSort === "catalyst") {
-                    visible = [...currencies]
-                      .sort((a, b) => (b.catalyst_score ?? -1) - (a.catalyst_score ?? -1))
-                      .slice(0, 15);
-                  } else {
-                    visible = [...currencies]
-                      .sort((a, b) => (b.hype_score ?? b.hype) - (a.hype_score ?? a.hype))
-                      .slice(0, 15);
-                  }
-                  return visible.map((c) => {
-                    const isSelected = selected.code === c.code;
-                    return (
-                      <div
-                        key={c.code}
-                        onClick={() => { setSelected(c); setActiveTab("calculator"); }}
-                        style={{
-                          display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
-                          gap: 10, padding: "12px 20px", cursor: "pointer",
-                          alignItems: "center",
-                          borderBottom: "1px solid #0d0d1a",
-                          borderLeft: isSelected ? "3px solid #00d4aa" : "3px solid transparent",
-                          background: isSelected ? "#111128" : "transparent",
-                          transition: "background 0.15s",
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
-                        onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#111128" : "transparent"}
-                      >
-                        <div style={{ fontSize: 18 }}>{c.flag}</div>
-                        <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
-                        <div style={{ fontSize: 13, color: "#9999cc", display: "flex", alignItems: "center", gap: 4 }}>{c.name}<SanctionsBadge sanctions={c.sanctions} /></div>
-                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
-                          {c.rate.toFixed(8)}
-                          <RateBadge live={c.live} source={c.source} />
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ChangeChip value={c.change_24h} /></div>
-                        <div style={{ fontSize: 12, color: "#8080aa" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}
-                          title={`Hype Score ${Math.round(c.hype_score ?? c.hype)}/100`}>
-                          {Math.round(c.hype_score ?? c.hype)}
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}
-                          title={c.catalyst_score != null ? `Catalyst Score ${Math.round(c.catalyst_score)}/100 — forward-looking appreciation potential` : "Catalyst score pending"}>
-                          {c.catalyst_score != null ? (
-                            <>
-                              <div style={{ width: 7, height: 7, borderRadius: "50%", background: catalystColor(c.catalyst_score), boxShadow: `0 0 4px ${catalystColor(c.catalyst_score)}`, flexShrink: 0 }} />
-                              <span style={{ fontSize: 12, fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
-                            </>
-                          ) : (
-                            <span style={{ fontSize: 10, color: "#8080aa" }}>—</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 10, color: "#8080aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              setPortfolio(prev => {
-                                const existing = prev.findIndex(p => p.code === c.code);
-                                if (existing >= 0) {
-                                  const updated = [...prev];
-                                  updated[existing] = { ...updated[existing], amount: updated[existing].amount + 1 };
-                                  return updated;
-                                }
-                                return [...prev, { code: c.code, amount: 1, addedAt: Date.now() }];
-                              });
-                            }}
-                            title={`Add 1 ${c.code} to portfolio`}
-                            style={{
-                              background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
-                              color: "#8080aa", fontSize: 13, cursor: "pointer",
-                              padding: "2px 6px", lineHeight: 1, transition: "all 0.15s",
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#00d4aa"; e.currentTarget.style.color = "#00d4aa"; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
-                          >+</button>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <button
-                            onClick={e => { e.stopPropagation(); setBuyModal(c); }}
-                            title={`How to buy ${c.code}`}
-                            style={{
-                              background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
-                              color: "#8080aa", fontSize: 10, cursor: "pointer",
-                              padding: "2px 5px", lineHeight: 1, transition: "all 0.15s", whiteSpace: "nowrap",
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
-                          >Buy</button>
-                        </div>
+              {(() => {
+                const isSearching = marketSearch.trim().length > 0;
+                let visible;
+                if (isSearching) {
+                  visible = currencies.filter(c =>
+                    c.code.toLowerCase().includes(marketSearch.toLowerCase()) ||
+                    c.name.toLowerCase().includes(marketSearch.toLowerCase())
+                  );
+                } else if (marketSort === "catalyst") {
+                  visible = [...currencies]
+                    .sort((a, b) => (b.catalyst_score ?? -1) - (a.catalyst_score ?? -1))
+                    .slice(0, 15);
+                } else {
+                  visible = [...currencies]
+                    .sort((a, b) => (b.hype_score ?? b.hype) - (a.hype_score ?? a.hype))
+                    .slice(0, 15);
+                }
+
+                if (isMobile) {
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ display: "flex", gap: 8, fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", padding: "0 4px" }}>
+                        <span>Sort:</span>
+                        <span
+                          onClick={() => setMarketSort("hype")}
+                          style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#8080aa", userSelect: "none" }}
+                        >Hype {marketSort === "hype" ? "▼" : ""}</span>
+                        <span
+                          onClick={() => setMarketSort("catalyst")}
+                          style={{ cursor: "pointer", color: marketSort === "catalyst" ? "#00b4ff" : "#8080aa", userSelect: "none" }}
+                        >Catalyst {marketSort === "catalyst" ? "▼" : ""}</span>
                       </div>
-                    );
-                  });
-                })()}
-              </div>
-              </div>
+                      {visible.map(c => {
+                        const isSelected = selected.code === c.code;
+                        const hs = Math.round(c.hype_score ?? c.hype);
+                        const hypeColor = hs >= 80 ? "#ff4d4d" : hs >= 55 ? "#ffa500" : "#00d4aa";
+                        return (
+                          <div
+                            key={c.code}
+                            onClick={() => { setSelected(c); setActiveTab("calculator"); }}
+                            style={{
+                              background: isSelected ? "#111128" : "#0d0d1a",
+                              border: "1px solid #1e1e3f",
+                              borderLeft: isSelected ? "3px solid #00d4aa" : "1px solid #1e1e3f",
+                              borderRadius: 12, padding: 14, cursor: "pointer",
+                              display: "flex", flexDirection: "column", gap: 10,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div style={{ fontSize: 22 }}>{c.flag}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa" }}>{c.code}</span>
+                                  <SanctionsBadge sanctions={c.sanctions} />
+                                </div>
+                                <div style={{ fontSize: 12, color: "#9999cc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+                              </div>
+                              <ChangeChip value={c.change_24h} />
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff" }}>
+                              {c.rate.toFixed(8)} <span style={{ fontSize: 10, color: "#8080aa" }}>USD</span>
+                              <RateBadge live={c.live} source={c.source} />
+                            </div>
+                            <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <span style={{ color: "#8080aa", letterSpacing: 1, textTransform: "uppercase", fontSize: 10 }}>Hype</span>
+                                <span style={{ fontWeight: 700, color: hypeColor }}>{hs}</span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <span style={{ color: "#8080aa", letterSpacing: 1, textTransform: "uppercase", fontSize: 10 }}>Catalyst</span>
+                                {c.catalyst_score != null ? (
+                                  <>
+                                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: catalystColor(c.catalyst_score) }} />
+                                    <span style={{ fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
+                                  </>
+                                ) : (
+                                  <span style={{ color: "#8080aa" }}>—</span>
+                                )}
+                              </div>
+                              <div style={{ marginLeft: "auto", color: "#8080aa" }}>
+                                {c.mcap === "N/A" ? "" : `$${c.mcap}`}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setPortfolio(prev => {
+                                    const existing = prev.findIndex(p => p.code === c.code);
+                                    if (existing >= 0) {
+                                      const updated = [...prev];
+                                      updated[existing] = { ...updated[existing], amount: updated[existing].amount + 1 };
+                                      return updated;
+                                    }
+                                    return [...prev, { code: c.code, amount: 1, addedAt: Date.now() }];
+                                  });
+                                }}
+                                style={{
+                                  flex: 1, background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
+                                  color: "#00d4aa", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                                  padding: "8px 10px",
+                                }}
+                              >+ Portfolio</button>
+                              <button
+                                onClick={e => { e.stopPropagation(); setBuyModal(c); }}
+                                style={{
+                                  flex: 1, background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
+                                  color: "#00b4ff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                                  padding: "8px 10px",
+                                }}
+                              >How to Buy</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #1e1e3f" }}>
+                  <div style={{ background: "#0d0d1a", borderRadius: 12, overflow: "hidden", minWidth: 800 }}>
+                    <div style={{
+                      display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
+                      gap: 10, padding: "12px 20px", borderBottom: "1px solid #1e1e3f",
+                      alignItems: "center",
+                      fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase"
+                    }}>
+                      <div></div><div>Code</div><div>Name</div><div>Rate (USD)</div><div style={{ textAlign: "center" }}>24h</div><div>Market Cap</div>
+                      <div
+                        style={{ cursor: "pointer", color: marketSort === "hype" ? "#ffa500" : "#8080aa", userSelect: "none" }}
+                        onClick={() => setMarketSort("hype")}
+                        title="Sort by Hype Score"
+                      >Hype {marketSort === "hype" ? "▼" : ""}</div>
+                      <div
+                        style={{ cursor: "pointer", color: marketSort === "catalyst" ? "#00b4ff" : "#8080aa", userSelect: "none" }}
+                        onClick={() => setMarketSort("catalyst")}
+                        title="Sort by Catalyst Score"
+                      >Cat {marketSort === "catalyst" ? "▼" : ""}</div>
+                      <div>Story</div><div></div><div></div>
+                    </div>
+                    {visible.map((c) => {
+                      const isSelected = selected.code === c.code;
+                      return (
+                        <div
+                          key={c.code}
+                          onClick={() => { setSelected(c); setActiveTab("calculator"); }}
+                          style={{
+                            display: "grid", gridTemplateColumns: "40px 80px 1fr 120px 75px 75px 70px 70px 80px 36px 44px",
+                            gap: 10, padding: "12px 20px", cursor: "pointer",
+                            alignItems: "center",
+                            borderBottom: "1px solid #0d0d1a",
+                            borderLeft: isSelected ? "3px solid #00d4aa" : "3px solid transparent",
+                            background: isSelected ? "#111128" : "transparent",
+                            transition: "background 0.15s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
+                          onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#111128" : "transparent"}
+                        >
+                          <div style={{ fontSize: 18 }}>{c.flag}</div>
+                          <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
+                          <div style={{ fontSize: 13, color: "#9999cc", display: "flex", alignItems: "center", gap: 4 }}>{c.name}<SanctionsBadge sanctions={c.sanctions} /></div>
+                          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
+                            {c.rate.toFixed(8)}
+                            <RateBadge live={c.live} source={c.source} />
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ChangeChip value={c.change_24h} /></div>
+                          <div style={{ fontSize: 12, color: "#8080aa" }}>{c.mcap === "N/A" ? "—" : `$${c.mcap}`}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: (c.hype_score ?? c.hype) >= 80 ? "#ff4d4d" : (c.hype_score ?? c.hype) >= 55 ? "#ffa500" : "#00d4aa" }}
+                            title={`Hype Score ${Math.round(c.hype_score ?? c.hype)}/100`}>
+                            {Math.round(c.hype_score ?? c.hype)}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}
+                            title={c.catalyst_score != null ? `Catalyst Score ${Math.round(c.catalyst_score)}/100 — forward-looking appreciation potential` : "Catalyst score pending"}>
+                            {c.catalyst_score != null ? (
+                              <>
+                                <div style={{ width: 7, height: 7, borderRadius: "50%", background: catalystColor(c.catalyst_score), boxShadow: `0 0 4px ${catalystColor(c.catalyst_score)}`, flexShrink: 0 }} />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 10, color: "#8080aa" }}>—</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#8080aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.story.split(",")[0]}</div>
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                setPortfolio(prev => {
+                                  const existing = prev.findIndex(p => p.code === c.code);
+                                  if (existing >= 0) {
+                                    const updated = [...prev];
+                                    updated[existing] = { ...updated[existing], amount: updated[existing].amount + 1 };
+                                    return updated;
+                                  }
+                                  return [...prev, { code: c.code, amount: 1, addedAt: Date.now() }];
+                                });
+                              }}
+                              title={`Add 1 ${c.code} to portfolio`}
+                              style={{
+                                background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
+                                color: "#8080aa", fontSize: 13, cursor: "pointer",
+                                padding: "2px 6px", lineHeight: 1, transition: "all 0.15s",
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#00d4aa"; e.currentTarget.style.color = "#00d4aa"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
+                            >+</button>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); setBuyModal(c); }}
+                              title={`How to buy ${c.code}`}
+                              style={{
+                                background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
+                                color: "#8080aa", fontSize: 10, cursor: "pointer",
+                                padding: "2px 5px", lineHeight: 1, transition: "all 0.15s", whiteSpace: "nowrap",
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
+                            >Buy</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  </div>
+                );
+              })()}
               {(() => {
                 const isSearching = marketSearch.trim().length > 0;
                 const matchCount = currencies.filter(c =>
