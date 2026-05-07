@@ -233,6 +233,7 @@ export default function Landing() {
               padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700,
               background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
               color: "#070714", textDecoration: "none", letterSpacing: 0.5,
+              whiteSpace: "nowrap",
             }}
           >
             Open Dashboard
@@ -262,10 +263,10 @@ export default function Landing() {
             </div>
             <h1 style={{
               fontFamily: "'Syne', sans-serif", fontWeight: 800,
-              fontSize: isMobile ? 36 : 56, lineHeight: 1.1,
+              fontSize: isMobile ? 28 : 56, lineHeight: 1.15,
               margin: "0 0 20px 0", color: "#fff",
             }}>
-              The Intelligence Layer<br />
+              The Intelligence Layer{isMobile ? " " : <br />}
               <span style={{ background: "linear-gradient(90deg, #00d4aa, #00b4ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                 for Speculative Currency.
               </span>
@@ -279,19 +280,6 @@ export default function Landing() {
               watching — updated every 12 hours from live GDELT headlines and exchange rate feeds.
             </p>
             <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: 16 }}>
-              <a
-                href="/app"
-                style={{
-                  display: "inline-block", padding: "14px 32px",
-                  borderRadius: 12, fontSize: 15, fontWeight: 700, letterSpacing: 0.5,
-                  background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
-                  color: "#070714", textDecoration: "none",
-                  animation: "glowPulse 3s ease-in-out infinite",
-                  boxShadow: "0 0 24px #00d4aa44",
-                }}
-              >
-                Open Dashboard →
-              </a>
               <span style={{ fontSize: 12, color: "#5c5c8a" }}>40 currencies tracked. Free.</span>
             </div>
           </div>
@@ -417,7 +405,7 @@ export default function Landing() {
 
       {/* ── ALERTS SECTION ── */}
       <section style={{ padding: isMobile ? "60px 20px" : "80px 48px", maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 48, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 48, alignItems: isMobile ? "stretch" : "flex-start" }}>
           <FadeIn>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 40, marginBottom: 20 }}>🔔</div>
@@ -444,8 +432,8 @@ export default function Landing() {
           <FadeIn delay={150}>
             <div style={{
               background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 20,
-              padding: 28, flexShrink: 0, width: isMobile ? "100%" : 420,
-              maxWidth: "100%", fontFamily: "'Space Mono', monospace",
+              padding: isMobile ? 16 : 28, flexShrink: 0, width: isMobile ? "100%" : 420,
+              maxWidth: "100%", boxSizing: "border-box", fontFamily: "'Space Mono', monospace",
             }}>
               {/* Mock email preview */}
               <div style={{ marginBottom: 14, padding: "10px 14px", background: "#070714",
@@ -470,14 +458,14 @@ export default function Landing() {
                   Sentiment turned positive (VADER: +0.34) on GDELT headlines covering CBI reserve disclosures.
                   7-day rate momentum: <span style={{ color: "#ffa500" }}>+0.8%</span>.
                 </div>
-                <a href="/app" style={{
+                <div style={{
                   display: "block", textAlign: "center", padding: "11px", borderRadius: 9,
                   background: "linear-gradient(135deg, #0d1a2e, #0d2040)",
                   border: "1px solid #00b4ff33", color: "#00b4ff", fontSize: 13,
-                  textDecoration: "none", fontWeight: 700,
+                  fontWeight: 700,
                 }}>
-                  Open Dashboard →
-                </a>
+                  View Catalyst →
+                </div>
               </div>
             </div>
           </FadeIn>
@@ -516,20 +504,8 @@ export default function Landing() {
                 ROI modeling, portfolio tracking, and catalyst alerts — in one dashboard.
               </p>
             </div>
-            {/* Right: CTA */}
+            {/* Right: tagline */}
             <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: isMobile ? "flex-start" : "center", gap: 14 }}>
-              <a
-                href="/app"
-                style={{
-                  display: "inline-block", padding: "16px 48px", borderRadius: 12,
-                  fontSize: 16, fontWeight: 700, letterSpacing: 0.5, textDecoration: "none",
-                  background: "linear-gradient(135deg, #00d4aa, #00b4ff)",
-                  color: "#070714", animation: "glowPulse 3s ease-in-out infinite",
-                  boxShadow: "0 0 28px #00d4aa44", whiteSpace: "nowrap",
-                }}
-              >
-                Open Dashboard →
-              </a>
               <span style={{ fontSize: 12, color: "#5c5c8a" }}>40 currencies. Always free.</span>
             </div>
           </div>

@@ -79,14 +79,14 @@ function LiveDot({ secondsSince }) {
     : `${Math.floor(secondsSince / 60)}m ago`;
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
       <span style={{
         display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-        background: "#00d4aa", boxShadow: "0 0 8px #00d4aa", animation: "pulse 2s infinite"
+        background: "#00d4aa", boxShadow: "0 0 8px #00d4aa", animation: "pulse 2s infinite", flexShrink: 0,
       }} />
-      <span style={{ color: "#00d4aa", fontSize: 12, letterSpacing: 1 }}>LIVE</span>
+      <span style={{ color: "#00d4aa", fontSize: 12, letterSpacing: 1, flexShrink: 0 }}>LIVE</span>
       {label && (
-        <span style={{ color: "#5c5c8a", fontSize: 10, fontFamily: "'Space Mono', monospace" }}>
+        <span style={{ color: "#5c5c8a", fontSize: 10, fontFamily: "'Space Mono', monospace", flexShrink: 0 }}>
           · {label}
         </span>
       )}
@@ -211,7 +211,12 @@ export default function ProjectHype() {
   const [amount, setAmount] = useState("20000000");
   const [targetRate, setTargetRate] = useState("");
   const [results, setResults] = useState(null);
-  const [activeTab, setActiveTab] = useState("calculator");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return "calculator";
+    const tabFromHash = window.location.hash.replace("#", "");
+    const valid = ["calculator", "markets", "heatmap", "signals", "portfolio", "about"];
+    return valid.includes(tabFromHash) ? tabFromHash : "calculator";
+  });
   const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
@@ -300,7 +305,7 @@ export default function ProjectHype() {
   }
 
   // ── Fetch all 40 currencies with live rates on mount ──────────────────────
-  const fetchRates = (showLoading = false) => {
+  const fetchRates = (showLoading = false, attempt = 0) => {
     setRatesError(false);
     if (showLoading) setLoadingRates(true);
     fetch(`${API}/api/rates`)
@@ -312,7 +317,16 @@ export default function ProjectHype() {
         setLastFetchedAt(Date.now());
         setSecondsSince(0);
       })
-      .catch(() => { setLoadingRates(false); setRatesError(true); });
+      .catch(() => {
+        // Retry up to 4 times with backoff before showing the error screen —
+        // covers the brief window during a backend restart where fetches fail.
+        if (attempt < 4) {
+          setTimeout(() => fetchRates(showLoading, attempt + 1), 1500 * (attempt + 1));
+        } else {
+          setLoadingRates(false);
+          setRatesError(true);
+        }
+      });
   };
   useEffect(() => {
     fetchRates(true); // initial load — show loading screen
@@ -543,7 +557,7 @@ export default function ProjectHype() {
       {/* Disclaimer banner */}
       <div style={{
         background: "#0a0a1a", borderBottom: "1px solid #2a1a00",
-        padding: "7px 20px", textAlign: "center", fontSize: 11,
+        padding: "7px 20px", textAlign: isMobile ? "left" : "center", fontSize: 11,
         color: "#7a6a40", letterSpacing: 0.3,
       }}>
         ⚠ Project Hype is a <strong style={{ color: "#a08040" }}>speculative research tool</strong> — scores reflect news activity and short-term rate signals, not financial fundamentals. <strong style={{ color: "#a08040" }}>Not investment advice.</strong> Do your own research.
@@ -659,18 +673,29 @@ export default function ProjectHype() {
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 24 }}>
 
           {/* Nav Tabs */}
-          <div className="tab-bar" style={{ display: "flex", gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexWrap: "nowrap" }}>
-            {["calculator", "markets", "heatmap", "signals", "portfolio", "about"].map(tab => (
-              <button key={tab} onClick={() => { setActiveTab(tab); trackEvent("tab_changed", { tab }); }} style={{
-                padding: isMobile ? "8px 14px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", flexShrink: 0,
-                background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
-                color: activeTab === tab ? "#e8e8ff" : "#8080aa",
-                fontSize: 13, textTransform: "capitalize", fontWeight: 600,
-                transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none"
-              }}>
-                {tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : tab === "signals" ? "🎯 Signal Strength" : tab === "about" ? "ℹ️ About" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`}
-              </button>
-            ))}
+          <div className="tab-bar" style={{
+            display: isMobile ? "grid" : "flex",
+            gridTemplateColumns: isMobile ? "repeat(3, 1fr)" : undefined,
+            gap: 4, background: "#0d0d1a", borderRadius: 10, padding: 4,
+            ...(isMobile ? {} : { overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexWrap: "nowrap" }),
+          }}>
+            {["calculator", "markets", "heatmap", "signals", "portfolio", "about"].map(tab => {
+              const labelDesktop = tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : tab === "signals" ? "🎯 Signal Strength" : tab === "about" ? "ℹ️ About" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`;
+              const labelMobile = tab === "calculator" ? "⚡ ROI" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype" : tab === "signals" ? "🎯 Signals" : tab === "about" ? "ℹ️ About" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`;
+              return (
+                <button key={tab} onClick={() => { setActiveTab(tab); trackEvent("tab_changed", { tab }); }} style={{
+                  padding: isMobile ? "8px 4px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                  flexShrink: isMobile ? undefined : 0, minWidth: 0,
+                  background: activeTab === tab ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
+                  color: activeTab === tab ? "#e8e8ff" : "#8080aa",
+                  fontSize: isMobile ? 11 : 13, textTransform: "capitalize", fontWeight: 600,
+                  transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {isMobile ? labelMobile : labelDesktop}
+                </button>
+              );
+            })}
           </div>
 
           {/* Tab content — flex:1 so this area always fills to the sidebar's bottom */}
@@ -950,53 +975,70 @@ export default function ProjectHype() {
                         const isSelected = selected.code === c.code;
                         const hs = Math.round(c.hype_score ?? c.hype);
                         const hypeColor = hs >= 80 ? "#ff4d4d" : hs >= 55 ? "#ffa500" : "#00d4aa";
+                        const cat = c.catalyst_score;
+                        const catCol = cat != null ? catalystColor(cat) : "#3a3a55";
                         return (
                           <div
                             key={c.code}
                             onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                             style={{
-                              background: isSelected ? "#111128" : "#0d0d1a",
-                              border: "1px solid #1e1e3f",
-                              borderLeft: isSelected ? "3px solid #00d4aa" : "1px solid #1e1e3f",
-                              borderRadius: 12, padding: 14, cursor: "pointer",
-                              display: "flex", flexDirection: "column", gap: 10,
+                              background: isSelected ? "#11122a" : "#0d0d1a",
+                              border: `1px solid ${isSelected ? "#1e3a5f" : "#1e1e3f"}`,
+                              borderLeft: `3px solid ${isSelected ? "#00d4aa" : "#1e1e3f"}`,
+                              borderRadius: 10, padding: "14px 14px 12px", cursor: "pointer",
+                              display: "flex", flexDirection: "column", gap: 12,
                             }}
                           >
+                            {/* Header: flag + code + name + change */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div style={{ fontSize: 22 }}>{c.flag}</div>
+                              <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{c.flag}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa" }}>{c.code}</span>
+                                  <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa", letterSpacing: 0.5 }}>{c.code}</span>
                                   <SanctionsBadge sanctions={c.sanctions} />
                                 </div>
-                                <div style={{ fontSize: 12, color: "#9999cc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+                                <div style={{ fontSize: 11, color: "#8080aa", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
                               </div>
-                              <ChangeChip value={c.change_24h} />
+                              <div style={{ flexShrink: 0 }}>
+                                <ChangeChip value={c.change_24h} />
+                              </div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff" }}>
-                              {c.rate.toFixed(8)} <span style={{ fontSize: 10, color: "#8080aa" }}>USD</span>
+
+                            {/* Rate row */}
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, color: "#e8e8ff", fontWeight: 700 }}>{c.rate.toFixed(8)}</span>
+                              <span style={{ fontSize: 9, color: "#8080aa", letterSpacing: 1 }}>USD</span>
                               <RateBadge live={c.live} source={c.source} />
-                            </div>
-                            <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                <span style={{ color: "#8080aa", letterSpacing: 1, textTransform: "uppercase", fontSize: 10 }}>Hype</span>
-                                <span style={{ fontWeight: 700, color: hypeColor }}>{hs}</span>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                <span style={{ color: "#8080aa", letterSpacing: 1, textTransform: "uppercase", fontSize: 10 }}>Catalyst</span>
-                                {c.catalyst_score != null ? (
-                                  <>
-                                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: catalystColor(c.catalyst_score) }} />
-                                    <span style={{ fontWeight: 700, color: catalystColor(c.catalyst_score), fontFamily: "'Space Mono', monospace" }}>{Math.round(c.catalyst_score)}</span>
-                                  </>
-                                ) : (
-                                  <span style={{ color: "#8080aa" }}>—</span>
-                                )}
-                              </div>
-                              <div style={{ marginLeft: "auto", color: "#8080aa" }}>
+                              <div style={{ marginLeft: "auto", fontSize: 11, color: "#5c5c8a", fontFamily: "'Space Mono', monospace" }}>
                                 {c.mcap === "N/A" ? "" : `$${c.mcap}`}
                               </div>
                             </div>
+
+                            {/* Score bars: HYPE + CATALYST side by side */}
+                            <div style={{ display: "flex", gap: 14 }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                                  <span style={{ fontSize: 9, color: "#8080aa", letterSpacing: 1.5 }}>HYPE</span>
+                                  <span style={{ fontSize: 12, fontFamily: "'Space Mono', monospace", fontWeight: 700, color: hypeColor }}>{hs}</span>
+                                </div>
+                                <div style={{ height: 3, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
+                                  <div style={{ width: `${hs}%`, height: "100%", background: hypeColor, boxShadow: `0 0 6px ${hypeColor}` }} />
+                                </div>
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                                  <span style={{ fontSize: 9, color: "#8080aa", letterSpacing: 1.5 }}>CATALYST</span>
+                                  <span style={{ fontSize: 12, fontFamily: "'Space Mono', monospace", fontWeight: 700, color: catCol }}>
+                                    {cat != null ? Math.round(cat) : "—"}
+                                  </span>
+                                </div>
+                                <div style={{ height: 3, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
+                                  <div style={{ width: `${cat ?? 0}%`, height: "100%", background: catCol, boxShadow: cat != null ? `0 0 6px ${catCol}` : "none" }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
                             <div style={{ display: "flex", gap: 8 }}>
                               <button
                                 onClick={e => {
@@ -1012,19 +1054,19 @@ export default function ProjectHype() {
                                   });
                                 }}
                                 style={{
-                                  flex: 1, background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
-                                  color: "#00d4aa", fontSize: 12, fontWeight: 700, cursor: "pointer",
-                                  padding: "8px 10px",
+                                  flex: 1, background: "#070714", border: "1px solid #1e1e3f", borderRadius: 7,
+                                  color: "#00d4aa", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                                  padding: "8px 10px", letterSpacing: 0.5,
                                 }}
-                              >+ Portfolio</button>
+                              >+ PORTFOLIO</button>
                               <button
                                 onClick={e => { e.stopPropagation(); setBuyModal(c); }}
                                 style={{
-                                  flex: 1, background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
-                                  color: "#00b4ff", fontSize: 12, fontWeight: 700, cursor: "pointer",
-                                  padding: "8px 10px",
+                                  flex: 1, background: "#070714", border: "1px solid #1e1e3f", borderRadius: 7,
+                                  color: "#00b4ff", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                                  padding: "8px 10px", letterSpacing: 0.5,
                                 }}
-                              >How to Buy</button>
+                              >HOW TO BUY</button>
                             </div>
                           </div>
                         );
@@ -1446,8 +1488,8 @@ export default function ProjectHype() {
                 border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 24, flex: 1
               }}>
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: 1, marginBottom: 6 }}>
-                    🎯 SPECULATIVE SIGNAL STRENGTH
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: isMobile ? 13 : 18, letterSpacing: isMobile ? 0 : 1, marginBottom: 6 }}>
+                    {isMobile ? "🎯 SIGNAL STRENGTH" : "🎯 SPECULATIVE SIGNAL STRENGTH"}
                   </div>
                   <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.6 }}>
                     Currencies ranked by <strong style={{ color: "#9999cc" }}>Catalyst Score</strong> — a composite of news sentiment and 7-day rate momentum. High scores indicate active narratives and recent movement, <strong style={{ color: "#7a6a40" }}>not a prediction or recommendation</strong>. Updated every 12 hours.
@@ -1455,12 +1497,12 @@ export default function ProjectHype() {
                 </div>
 
                 {/* Legend */}
-                <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-                  {[["#00d4aa", "Bullish", ">10 sentiment"], ["#8080aa", "Neutral", "±10"], ["#ff4d4d", "Bearish", "<−10 sentiment"]].map(([color, label, sub]) => (
-                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
-                      <span style={{ fontSize: 11, color, fontWeight: 700 }}>{label}</span>
-                      <span style={{ fontSize: 10, color: "#8080aa" }}>{sub}</span>
+                <div style={{ display: "flex", gap: isMobile ? 8 : 16, marginBottom: 20, flexWrap: isMobile ? "nowrap" : "wrap" }}>
+                  {[["#00d4aa", "Bullish", ">10 sent."], ["#8080aa", "Neutral", "±10"], ["#ff4d4d", "Bearish", "<−10 sent."]].map(([color, label, sub]) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 6, minWidth: 0 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                      <span style={{ fontSize: isMobile ? 10 : 11, color, fontWeight: 700, whiteSpace: "nowrap" }}>{label}</span>
+                      <span style={{ fontSize: isMobile ? 9 : 10, color: "#8080aa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</span>
                     </div>
                   ))}
                 </div>
@@ -1487,12 +1529,17 @@ export default function ProjectHype() {
 
                 {/* Table header */}
                 <div style={{
-                  display: "grid", gridTemplateColumns: "28px 32px 160px 1fr 90px 72px",
-                  gap: 10, padding: "8px 12px",
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "16px 20px 1fr auto" : "28px 32px 160px 1fr 90px 72px",
+                  gap: isMobile ? 6 : 10, padding: isMobile ? "8px 4px" : "8px 12px",
                   fontSize: 9, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase",
                   borderBottom: "1px solid #1e1e3f"
                 }}>
-                  <div>#</div><div></div><div>Currency</div><div>Signal</div><div>Sentiment</div><div>7d Move</div>
+                  {isMobile ? (
+                    <><div>#</div><div></div><div>Currency</div><div style={{ textAlign: "right" }}>Cat · Sent · 7d</div></>
+                  ) : (
+                    <><div>#</div><div></div><div>Currency</div><div>Signal</div><div>Sentiment</div><div>7d Move</div></>
+                  )}
                 </div>
 
                 {(() => {
@@ -1521,54 +1568,83 @@ export default function ProjectHype() {
                         key={c.code}
                         onClick={() => { setSelected(c); setActiveTab("calculator"); }}
                         style={{
-                          display: "grid", gridTemplateColumns: "28px 32px 160px 1fr 90px 72px",
-                          gap: 10, padding: "12px 12px", cursor: "pointer",
+                          display: "grid",
+                          gridTemplateColumns: isMobile ? "16px 20px 1fr auto" : "28px 32px 160px 1fr 90px 72px",
+                          gap: isMobile ? 6 : 10, padding: isMobile ? "10px 4px" : "12px 12px", cursor: "pointer",
                           borderBottom: "1px solid #0d0d1a",
                           background: selected.code === c.code ? "#111128" : "transparent",
                           transition: "background 0.15s",
                           borderRadius: i === 0 ? "8px 8px 0 0" : 0,
+                          alignItems: "center",
                         }}
                         onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
                         onMouseLeave={e => e.currentTarget.style.background = selected.code === c.code ? "#111128" : "transparent"}
                       >
                         {/* Rank */}
-                        <div style={{ fontSize: 10, color: "#5c5c8a", fontFamily: "'Space Mono', monospace", paddingTop: 2 }}>{i + 1}</div>
+                        <div style={{ fontSize: 10, color: "#5c5c8a", fontFamily: "'Space Mono', monospace" }}>{i + 1}</div>
 
                         {/* Flag */}
-                        <div style={{ fontSize: 20 }}>{c.flag}</div>
+                        <div style={{ fontSize: isMobile ? 16 : 20 }}>{c.flag}</div>
 
-                        {/* Name */}
-                        <div>
-                          <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: "#e8e8ff" }}>{c.code}</div>
-                          <div style={{ fontSize: 10, color: "#8080aa", marginTop: 1 }}>{c.name}</div>
-                        </div>
+                        {isMobile ? (
+                          <>
+                            {/* Code + name */}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 11, color: "#e8e8ff" }}>{c.code}</div>
+                              <div style={{ fontSize: 9, color: "#8080aa", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
+                            </div>
 
-                        {/* Catalyst bar */}
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                            <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: catColor }}>{Math.round(cat)}</span>
-                          </div>
-                          <div style={{ height: 4, background: "#1a1a2e", borderRadius: 2, overflow: "hidden", width: "100%" }}>
-                            <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 2, boxShadow: `0 0 6px ${catColor}` }} />
-                          </div>
-                        </div>
+                            {/* All three signals on one row, baseline-aligned */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "'Space Mono', monospace" }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: catColor, minWidth: 22, textAlign: "right" }}>
+                                {Math.round(cat)}
+                              </span>
+                              <span style={{
+                                fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: 4,
+                                color: sentColor, background: `${sentColor}18`,
+                                border: `1px solid ${sentColor}33`, whiteSpace: "nowrap",
+                              }}>{sentLabel}</span>
+                              <span style={{ fontSize: 10, color: momColor, fontWeight: 700, minWidth: 38, textAlign: "right" }}>
+                                {mom > 0 ? "+" : ""}{mom.toFixed(1)}%
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Name */}
+                            <div>
+                              <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: "#e8e8ff" }}>{c.code}</div>
+                              <div style={{ fontSize: 10, color: "#8080aa", marginTop: 1 }}>{c.name}</div>
+                            </div>
 
-                        {/* Sentiment */}
-                        <div>
-                          <span style={{
-                            fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
-                            color: sentColor, background: `${sentColor}18`,
-                            border: `1px solid ${sentColor}33`,
-                          }}>{sentLabel}</span>
-                          <div style={{ fontSize: 10, color: sentColor, fontFamily: "'Space Mono', monospace", marginTop: 3 }}>
-                            {sent === 0 ? "—" : `VSS: ${sent > 0 ? "+" : ""}${sent.toFixed(0)}`}
-                          </div>
-                        </div>
+                            {/* Catalyst bar */}
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                                <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 12, color: catColor }}>{Math.round(cat)}</span>
+                              </div>
+                              <div style={{ height: 4, background: "#1a1a2e", borderRadius: 2, overflow: "hidden", width: "100%" }}>
+                                <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 2, boxShadow: `0 0 6px ${catColor}` }} />
+                              </div>
+                            </div>
 
-                        {/* Momentum */}
-                        <div style={{ fontSize: 12, fontFamily: "'Space Mono', monospace", color: momColor, fontWeight: 700 }}>
-                          {mom > 0 ? "+" : ""}{mom.toFixed(2)}%
-                        </div>
+                            {/* Sentiment */}
+                            <div>
+                              <span style={{
+                                fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                                color: sentColor, background: `${sentColor}18`,
+                                border: `1px solid ${sentColor}33`,
+                              }}>{sentLabel}</span>
+                              <div style={{ fontSize: 10, color: sentColor, fontFamily: "'Space Mono', monospace", marginTop: 3 }}>
+                                {sent === 0 ? "—" : `VSS: ${sent > 0 ? "+" : ""}${sent.toFixed(0)}`}
+                              </div>
+                            </div>
+
+                            {/* Momentum */}
+                            <div style={{ fontSize: 12, fontFamily: "'Space Mono', monospace", color: momColor, fontWeight: 700 }}>
+                              {mom > 0 ? "+" : ""}{mom.toFixed(2)}%
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -1769,7 +1845,7 @@ export default function ProjectHype() {
                   background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
                   border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 28, flex: 1
                 }}>
-                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: 1, marginBottom: 6 }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: isMobile ? 16 : 20, letterSpacing: isMobile ? 0.5 : 1, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     ℹ️ About Project Hype
                   </div>
                   <div style={{ fontSize: 13, color: "#8080aa", lineHeight: 1.6, marginBottom: 12 }}>
