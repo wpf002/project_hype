@@ -1,0 +1,21 @@
+# Direct runtime dependencies — SOURCE FILE, do not edit requirements.txt directly.
+#
+# Regenerate requirements.txt after any change here:
+#   pip install pip-tools
+#   pip-compile requirements.in \
+#     --output-file requirements.txt \
+#     --generate-hashes \
+#     --no-header \
+#     --annotation-style line
+#
+# Upgrade a specific package:
+#   pip-compile requirements.in --upgrade-package <name> --generate-hashes ...
+#
+# Then run the test suite and commit both files together.
+fastapi==0.136.3
+uvicorn==0.48.0
+httpx==0.28.1
+python-dotenv==1.2.2
+asyncpg==0.31.0
+anthropic==0.105.2
+slowapi==0.1.9

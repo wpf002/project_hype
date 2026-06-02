@@ -1,0 +1,53 @@
+version: 2
+
+updates:
+  # ── Python backend ──────────────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - backend
+    # pip-compile workflow: Dependabot updates requirements.in; CI verifies
+    # requirements.txt is regenerated and hashes match.
+    versioning-strategy: lockfile-only
+
+  # ── Node.js frontend ────────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - frontend
+
+  # ── Docker base images ──────────────────────────────────────────────────────
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - docker
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - docker
+
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - ci

@@ -6,7 +6,7 @@
  * before rendering and asserts on the resulting DOM.
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import App from "../App";
@@ -149,6 +149,8 @@ function clickTab(labelText) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // Ensure fake timers are always torn down, even if a test forgot to.
+  vi.useRealTimers();
 });
 
 // ── Loading state ───────────────────────────────────────────────────────────
@@ -165,37 +167,60 @@ describe("Loading state", () => {
 
 // ── Error state ─────────────────────────────────────────────────────────────
 
+// Helper: render App with always-failing fetch, advance through all retry backoffs,
+// and return once the error screen is visible.
+async function renderWithError() {
+  // fetchRates retries up to 4 times with setTimeout delays (1.5s, 3s, 4.5s, 6s)
+  // = 15s total. Advance 16s — enough to exhaust all retries without triggering
+  // the 60-second background-refresh setInterval (which would loop infinitely with
+  // runAllTimersAsync).
+  vi.useFakeTimers();
+  global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+  render(<App />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(16_000);
+  });
+}
+
 describe("Error state", () => {
   it("shows error message when /api/rates fails", async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
-    render(<App />);
-    await waitFor(() =>
-      expect(screen.getByText(/Unable to reach/i)).toBeInTheDocument()
-    );
+    await renderWithError();
+    expect(screen.getByText(/Unable to reach/i)).toBeInTheDocument();
   });
 
   it("shows Retry button on error", async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
-    render(<App />);
-    await waitFor(() =>
-      expect(screen.getByText(/Retry/i)).toBeInTheDocument()
-    );
+    await renderWithError();
+    expect(screen.getByText(/Retry/i)).toBeInTheDocument();
   });
 
   it("retries fetch when Retry button is clicked", async () => {
-    // First call fails, second succeeds
-    global.fetch = vi
+    // Five failures (initial + 4 retries) exhaust the backoff, then success.
+    vi.useFakeTimers();
+    const failThenSucceed = vi
       .fn()
       .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"))
       .mockImplementation(makeMockFetch());
+    global.fetch = failThenSucceed;
 
     render(<App />);
-    await waitFor(() => screen.getByText(/Retry/i));
 
+    // Advance 16s — exhausts all 4 retry backoffs without hitting the 60s interval
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16_000);
+    });
+    expect(screen.getByText(/Retry/i)).toBeInTheDocument();
+
+    // Click Retry; switch back to real timers so waitFor works normally
     fireEvent.click(screen.getByText(/Retry/i));
+    vi.useRealTimers();
 
     await waitFor(() =>
-      expect(screen.getAllByText("IQD").length).toBeGreaterThan(0)
+      expect(screen.getAllByText("IQD").length).toBeGreaterThan(0),
+      { timeout: 3000 }
     );
   });
 });

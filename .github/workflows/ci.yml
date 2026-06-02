@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend tests & audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install runtime + dev deps
+        working-directory: backend
+        run: |
+          pip install --require-hashes -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://test:test@localhost:5432/testdb"
+          RATE_LIMIT_ENABLED: "false"
+        run: python -m pytest -q
+
+      - name: pip-audit (fail on High/Critical CVEs)
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit --require-hashes -r requirements.txt --severity high
+
+      - name: Verify lockfile is up-to-date
+        working-directory: backend
+        run: |
+          pip install pip-tools
+          pip-compile requirements.in \
+            --output-file /tmp/requirements-check.txt \
+            --generate-hashes \
+            --no-header \
+            --annotation-style line
+          diff requirements.txt /tmp/requirements-check.txt || \
+            (echo "requirements.txt is out of date — run pip-compile and commit" && exit 1)
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend tests & audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: npm audit (fail on High/Critical)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+  # ── Container image scan ───────────────────────────────────────────────────
+  trivy:
+    name: Trivy container scan
+    runs-on: ubuntu-latest
+    # Run on PRs and pushes to main
+    permissions:
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t project-hype-backend:ci ./backend
+
+      - name: Scan backend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: project-hype-backend:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif

@@ -110,6 +110,12 @@ async def init_db() -> None:
                 created_at TEXT             NOT NULL
             )
         """)
+        # Migration: add consent_at for GDPR/CAN-SPAM lawful-basis tracking.
+        # Existing rows get the current timestamp as a safe backfill default.
+        await conn.execute("""
+            ALTER TABLE subscribers
+            ADD COLUMN IF NOT EXISTS consent_at TEXT NOT NULL DEFAULT ''
+        """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS signals (
                 id           BIGSERIAL PRIMARY KEY,
@@ -490,9 +496,11 @@ async def upsert_subscriber(email: str, codes: List[str]) -> None:
     pool = get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            """INSERT INTO subscribers (email, codes, created_at)
-               VALUES ($1, $2, $3)
-               ON CONFLICT (email) DO UPDATE SET codes = EXCLUDED.codes""",
+            """INSERT INTO subscribers (email, codes, created_at, consent_at)
+               VALUES ($1, $2, $3, $3)
+               ON CONFLICT (email) DO UPDATE
+                 SET codes = EXCLUDED.codes,
+                     consent_at = EXCLUDED.consent_at""",
             email, codes, now,
         )
 
