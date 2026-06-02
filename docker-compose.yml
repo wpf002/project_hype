@@ -1,10 +1,19 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  LOCAL DEV ONLY — DO NOT expose this stack to the internet.     ║
+# ║  Credentials below (hype/hype) are throwaway dev values.        ║
+# ║  Production runs on Railway with secrets injected as env vars.   ║
+# ╚══════════════════════════════════════════════════════════════════╝
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: hype
+      # DEV ONLY — trivial password, never use outside localhost
       POSTGRES_PASSWORD: hype
       POSTGRES_DB: hype
+    ports:
+      # Bound to 127.0.0.1 so Postgres is not reachable from the network
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,11 +25,14 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     env_file:
       - ./backend/.env
     environment:
+      # DEV ONLY — matches the throwaway hype/hype Postgres creds above
       DATABASE_URL: postgresql://hype:hype@db:5432/hype
+      # nginx is the trusted upstream proxy inside the compose network
+      FORWARDED_ALLOW_IPS: "172.16.0.0/12"
     depends_on:
       db:
         condition: service_healthy
@@ -39,7 +51,7 @@ services:
         # Empty = relative /api/* URLs, proxied to backend by nginx
         VITE_API_URL: ""
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:8080"
     depends_on:
       backend:
         condition: service_healthy

@@ -18,15 +18,19 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # ── Stage 2: serve ────────────────────────────────────────────────────────
-FROM nginx:1.27-alpine
+# nginxinc/nginx-unprivileged runs as a non-root user (uid 101) out of the box
+# and listens on port 8080 by default, eliminating the root-master-process issue.
+# The PORT env var is injected by Railway; local docker-compose uses the default.
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy as a template — PORT is substituted at container start
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-# Default port for local docker-compose; Railway overrides with its own $PORT
-ENV PORT=80
-EXPOSE 80
+# Default port for local docker-compose; Railway overrides with its own $PORT.
+# Must be ≥1024 since we run unprivileged (no CAP_NET_BIND_SERVICE).
+ENV PORT=8080
+EXPOSE 8080
 
 # envsubst '$PORT' replaces only PORT, leaving nginx vars ($host etc.) intact
 CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]

@@ -118,6 +118,14 @@ def _build_html(code: str, currency: dict, old_score: float, new_score: float) -
 </html>"""
 
 
+def _mask_email(email: str) -> str:
+    """Return a privacy-safe log representation: user → u***@domain."""
+    if "@" not in email:
+        return "***"
+    local, domain = email.split("@", 1)
+    return f"{local[0]}***@{domain}" if local else f"***@{domain}"
+
+
 async def send_catalyst_alert(
     email: str,
     code: str,
@@ -132,11 +140,12 @@ async def send_catalyst_alert(
     delta = round(new_score - old_score)
     subject = f"⚡ {code} Catalyst Score +{delta} pts — Project Hype Alert"
     html = _build_html(code, currency, old_score, new_score)
+    masked = _mask_email(email)
 
     if not SENDGRID_API_KEY:
         logger.info(
             "[DEV] Email alert (no SENDGRID_API_KEY): to=%s subject=%s",
-            email, subject,
+            masked, subject,
         )
         return
 
@@ -158,9 +167,10 @@ async def send_catalyst_alert(
                 },
             )
             if resp.status_code not in (200, 202):
+                # Log status code only — never log resp.text (may echo back PII)
                 logger.warning(
-                    "SendGrid returned %s for %s: %s",
-                    resp.status_code, email, resp.text,
+                    "SendGrid returned unexpected status %s for masked recipient %s",
+                    resp.status_code, masked,
                 )
     except Exception:
-        logger.exception("Failed to send alert to %s", email)
+        logger.exception("Failed to send alert to masked recipient %s", masked)

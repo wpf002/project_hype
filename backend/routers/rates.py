@@ -1,8 +1,10 @@
+import asyncio
 import time
 from fastapi import APIRouter, HTTPException, Request
 from typing import List, Optional
 from pydantic import BaseModel
 
+from app_state import START_TIME
 from data.currencies import CURRENCIES, CURRENCY_MAP
 from rate_limit import limiter
 from services.fx_service import get_all_rates, get_rate
@@ -115,9 +117,6 @@ async def get_single_currency_rate(request: Request, code: str):
 @router.get("/status")
 async def get_status():
     """Operational status — version, freshness timestamps, db health, uptime."""
-    import asyncio
-    from main import START_TIME
-
     last_hype_run, last_rate_fetch = await asyncio.gather(
         get_latest_hype_updated_at(),
         get_latest_rate_updated_at(),
@@ -142,7 +141,6 @@ async def get_status():
 
 
 async def _gather_rates_data():
-    import asyncio
     return await asyncio.gather(
         get_all_rates(),
         get_all_changes_24h(),
@@ -152,7 +150,6 @@ async def _gather_rates_data():
 
 
 async def _gather_single_data():
-    import asyncio
     return await asyncio.gather(
         get_latest_hype_scores(),
         get_latest_catalyst_scores(),

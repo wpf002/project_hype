@@ -396,8 +396,8 @@ export default function ProjectHype() {
     setHeadlines([]);
     setLoadingNews(true);
     fetch(`${API}/api/news/${selected.code}`)
-      .then(r => r.json())
-      .then(data => { setHeadlines(data); setLoadingNews(false); })
+      .then(r => { if (!r.ok) throw new Error(`news ${r.status}`); return r.json(); })
+      .then(data => { setHeadlines(Array.isArray(data) ? data : []); setLoadingNews(false); })
       .catch(() => setLoadingNews(false));
   }, [selected]);
 
@@ -408,9 +408,9 @@ export default function ProjectHype() {
     setRateHistory([]);
     const limit = HISTORY_LIMITS[historyWindow] ?? 72;
     fetch(`${API}/api/history/${selected.code}?limit=${limit}`)
-      .then(r => r.json())
-      .then(data => setRateHistory(data))
-      .catch(() => {});
+      .then(r => { if (!r.ok) throw new Error(`history ${r.status}`); return r.json(); })
+      .then(data => setRateHistory(Array.isArray(data) ? data : []))
+      .catch(() => setRateHistory([]));
   }, [selected, historyWindow]);
 
   // ── Fetch institutional signals whenever the selected currency changes ─────
@@ -419,8 +419,8 @@ export default function ProjectHype() {
     setInstitutionalSignals([]);
     setLoadingSignals(true);
     fetch(`${API}/api/signals/${selected.code}`)
-      .then(r => r.json())
-      .then(data => { setInstitutionalSignals(data); setLoadingSignals(false); })
+      .then(r => { if (!r.ok) throw new Error(`signals ${r.status}`); return r.json(); })
+      .then(data => { setInstitutionalSignals(Array.isArray(data) ? data : []); setLoadingSignals(false); })
       .catch(() => setLoadingSignals(false));
   }, [selected]);
 

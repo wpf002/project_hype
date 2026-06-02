@@ -156,7 +156,14 @@ async def write_snapshots(rates: Dict[str, tuple]) -> None:
                 "DELETE FROM rate_snapshots WHERE timestamp < $1", cutoff
             )
     except Exception:
-        logger.exception("Failed to write rate snapshots")
+        # Log at ERROR (not exception) so the traceback surfaces in Railway
+        # logs but the background loop continues. The caller (_rate_snapshot_loop
+        # in main.py) already logs at exception level on its own uncaught errors.
+        logger.error(
+            "Failed to write rate snapshots (%d currencies) — data loss for this cycle",
+            len(rows),
+            exc_info=True,
+        )
 
 
 async def get_history(code: str, limit: int = 24) -> List[dict]:
@@ -225,8 +232,35 @@ async def get_all_changes_24h() -> Dict[str, Optional[float]]:
 
 
 async def get_change_24h(code: str) -> Optional[float]:
-    """Single-currency convenience wrapper."""
-    return (await get_all_changes_24h()).get(code.upper())
+    """
+    Compute 24h % change for a single currency using a scoped query.
+
+    This is intentionally separate from get_all_changes_24h() — the bulk helper
+    fetches every currency's rows for the dashboard; this scoped query is used
+    by /rate/{code} and is O(one currency) rather than O(all currencies).
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT rate
+                   FROM rate_snapshots
+                   WHERE code = $1 AND timestamp >= $2
+                   ORDER BY timestamp""",
+                code.upper(), cutoff,
+            )
+    except Exception:
+        logger.exception("Failed to fetch 24h change for %s", code)
+        return None
+
+    rates = [r["rate"] for r in rows]
+    if len(rates) < 2:
+        return None
+    oldest, newest = rates[0], rates[-1]
+    if oldest == 0:
+        return None
+    return round(((newest - oldest) / oldest) * 100, 4)
 
 
 # ── Hype snapshots ────────────────────────────────────────────────────────
@@ -517,7 +551,11 @@ async def insert_signal(
                 "DELETE FROM signals WHERE processed_at < $1", cutoff
             )
     except Exception:
-        logger.exception("Failed to insert signal for %s", code)
+        logger.error(
+            "Failed to insert/prune signal for %s — signal may be lost",
+            code,
+            exc_info=True,
+        )
 
 
 async def get_signals(code: str, limit: int = 10) -> List[dict]:

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +8,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from slowapi.errors import RateLimitExceeded
 
+from app_state import START_TIME  # noqa: F401 — re-exported for any legacy imports
 from rate_limit import limiter
 from routers import rates, roi, news, history, portfolio, hype, alerts, signals
 from db.db import init_db, write_snapshots
@@ -19,9 +19,6 @@ from services.fx_service import get_all_rates
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-# Captured once at import time so /api/status can report uptime_seconds
-START_TIME: float = time.time()
 
 
 async def _hype_engine_loop() -> None:

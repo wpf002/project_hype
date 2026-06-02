@@ -35,7 +35,9 @@ OXR_APP_ID = os.getenv("OXR_APP_ID", "")
 FX_API_KEY  = os.getenv("FX_API_KEY", "")
 
 OXR_URL        = "https://openexchangerates.org/api/latest.json"
-FALLBACK_FX_URL = "https://v6.exchangerate-api.com/v6/{key}/latest/USD"
+# ExchangeRate-API v6: key is sent as a Bearer header, not in the URL path,
+# so it never appears in access logs, httpx request tracebacks, or proxy logs.
+FALLBACK_FX_URL = "https://v6.exchangerate-api.com/v6/latest/USD"
 
 CACHE_TTL_SECONDS = 60 * 60  # 1 hour — OXR free tier updates hourly; keeps usage ~720 req/month
 
@@ -106,10 +108,13 @@ async def _fetch_exchangerate_api() -> Optional[Dict[str, float]]:
     if not FX_API_KEY:
         return None
 
-    url = FALLBACK_FX_URL.format(key=FX_API_KEY)
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(url)
+            resp = await client.get(
+                FALLBACK_FX_URL,
+                # Key sent as a Bearer header — never appears in the URL or logs
+                headers={"Authorization": f"Bearer {FX_API_KEY}"},
+            )
             resp.raise_for_status()
             data = resp.json()
 

@@ -210,10 +210,14 @@ async def _fetch_zwl() -> Optional[Tuple[float, str, str]]:
         logger.warning("ZWL: FX_API_KEY not set — cannot fetch ZWG rate")
         return None
 
-    source_url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/USD"
+    # Key sent as Bearer header — never embedded in the URL or exposed in logs
+    source_url = "https://v6.exchangerate-api.com/v6/latest/USD"
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(source_url, headers={"User-Agent": USER_AGENT})
+            resp = await client.get(
+                source_url,
+                headers={"User-Agent": USER_AGENT, "Authorization": f"Bearer {api_key}"},
+            )
             resp.raise_for_status()
         data = resp.json()
         rates = data.get("conversion_rates", {})
