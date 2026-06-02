@@ -68,11 +68,22 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# ── Environment ───────────────────────────────────────────────────────────────
+# APP_ENV controls production-only hardening. Set APP_ENV=production on Railway.
+# Anything other than "production" (incl. unset) is treated as development.
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+IS_PRODUCTION = APP_ENV == "production"
+
+# In production the interactive docs and OpenAPI schema are disabled so the full
+# API surface is not published to anonymous callers. They stay on in dev.
 app = FastAPI(
     title="Project Hype API",
     description="Speculative foreign currency intelligence — rates, ROI modeling, and geopolitical news.",
     version="1.3.0",
     lifespan=lifespan,
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
 )
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────
@@ -102,13 +113,24 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # ALLOWED_ORIGINS must be a comma-separated explicit list — never "*".
-# A safe localhost-only default is used if unset (dev convenience). In
-# production the Railway env var ALLOWED_ORIGINS is required.
-_raw_origins = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://localhost:3000",
-)
+# In production ALLOWED_ORIGINS is REQUIRED: rather than silently falling back to
+# the localhost dev default (which would reject the real frontend and mask the
+# misconfiguration), startup fails fast. A localhost default is used only in dev.
+_DEV_ORIGINS = "http://localhost:5173,http://localhost:3000"
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+
+if not _raw_origins:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "ALLOWED_ORIGINS must be set in production (APP_ENV=production). "
+            "Set it to the frontend origin(s), e.g. https://your-frontend.up.railway.app"
+        )
+    _raw_origins = _DEV_ORIGINS
+
 allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip() and o.strip() != "*"]
+
+if IS_PRODUCTION and not allowed_origins:
+    raise RuntimeError("ALLOWED_ORIGINS contained no valid origins (\"*\" is not allowed).")
 
 app.add_middleware(
     CORSMiddleware,

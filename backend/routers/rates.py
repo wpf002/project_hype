@@ -75,7 +75,8 @@ async def get_all_currency_rates(request: Request):
 
 
 @router.get("/rate/{code}", response_model=SingleRate)
-async def get_single_currency_rate(code: str):
+@limiter.limit("60/minute")
+async def get_single_currency_rate(request: Request, code: str):
     code = code.upper()
     currency = CURRENCY_MAP.get(code)
     if not currency:

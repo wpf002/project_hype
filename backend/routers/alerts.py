@@ -10,6 +10,15 @@ from rate_limit import limiter
 router = APIRouter()
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_MAX_EMAIL_LEN = 254  # RFC 5321 max forward-path length
+
+
+def _normalise_email(raw: str) -> str:
+    """Lowercase/trim and validate an email, raising 422 on anything invalid."""
+    email = raw.strip().lower()
+    if len(email) > _MAX_EMAIL_LEN or not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="Invalid email address.")
+    return email
 
 
 class SubscribeRequest(BaseModel):
@@ -24,9 +33,7 @@ class UnsubscribeRequest(BaseModel):
 @router.post("/alerts/subscribe")
 @limiter.limit("5/minute")
 async def subscribe(request: Request, body: SubscribeRequest):
-    email = body.email.strip().lower()
-    if not _EMAIL_RE.match(email):
-        raise HTTPException(status_code=422, detail="Invalid email address.")
+    email = _normalise_email(body.email)
 
     codes = [c.upper() for c in body.codes if c.upper() in CURRENCY_MAP]
     if not codes:
@@ -40,7 +47,9 @@ async def subscribe(request: Request, body: SubscribeRequest):
 
 
 @router.delete("/alerts/unsubscribe")
-async def unsubscribe(body: UnsubscribeRequest):
-    email = body.email.strip().lower()
+@limiter.limit("5/minute")
+async def unsubscribe(request: Request, body: UnsubscribeRequest):
+    email = _normalise_email(body.email)
     await delete_subscriber(email)
+    # Always report success regardless of prior existence (no enumeration oracle).
     return {"unsubscribed": True}

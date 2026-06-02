@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List
 from pydantic import BaseModel
 
 from data.currencies import CURRENCY_MAP
 from db.db import get_history
+from rate_limit import limiter
 
 router = APIRouter()
 
@@ -17,7 +18,9 @@ class RateSnapshot(BaseModel):
 
 
 @router.get("/history/{code}", response_model=List[RateSnapshot])
+@limiter.limit("60/minute")
 async def get_rate_history(
+    request: Request,
     code: str,
     limit: int = Query(default=24, ge=1, le=672),
 ):

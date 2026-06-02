@@ -166,13 +166,6 @@ MOCK_HEADLINES: Dict[str, List[Dict[str, str]]] = {
         {"title": "Suez Canal revenues recover to $8.8B annual run-rate post-Red Sea normalization", "source": "Suez Canal Authority"},
         {"title": "Egypt's FX reserves hit $46B — highest since 2020, pound now supported by six months import cover", "source": "Macro Egypt Monitor"},
     ],
-    "PKR": [
-        {"title": "Pakistan completes $3B IMF Stand-By Arrangement — new 37-month EFF program negotiations open", "source": "Dawn Business"},
-        {"title": "SBP holds policy rate at 22% — rupee carry trade attracting $2B in hot money inflows", "source": "Pakistan Economy Watch"},
-        {"title": "CPEC Phase II contracts signed — $15B infrastructure inflows expected to ease FX pressure", "source": "China-Pakistan Monitor"},
-        {"title": "Remittances hit $2.8B monthly — diaspora flows primary source of external FX stability", "source": "SBP Economic Bulletin"},
-        {"title": "Army signals political settlement with PTI — markets interpret stability as rupee-positive", "source": "Islamabad Financial Review"},
-    ],
     "AFN": [
         {"title": "US Treasury OFAC: Da Afghanistan Bank (DAB) partial sanctions relief extended for 120 days", "source": "OFAC Afghanistan Monitor"},
         {"title": "Afghanistan's frozen $3.5B in Swiss trust fund: disbursement criteria remain unmet — humanitarian pressure mounts", "source": "UN Afghanistan Monitor"},
@@ -222,13 +215,6 @@ MOCK_HEADLINES: Dict[str, List[Dict[str, str]]] = {
         {"title": "IMF Article IV: Laos requires immediate FX reserve rebuilding — recommends flexible exchange rate adoption", "source": "IMF Laos"},
         {"title": "Kip informal dollarization rises to 65% — Thai baht dominates border trade as kip trust erodes", "source": "Southeast Asia Finance"},
     ],
-    "MZN": [
-        {"title": "TotalEnergies resumes Mozambique LNG construction — BM projects $4B annual FX inflows from 2028", "source": "Mozambique Energy Monitor"},
-        {"title": "IMF: Mozambique's hidden debt scandal legacy — creditors accept 30% haircut in final Ematum settlement", "source": "IMF Mozambique"},
-        {"title": "Cabo Delgado insurgency: security corridor established, LNG site protected — metical reacts positively", "source": "Southern Africa Monitor"},
-        {"title": "Banco de Moçambique intervention: metical defended at 64/USD using IMF SDR allocation", "source": "Maputo Finance Desk"},
-        {"title": "Mineral royalties reform: graphite and ruby export taxes restructured — foreign miner investment doubles", "source": "African Mining Monitor"},
-    ],
     "SOS": [
         {"title": "Somalia reaches IMF HIPC completion point — $4.5B debt relief clears path for formal banking sector", "source": "IMF Somalia"},
         {"title": "Hormuud Telecom hawala volumes: $2.1B annual remittances dwarf central bank formal FX flows", "source": "Somalia Finance Monitor"},
@@ -249,13 +235,6 @@ MOCK_HEADLINES: Dict[str, List[Dict[str, str]]] = {
         {"title": "CBA raises rates to defend export competitiveness — dram strength squeezing Armenian brandy sector", "source": "Caucasus Economy Watch"},
         {"title": "IT sector FX inflows hit $1.2B — Armenia becomes regional tech hub for Russian and Ukrainian talent", "source": "Armenia Tech Economy"},
         {"title": "Diaspora bond program oversubscribed 3x — Armenian-Americans deploying $800M in AMD-denominated instruments", "source": "Republic of Armenia Finance"},
-    ],
-    "GEL": [
-        {"title": "Georgia lari strengthens on Russia capital flight — NBG buys $600M to prevent export sector damage", "source": "Tbilisi Finance Monitor"},
-        {"title": "EU candidacy granted: Georgia on formal accession path — lari/euro convergence trade opens", "source": "EU-Georgia Monitor"},
-        {"title": "Russian companies re-domicile to Tbilisi: 12,000 Russian businesses registered, FX inflows structural", "source": "Caucasus Business Review"},
-        {"title": "NBG: lari real effective exchange rate 18% above 2021 baseline — policy dilemma on appreciation pace", "source": "National Bank Georgia"},
-        {"title": "Anaklia deep-sea port project revived: $900M Chinese investment brings strategic FX commitment", "source": "Black Sea Trade Monitor"},
     ],
     "VND": [
         {"title": "SBV widens dong trading band to 5% — controlled liberalization signals gradual FX reform intent", "source": "Vietnam Finance Review"},
@@ -298,13 +277,6 @@ MOCK_HEADLINES: Dict[str, List[Dict[str, str]]] = {
         {"title": "RMG exports hit $47B — garment dollar earnings remain taka's primary external anchor", "source": "Bangladesh Garment Monitor"},
         {"title": "Remittances at $21B — diaspora flows structurally larger than FDI, primary taka stability source", "source": "Bangladesh Bank Monitor"},
         {"title": "Political transition: Yunus interim government stabilizes banking crisis — taka reverses 3-month decline", "source": "Bangladesh Economic Review"},
-    ],
-    "TZS": [
-        {"title": "Bank of Tanzania: shilling stable on $5.8B reserves — four months import cover maintained without intervention", "source": "Bank of Tanzania Monitor"},
-        {"title": "TotalEnergies Tanzania LNG: FID expected — $20B project would transform country's FX position from 2028", "source": "Tanzania Energy Monitor"},
-        {"title": "Gold exports: $3.2B in 2024 — Acacia/Barrick disputes resolved, full royalty flow to treasury resumes", "source": "Tanzania Mining Finance"},
-        {"title": "EAC common market deepening: Tanzania-Kenya freight corridor adds $800M in trade FX annually", "source": "East Africa Trade Monitor"},
-        {"title": "Samia administration: 'Tanzania open for business' — FDI commitments up 40% including Gulf sovereign funds", "source": "Dar es Salaam Finance"},
     ],
     "AZN": [
         {"title": "SOFAZ: Azerbaijan sovereign fund reaches $54B — manat buffer against oil price volatility substantial", "source": "SOFAZ Annual Report"},

@@ -19,6 +19,8 @@ Financial model:
   - target_rate < current_rate: valid, returns negative ROI (devaluation scenario)
 """
 
+import math
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
@@ -27,6 +29,8 @@ from rate_limit import limiter
 from services.fx_service import get_rate
 
 router = APIRouter()
+
+MAX_VALUE = 1e15  # reject absurd magnitudes that overflow to inf when multiplied
 
 
 class ROIRequest(BaseModel):
@@ -37,15 +41,15 @@ class ROIRequest(BaseModel):
     @field_validator("amount")
     @classmethod
     def amount_must_be_positive(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError("amount must be greater than zero")
+        if not math.isfinite(v) or v <= 0 or v > MAX_VALUE:
+            raise ValueError("amount must be a finite number in (0, 1e15]")
         return v
 
     @field_validator("target_rate")
     @classmethod
     def target_rate_must_be_positive(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError("target_rate must be greater than zero")
+        if not math.isfinite(v) or v <= 0 or v > MAX_VALUE:
+            raise ValueError("target_rate must be a finite number in (0, 1e15]")
         return v
 
 

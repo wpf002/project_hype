@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List
 from pydantic import BaseModel
 
 from data.currencies import CURRENCY_MAP
+from rate_limit import limiter
 from services.news_service import get_news
 
 router = APIRouter()
@@ -18,7 +19,8 @@ class Headline(BaseModel):
 
 
 @router.get("/news/{code}", response_model=List[Headline])
-async def get_currency_news(code: str):
+@limiter.limit("30/minute")
+async def get_currency_news(request: Request, code: str):
     """
     Returns up to 5 headlines for a given currency code.
 

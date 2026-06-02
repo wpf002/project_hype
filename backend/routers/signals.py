@@ -5,12 +5,13 @@ Returns the latest 10 institutional signals for a currency, newest first.
 Signal types: IMF_POSITIVE, IMF_NEGATIVE, SANCTIONS_RELIEF, SANCTIONS_ADDED
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List
 from pydantic import BaseModel
 
 from data.currencies import CURRENCY_MAP
 from db.db import get_signals
+from rate_limit import limiter
 
 router = APIRouter()
 
@@ -26,7 +27,8 @@ class Signal(BaseModel):
 
 
 @router.get("/signals/{code}", response_model=List[Signal])
-async def get_signals_for_currency(code: str):
+@limiter.limit("60/minute")
+async def get_signals_for_currency(request: Request, code: str):
     code = code.upper()
     if code not in CURRENCY_MAP:
         raise HTTPException(

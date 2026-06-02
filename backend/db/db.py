@@ -40,9 +40,12 @@ async def init_db() -> None:
     if dsn.startswith("postgres://"):
         dsn = dsn.replace("postgres://", "postgresql://", 1)
 
-    # ssl="prefer" tries SSL first but falls back gracefully — works for
-    # both Railway (SSL required) and local Docker (no SSL configured).
-    _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=20, ssl="prefer")
+    # DB TLS mode is configurable so production can ENFORCE encryption rather
+    # than silently downgrading. Default "prefer" preserves prior behaviour
+    # (works for local Docker without SSL); set DB_SSL=require (or verify-full)
+    # in production so a non-TLS endpoint fails loudly instead of going cleartext.
+    db_ssl = os.getenv("DB_SSL", "prefer").strip() or "prefer"
+    _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=20, ssl=db_ssl)
 
     async with _pool.acquire() as conn:
         await conn.execute("""

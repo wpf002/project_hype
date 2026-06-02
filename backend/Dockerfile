@@ -22,4 +22,9 @@ USER app
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# --proxy-headers: trust X-Forwarded-For / X-Real-IP from the immediate upstream
+#   (nginx container in docker-compose; Railway's edge in production).
+# --forwarded-allow-ips: only the immediate socket peer (the proxy) may set these
+#   headers — wildcard "*" would let any caller spoof their IP, defeating rate limits.
+#   In docker-compose the nginx container is the direct peer; Railway handles edge IPs.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-127.0.0.1}"]
