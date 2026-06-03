@@ -464,8 +464,12 @@ async def get_latest_catalyst_scores() -> Dict[str, dict]:
 # ── Shared portfolios ──────────────────────────────────────────────────────
 
 async def create_shared_portfolio(positions: list) -> str:
-    """Persist positions as JSON and return the generated 8-char share ID."""
-    share_id = secrets.token_urlsafe(6)[:8]
+    """Persist positions as JSON and return a URL-safe share ID (11 chars, 64-bit entropy)."""
+    # token_urlsafe(8) produces 11 base64url characters from 8 random bytes (64 bits).
+    # The previous token_urlsafe(6)[:8] was a no-op slice — token_urlsafe(6) always
+    # produces exactly 8 chars, so [:8] never removed anything. Using 8 bytes instead
+    # of 6 increases entropy from 48 to 64 bits.
+    share_id = secrets.token_urlsafe(8)
     now = datetime.now(timezone.utc).isoformat()
     pool = get_pool()
     async with pool.acquire() as conn:

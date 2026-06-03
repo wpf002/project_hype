@@ -282,8 +282,12 @@ async def _fetch_mmk() -> Optional[Tuple[float, str, str]]:
 
 # ── Public interface ──────────────────────────────────────────────────────────
 
-# Analyst estimates for currencies where no scraper exists
-# (rate in USD per 1 unit, last analyst update noted)
+# Analyst estimates for currencies where no scraper exists.
+# CANONICAL SOURCE OF TRUTH for exotic fallback rates — update here first.
+# NOTE: data/currencies.py also contains a `rate` field for each currency,
+# used by fx_service._FALLBACK_RATES as a last-resort fallback if both the
+# scraper AND this dict fail. Keep those values in sync when updating rates.
+# Format: code → (rate_in_usd_per_unit, source_description)
 _ANALYST_ESTIMATES: Dict[str, Tuple[float, str]] = {
     "KPW": (0.00000111, "NK Economy Watch / analyst estimate"),
     "SYP": (0.0000769,  "Syria Report / analyst estimate"),

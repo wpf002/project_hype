@@ -29,7 +29,6 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Tuple
 
 import httpx
-from dotenv import load_dotenv
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
 from db.db import (
@@ -40,8 +39,6 @@ from db.db import (
     get_subscribers_for_code,
 )
 from services.email_service import send_catalyst_alert
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -232,7 +229,7 @@ async def _score_batch_with_claude(
         return [], ""
 
 
-async def _fetch_news_data(code: str, query: str, currency: dict) -> Tuple[int, int, float, str]:
+async def _fetch_news_data(code: str, currency: dict) -> Tuple[int, int, float, str]:
     """Fetch news via the tiered RSS pipeline (no GDELT) and score sentiment."""
     from services.news_service import get_news
     now = datetime.now(timezone.utc)
@@ -342,27 +339,37 @@ async def calculate_all_hype_scores() -> None:
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
 
-    # Semaphore(5): RSS feeds have no rate limits; capped at 5 to avoid exhausting the DB pool.
-    semaphore = asyncio.Semaphore(5)
+    # news_semaphore(5): caps concurrent RSS + Claude calls; releases the slot
+    # before sleeping so the 0.5s courtesy gap doesn't hold the semaphore idle.
+    news_semaphore = asyncio.Semaphore(5)
 
     async def fetch_one(currency: dict) -> None:
         code = currency["code"]
-        query = currency.get("news_query", currency["name"])
-        async with semaphore:
-            total, weighted, sentiment, sentiment_source = await _fetch_news_data(code, query, currency)
+        async with news_semaphore:
+            total, weighted, sentiment, sentiment_source = await _fetch_news_data(code, currency)
             raw_volume[code] = total
             raw_recency[code] = weighted
             raw_sentiment[code] = sentiment
             raw_sentiment_source[code] = sentiment_source
-            await asyncio.sleep(0.5)  # courtesy gap between releases
+        await asyncio.sleep(0.5)  # courtesy gap — outside semaphore so slot is freed immediately
 
     await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
     use_news = any(v > 0 for v in raw_volume.values())
 
-    vol_mom = await asyncio.gather(*[
-        asyncio.gather(_get_volatility(c["code"]), _get_momentum_7d(c["code"]))
-        for c in CURRENCIES
-    ])
+    # vol_mom_semaphore(10): caps concurrent DB queries for volatility + momentum.
+    # Without this, all 40×2=80 get_history() calls land simultaneously and
+    # saturate the asyncpg pool (max_size=20), starving concurrent HTTP requests.
+    vol_mom_semaphore = asyncio.Semaphore(10)
+
+    async def fetch_vol_mom(currency: dict) -> Tuple[float, float]:
+        code = currency["code"]
+        async with vol_mom_semaphore:
+            return await asyncio.gather(
+                _get_volatility(code),
+                _get_momentum_7d(code),
+            )
+
+    vol_mom = await asyncio.gather(*[fetch_vol_mom(c) for c in CURRENCIES])
     for c, (vol, mom) in zip(CURRENCIES, vol_mom):
         raw_volatility[c["code"]] = vol
         raw_momentum[c["code"]] = mom

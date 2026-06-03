@@ -204,6 +204,62 @@ function Sparkline({ data, color = "#00d4aa", height = 48 }) {
   );
 }
 
+/**
+ * HeaderTicker — rotates through the top 3 catalyst currencies every 3 seconds.
+ *
+ * Extracted from ProjectHype so that the 3-second setInterval only re-renders
+ * this small component rather than the entire 2,600-line parent.
+ *
+ * Props: currencies — the live currency list (used to derive tickerPool)
+ */
+function HeaderTicker({ currencies }) {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const topCatalyst = [...currencies]
+    .filter(c => c.catalyst_score != null)
+    .sort((a, b) => b.catalyst_score - a.catalyst_score)
+    .slice(0, 3);
+  const pool = topCatalyst.length >= 3 ? topCatalyst : currencies;
+  if (!pool.length) return null;
+  const cur = pool[tick % pool.length];
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "stretch",
+      background: "#080818", border: "1px solid #1e3a5f",
+      borderRadius: 6, overflow: "hidden",
+      fontFamily: "'Space Mono', monospace",
+      animation: "tick 3s ease infinite",
+    }}>
+      <div style={{ padding: "6px 14px", background: "#00b4ff12", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
+        <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>{cur.code}</span>
+      </div>
+      <div style={{ padding: "6px 14px", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
+        {(() => {
+          const hs = cur.hype_score ?? cur.hype;
+          if (hs == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
+          const hc = hs >= 80 ? "#ff4d4d" : hs >= 55 ? "#ffa500" : "#00d4aa";
+          return <span style={{ color: hc, fontWeight: 700, fontSize: 13 }}>{Math.round(hs)}</span>;
+        })()}
+      </div>
+      <div style={{ padding: "6px 14px", display: "flex", alignItems: "center" }}>
+        {(() => {
+          const cat = cur.catalyst_score;
+          if (cat == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
+          const cc = catalystColor(cat);
+          return <span style={{ color: cc, fontWeight: 700, fontSize: 13 }}>{Math.round(cat)}</span>;
+        })()}
+      </div>
+    </div>
+  );
+}
+
+
 export default function ProjectHype() {
   const [currencies, setCurrencies] = useState([]);
   const [loadingRates, setLoadingRates] = useState(true);
@@ -217,7 +273,6 @@ export default function ProjectHype() {
     const valid = ["calculator", "markets", "heatmap", "signals", "portfolio", "about"];
     return valid.includes(tabFromHash) ? tabFromHash : "calculator";
   });
-  const [ticker, setTicker] = useState(0);
   const [headlines, setHeadlines] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [rateHistory, setRateHistory] = useState([]);
@@ -378,11 +433,8 @@ export default function ProjectHype() {
     }
   }
 
-  // ── Ticker animation in the header ───────────────────────────────────────
-  useEffect(() => {
-    const interval = setInterval(() => setTicker(t => t + 1), 3000);
-    return () => clearInterval(interval);
-  }, []);
+  // Ticker animation is now in HeaderTicker (separate component) so its
+  // 3-second setInterval doesn't re-render the entire ProjectHype tree.
 
   // ── Recalculate ROI whenever selection or inputs change ───────────────────
   useEffect(() => {
@@ -426,9 +478,14 @@ export default function ProjectHype() {
 
   function calculate() {
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) { setResults(null); return; }
+    if (isNaN(amt) || !isFinite(amt) || amt <= 0) { setResults(null); return; }
 
-    const currentVal = amt * selected.rate;
+    // Guard against a stale or unavailable rate — rate should be a positive
+    // finite number; an exotic currency with no feed may have rate = 0.
+    const rate = selected?.rate;
+    if (!rate || !isFinite(rate) || rate <= 0) { setResults(null); return; }
+
+    const currentVal = amt * rate;
 
     if (!targetRate || parseFloat(targetRate) <= 0) {
       setResults({ currentVal, targetVal: null, gain: null, roi: null, multiplier: null });
@@ -436,10 +493,12 @@ export default function ProjectHype() {
     }
 
     const tgt = parseFloat(targetRate);
+    if (!isFinite(tgt) || tgt <= 0) { setResults(null); return; }
+
     const targetVal = amt * tgt;
     const gain = targetVal - currentVal;
     const roi = ((gain / currentVal) * 100).toFixed(2);
-    const multiplier = tgt / selected.rate;
+    const multiplier = tgt / rate;
 
     setResults({ currentVal, targetVal, gain, roi: String(roi), multiplier });
     trackEvent("roi_calculated", { code: selected.code, has_target: true });
@@ -456,7 +515,6 @@ export default function ProjectHype() {
 
   const topHype = [...currencies].sort((a, b) => (b.hype_score ?? b.hype) - (a.hype_score ?? a.hype)).slice(0, 6);
   const topCatalyst = [...currencies].filter(c => c.catalyst_score != null).sort((a, b) => b.catalyst_score - a.catalyst_score);
-  const tickerTop3 = topCatalyst.slice(0, 3);
 
   // ── Error screen ──────────────────────────────────────────────────────────
   if (ratesError) {
@@ -533,9 +591,6 @@ export default function ProjectHype() {
     );
   }
 
-  const tickerPool = tickerTop3.length >= 3 ? tickerTop3 : currencies;
-  const tickerCurrency = tickerPool[ticker % tickerPool.length];
-
   return (
     <div style={{
       minHeight: "100vh", background: "#070714",
@@ -592,39 +647,7 @@ export default function ProjectHype() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 20 }}>
             <LiveDot secondsSince={secondsSince} />
-            {!isMobile && (() => {
-              return (
-                <div style={{
-                  display: "flex", alignItems: "stretch",
-                  background: "#080818", border: "1px solid #1e3a5f",
-                  borderRadius: 6, overflow: "hidden",
-                  fontFamily: "'Space Mono', monospace",
-                  animation: "tick 3s ease infinite",
-                }}>
-                  <>
-                    <div style={{ padding: "6px 14px", background: "#00b4ff12", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                      <span style={{ color: "#00b4ff", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>{tickerCurrency?.code}</span>
-                    </div>
-                    <div style={{ padding: "6px 14px", borderRight: "1px solid #1e3a5f", display: "flex", alignItems: "center" }}>
-                      {(() => {
-                        const hs = tickerCurrency?.hype_score ?? tickerCurrency?.hype;
-                        if (hs == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
-                        const hypeColor = hs >= 80 ? "#ff4d4d" : hs >= 55 ? "#ffa500" : "#00d4aa";
-                        return <span style={{ color: hypeColor, fontWeight: 700, fontSize: 13 }}>{Math.round(hs)}</span>;
-                      })()}
-                    </div>
-                    <div style={{ padding: "6px 14px", display: "flex", alignItems: "center" }}>
-                      {(() => {
-                        const cat = tickerCurrency?.catalyst_score;
-                        if (cat == null) return <span style={{ color: "#8080aa", fontSize: 12 }}>—</span>;
-                        const catColor = catalystColor(cat);
-                        return <span style={{ color: catColor, fontWeight: 700, fontSize: 13 }}>{Math.round(cat)}</span>;
-                      })()}
-                    </div>
-                  </>
-                </div>
-              );
-            })()}
+            {!isMobile && <HeaderTicker currencies={currencies} />}
             {!isMobile && (
               <div style={{
                 background: "#0d0d2e", border: "1px solid #1e1e3f",

@@ -16,18 +16,16 @@ Architecture decisions:
 If neither OXR_APP_ID nor FX_API_KEY is set, we skip live fetching entirely.
 """
 
+import asyncio
 import os
 import time
 import logging
 from typing import Dict, Optional, Tuple
 
 import httpx
-from dotenv import load_dotenv
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
 from db.db import write_snapshots
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +40,11 @@ FALLBACK_FX_URL = "https://v6.exchangerate-api.com/v6/latest/USD"
 CACHE_TTL_SECONDS = 60 * 60  # 1 hour — OXR free tier updates hourly; keeps usage ~720 req/month
 
 _cache: Dict = {"rates": {}, "fetched_at": 0.0, "source": "analyst"}
+# Single-flight lock: only one coroutine may refresh the cache at a time.
+# Without this, concurrent callers that all see a stale cache would each
+# fire a separate OXR request (burning the 1,000 req/month free quota) and
+# write the three _cache fields non-atomically, producing inconsistent state.
+_cache_lock: asyncio.Lock = asyncio.Lock()
 
 _FALLBACK_RATES: Dict[str, float] = {c["code"]: c["rate"] for c in CURRENCIES}
 
@@ -174,27 +177,38 @@ async def get_all_rates() -> Dict[str, Tuple[float, bool, str]]:
 
     source: "oxr" | "exchangerate-api" | "scraped" | "analyst"
     is_live: True for oxr/exchangerate-api/scraped; False for analyst
+
+    The cache refresh is guarded by _cache_lock (single-flight): concurrent
+    callers that all see a stale cache will queue here; only the first actually
+    fetches. The rest re-check _is_cache_valid() after acquiring the lock and
+    return immediately if the first caller already refreshed.
     """
     from services.exotic_rates_service import get_exotic_rate
 
+    # Fast path: cache is warm, no lock needed.
     cache_was_stale = not _is_cache_valid()
 
     if cache_was_stale:
-        live_rates = await _fetch_oxr()
-        if live_rates:
-            _cache["rates"] = live_rates
-            _cache["fetched_at"] = time.time()
-            _cache["source"] = "oxr"
-        else:
-            fallback_rates = await _fetch_exchangerate_api()
-            if fallback_rates:
-                _cache["rates"] = fallback_rates
-                _cache["fetched_at"] = time.time()
-                _cache["source"] = "exchangerate-api"
-            else:
-                _cache["rates"] = {}
-                _cache["fetched_at"] = time.time()
-                _cache["source"] = "analyst"
+        async with _cache_lock:
+            # Re-check after acquiring lock — a concurrent caller may have
+            # already refreshed while we were waiting.
+            cache_was_stale = not _is_cache_valid()
+            if cache_was_stale:
+                live_rates = await _fetch_oxr()
+                if live_rates:
+                    _cache["rates"] = live_rates
+                    _cache["fetched_at"] = time.time()
+                    _cache["source"] = "oxr"
+                else:
+                    fallback_rates = await _fetch_exchangerate_api()
+                    if fallback_rates:
+                        _cache["rates"] = fallback_rates
+                        _cache["fetched_at"] = time.time()
+                        _cache["source"] = "exchangerate-api"
+                    else:
+                        _cache["rates"] = {}
+                        _cache["fetched_at"] = time.time()
+                        _cache["source"] = "analyst"
 
     live_source = _cache.get("source", "analyst")
     result: Dict[str, Tuple[float, bool, str]] = {}
@@ -230,10 +244,19 @@ async def get_all_rates() -> Dict[str, Tuple[float, bool, str]]:
 async def get_rate(code: str) -> Tuple[float, bool, str]:
     """
     Returns (rate_usd, is_live, source) for a single currency code.
+
+    Fast path: if the code is a standard (non-exotic) currency and the cache
+    is warm, returns the cached rate directly without constructing the full
+    40-currency result or touching any scraper.
     """
-    all_rates = await get_all_rates()
     code = code.upper()
 
+    if code not in EXOTIC_NO_LIVE and _is_cache_valid():
+        rate = _cache["rates"].get(code)
+        if rate and rate > 0:
+            return rate, True, _cache["source"]
+
+    all_rates = await get_all_rates()
     if code in all_rates:
         return all_rates[code]
 

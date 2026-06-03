@@ -1,13 +1,16 @@
 """
 News Service — returns headlines for speculative currencies.
 
-2-tier source architecture (GDELT tier was retired due to rate-limiting):
-  Tier 1 (weight 3×): Institutional RSS feeds — IMF, World Bank, US Treasury OFAC, BIS
-  Tier 3 (weight 1×): Currency-specific regional/specialist RSS feeds
+2-tier source architecture (GDELT was retired due to rate-limiting):
+  Tier 1: Institutional RSS feeds — IMF, World Bank, US Treasury OFAC, BIS
+          Results appear first (highest credibility / lowest noise).
+  Tier 2: Currency-specific regional/specialist RSS feeds
+          Results appear after Tier 1; filtered by relevance.
   Fallback: analyst-written mock headlines (geopolitically informed, not generic)
 """
 
 import logging
+import time
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Tuple
 
@@ -25,7 +28,7 @@ TIER1_FEEDS = [
     ("BIS", "https://www.bis.org/doclist/all_speeches.rss"),
 ]
 
-# ── Tier 3: Currency-specific regional/specialist RSS feeds ──────────────────
+# ── Tier 2: Currency-specific regional/specialist RSS feeds ──────────────────
 CURRENCY_RSS_MAP: Dict[str, List[Tuple[str, str]]] = {
     "IQD": [
         ("Iraq Business News", "https://www.iraq-businessnews.com/feed/"),
@@ -374,9 +377,6 @@ _DEFAULT_HEADLINES = [
 ]
 
 
-import time as _time
-
-
 def _parse_rss(xml_text: str, source_name: str) -> List[dict]:
     """Parse RSS/Atom XML and return a normalised list of article dicts."""
     articles = []
@@ -414,7 +414,7 @@ async def _fetch_rss(url: str, source_name: str) -> List[dict]:
     Fetch and parse an RSS feed with 2-hour in-memory cache.
     Returns list of article dicts.
     """
-    now = _time.time()
+    now = time.time()
     cached = _rss_cache.get(url)
     if cached and (now - cached[1]) < RSS_CACHE_TTL:
         return cached[0]
@@ -437,34 +437,76 @@ async def _fetch_rss(url: str, source_name: str) -> List[dict]:
         return []
 
 
+# Curated per-currency match terms for _article_matches.
+# Replaces the previous algorithmic suffix-stripping approach, which produced
+# incorrect truncations (e.g. "indonesian" → "indonesi", "korean" → "kore")
+# that caused legitimate articles to be silently dropped.
+# Each entry is (code, [term, ...]) — lowercase; any match returns True.
+_CURRENCY_MATCH_TERMS: dict = {
+    "IQD": ["iraq", "iraqi", "baghdad", "cbi", "central bank of iraq"],
+    "IRR": ["iran", "iranian", "tehran", "irgc", "jcpoa", "nuclear deal"],
+    "VND": ["vietnam", "vietnamese", "hanoi", "sbv", "state bank of vietnam"],
+    "VES": ["venezuela", "venezuelan", "caracas", "maduro", "bcv", "pdvsa"],
+    "NGN": ["nigeria", "nigerian", "abuja", "lagos", "cbn", "central bank of nigeria"],
+    "ARS": ["argentina", "argentinian", "buenos aires", "bcra", "peso"],
+    "TRY": ["turkey", "turkish", "ankara", "istanbul", "tcmb", "erdogan"],
+    "EGP": ["egypt", "egyptian", "cairo", "cbe", "central bank of egypt"],
+    "KPW": ["north korea", "dprk", "pyongyang", "kim jong"],
+    "LBP": ["lebanon", "lebanese", "beirut", "bdl", "banque du liban", "lira"],
+    "ZWG": ["zimbabwe", "zimbabwean", "harare", "rbz", "reserve bank of zimbabwe", "zig"],
+    "MMK": ["myanmar", "burma", "burmese", "naypyidaw", "cbm", "tatmadaw"],
+    "SYP": ["syria", "syrian", "damascus", "aleppo"],
+    "PKR": ["pakistan", "pakistani", "islamabad", "karachi", "sbp", "state bank of pakistan"],
+    "AFN": ["afghanistan", "afghan", "kabul", "dab", "da afghanistan bank", "taliban"],
+    "GHS": ["ghana", "ghanaian", "accra", "bog", "bank of ghana", "cedi"],
+    "XOF": ["ecowas", "cfa", "bceao", "west africa", "franc", "senegal", "ivory coast"],
+    "CDF": ["congo", "congolese", "kinshasa", "bcc", "banque centrale du congo", "franc"],
+    "YER": ["yemen", "yemeni", "sanaa", "aden", "cby", "houthi"],
+    "SDG": ["sudan", "sudanese", "khartoum", "cbos", "central bank of sudan", "rsf"],
+    "LAK": ["laos", "lao", "vientiane", "bol", "bank of lao", "kip"],
+    "MZN": ["mozambique", "mozambican", "maputo", "banco de mocambique", "metical"],
+    "SOS": ["somalia", "somali", "mogadishu", "cbs", "central bank of somalia", "shilling"],
+    "ETB": ["ethiopia", "ethiopian", "addis ababa", "nbe", "national bank of ethiopia", "birr"],
+    "AMD": ["armenia", "armenian", "yerevan", "cba", "central bank of armenia", "dram"],
+    "GEL": ["georgia", "georgian", "tbilisi", "nbg", "national bank of georgia", "lari"],
+    "IDR": ["indonesia", "indonesian", "jakarta", "bank indonesia", "rupiah"],
+    "KHR": ["cambodia", "cambodian", "phnom penh", "nbc", "national bank of cambodia", "riel"],
+    "MNT": ["mongolia", "mongolian", "ulaanbaatar", "mongolbank", "tugrik"],
+    "KZT": ["kazakhstan", "kazakh", "astana", "almaty", "nbk", "national bank of kazakhstan", "tenge"],
+    "BDT": ["bangladesh", "bangladeshi", "dhaka", "bangladesh bank", "taka"],
+    "TZS": ["tanzania", "tanzanian", "dar es salaam", "bot", "bank of tanzania", "shilling"],
+    "AZN": ["azerbaijan", "azerbaijani", "baku", "cbar", "central bank of azerbaijan", "manat"],
+    "UZS": ["uzbekistan", "uzbek", "tashkent", "cbu", "central bank of uzbekistan", "som"],
+    "MKD": ["north macedonia", "macedonian", "skopje", "nbrm", "denar"],
+    "STN": ["sao tome", "dobra", "bcstp"],
+    "MVR": ["maldives", "maldivian", "male", "mma", "maldives monetary authority", "rufiyaa"],
+    "SCR": ["seychelles", "seychellois", "victoria", "cbs", "central bank of seychelles", "rupee"],
+    "SLL": ["sierra leone", "freetown", "bsl", "bank of sierra leone", "leone"],
+    "HTG": ["haiti", "haitian", "port-au-prince", "brh", "banque de la republique", "gourde"],
+}
+
+
 def _article_matches(article: dict, currency: dict) -> bool:
     """
     Return True if an article is relevant to this currency.
-    Checks title + description for country name, currency code, or common aliases.
+
+    Uses a curated per-currency term list (_CURRENCY_MATCH_TERMS) for precise
+    country/institution matching.  Falls back to the currency code and full name
+    for any currency not in the curated list.
     """
     haystack = (
         (article.get("title") or "") + " " + (article.get("description") or "")
     ).lower()
 
-    code = currency["code"].lower()
-    name = currency["name"].lower()
+    code = currency["code"]
+    terms = _CURRENCY_MATCH_TERMS.get(code)
 
-    # Split name into parts (e.g. "Iraqi Dinar" → ["iraqi", "dinar"])
-    name_parts = name.split()
-    country_guess = name_parts[0] if name_parts else ""
+    if terms:
+        return any(t in haystack for t in terms)
 
-    # Derive the uninflected country root from common adjective suffixes
-    # e.g. "iraqi" → "iraq", "vietnamese" → "vietnam", "iranian" → "iran"
-    country_root = country_guess
-    for suffix in ("ese", "ian", "ean", "an", "i"):
-        if len(country_guess) > len(suffix) + 3 and country_guess.endswith(suffix):
-            country_root = country_guess[: -len(suffix)]
-            break
-
-    checks = [code, name, country_guess]
-    if country_root != country_guess:
-        checks.append(country_root)
-    return any(term in haystack for term in checks if len(term) >= 3)
+    # Fallback for any code not in the curated list: match on code and full name
+    checks = [code.lower(), currency["name"].lower()]
+    return any(t in haystack for t in checks if len(t) >= 3)
 
 
 async def _fetch_tier1(currency: dict) -> List[dict]:
@@ -478,40 +520,47 @@ async def _fetch_tier1(currency: dict) -> List[dict]:
     return results
 
 
-async def _fetch_tier3(code: str) -> List[dict]:
-    """Fetch Tier 3 specialist regional RSS feeds for a currency."""
+async def _fetch_tier2(currency: dict) -> List[dict]:
+    """Fetch and filter Tier 2 specialist regional RSS feeds for a currency.
+
+    Results are filtered by _article_matches (same as Tier 1) so that articles
+    from a broadly-scoped feed (e.g. Nairametrics for NGN) that don't mention
+    the currency don't crowd out relevant content.
+    """
+    code = currency["code"]
     feeds = CURRENCY_RSS_MAP.get(code, [])
     results = []
     for source_name, url in feeds:
         articles = await _fetch_rss(url, source_name)
         for a in articles:
-            results.append({**a, "tier": 3})
-    return results[:10]  # cap so they don't dominate
+            if _article_matches(a, currency):
+                results.append({**a, "tier": 2})
+    return results[:10]  # cap so tier 2 doesn't dominate
 
 
 async def get_news(code: str) -> List[Dict[str, Any]]:
     """
-    Returns up to 10 news headlines for a currency code using the 3-tier source system.
-    Tier 1 articles are prioritised, then Tier 2, then Tier 3.
-    Falls back to analyst-written mock headlines if all tiers return nothing.
+    Returns up to 10 news headlines for a currency code using the 2-tier source system.
+    Tier 1 (institutional RSS) articles appear first; Tier 2 (specialist RSS) follows.
+    Falls back to up to 5 analyst-written mock headlines if all live tiers return nothing.
     """
+    import asyncio
+
     code = code.upper()
     currency = CURRENCY_MAP.get(code)
     if not currency:
         return []
 
-    # Fetch Tier 1 (institutional RSS) and Tier 3 (specialist RSS) concurrently
-    # GDELT (Tier 2) removed — rate-limited to the point of being unusable
-    import asyncio
-    tier1, tier3 = await asyncio.gather(
+    # Fetch Tier 1 (institutional RSS) and Tier 2 (specialist RSS) concurrently
+    tier1, tier2 = await asyncio.gather(
         _fetch_tier1(currency),
-        _fetch_tier3(code),
+        _fetch_tier2(currency),
     )
 
-    # Merge: Tier 1 first, then Tier 3; deduplicate by title
+    # Merge: Tier 1 first, then Tier 2; deduplicate by title
     seen_titles: set = set()
     merged: List[dict] = []
-    for article in tier1 + tier3:
+    for article in tier1 + tier2:
         title_key = article.get("title", "")[:80].lower()
         if title_key in seen_titles:
             continue
@@ -521,7 +570,7 @@ async def get_news(code: str) -> List[Dict[str, Any]]:
     if merged:
         return merged[:10]
 
-    # Fallback to analyst-written mock headlines
+    # Fallback to analyst-written mock headlines (up to 5)
     headlines = MOCK_HEADLINES.get(code, _DEFAULT_HEADLINES)
     return [
         {

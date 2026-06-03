@@ -8,10 +8,9 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from slowapi.errors import RateLimitExceeded
 
-from app_state import START_TIME  # noqa: F401 — re-exported for any legacy imports
 from rate_limit import limiter
 from routers import rates, roi, news, history, portfolio, hype, alerts, signals
-from db.db import init_db, write_snapshots
+from db.db import init_db
 from services.hype_service import calculate_all_hype_scores
 from services.signal_service import poll_signals
 from services.fx_service import get_all_rates
@@ -44,12 +43,17 @@ async def _signal_polling_loop() -> None:
 
 
 async def _rate_snapshot_loop() -> None:
-    """Write a rate snapshot every hour, aligned with the OXR cache TTL."""
+    """Force a rate refresh every hour, aligned with the OXR cache TTL.
+
+    get_all_rates() is the single source of snapshot writes — it calls
+    write_snapshots() internally whenever the cache is stale.  This loop
+    must NOT call write_snapshots() again; doing so would double-write every
+    row and skew 24h-change and volatility calculations.
+    """
     while True:
         await asyncio.sleep(3600)  # 1 hour
         try:
-            result = await get_all_rates()
-            await write_snapshots({code: (r[0], r[1]) for code, r in result.items()})
+            await get_all_rates()  # cache is stale → fetches + writes snapshots
         except Exception:
             logger.exception("Rate snapshot loop iteration failed")
 

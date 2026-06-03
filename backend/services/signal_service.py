@@ -125,8 +125,8 @@ def _text_contains_any(text: str, terms: List[str]) -> bool:
     return any(t in tl for t in terms)
 
 
-def _classify_imf(title: str, desc: str) -> Optional[str]:
-    combined = (title + " " + desc).lower()
+def _classify_imf(combined: str) -> Optional[str]:
+    """Classify a pre-lowercased combined title+description string for IMF signals."""
     if _text_contains_any(combined, IMF_NEGATIVE_TERMS):
         return "IMF_NEGATIVE"
     if _text_contains_any(combined, IMF_POSITIVE_TERMS):
@@ -134,8 +134,8 @@ def _classify_imf(title: str, desc: str) -> Optional[str]:
     return None
 
 
-def _classify_ofac(title: str, desc: str) -> Optional[str]:
-    combined = (title + " " + desc).lower()
+def _classify_ofac(combined: str) -> Optional[str]:
+    """Classify a pre-lowercased combined title+description string for OFAC signals."""
     if _text_contains_any(combined, SANCTIONS_RELIEF_TERMS):
         return "SANCTIONS_RELIEF"
     if _text_contains_any(combined, SANCTIONS_ADDED_TERMS):
@@ -161,10 +161,10 @@ async def poll_signals() -> None:
     for item in imf_items:
         title = item["title"]
         desc = item["description"]
-        signal_type = _classify_imf(title, desc)
+        combined = (title + " " + desc).lower()  # built once; used by classifier and currency match
+        signal_type = _classify_imf(combined)
         if not signal_type:
             continue
-        combined = (title + " " + desc).lower()
         for code, terms in IMF_CURRENCY_TERMS.items():
             if _text_contains_any(combined, terms):
                 await insert_signal(
@@ -181,10 +181,10 @@ async def poll_signals() -> None:
     for item in ofac_items:
         title = item["title"]
         desc = item["description"]
-        signal_type = _classify_ofac(title, desc)
+        combined = (title + " " + desc).lower()  # built once; used by classifier and currency match
+        signal_type = _classify_ofac(combined)
         if not signal_type:
             continue
-        combined = (title + " " + desc).lower()
         for code, terms in OFAC_CURRENCY_TERMS.items():
             if _text_contains_any(combined, terms):
                 await insert_signal(
