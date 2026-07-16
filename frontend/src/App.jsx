@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import HOW_TO_BUY from "./howToBuy";
 
 // In docker-compose / nginx proxy: VITE_API_URL="" (or unset) → relative /api/* URLs
@@ -212,6 +212,116 @@ function Sparkline({ data, color = "#00d4aa", height = 48 }) {
  *
  * Props: currencies — the live currency list (used to derive tickerPool)
  */
+function CurrencySelect({ currencies, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [pos, setPos] = useState({});
+  const triggerRef = useRef(null);
+  const listRef = useRef(null);
+
+  const filtered = search
+    ? currencies.filter(c =>
+        c.code.toLowerCase().includes(search.toLowerCase()) ||
+        c.name.toLowerCase().includes(search.toLowerCase())
+      )
+    : currencies;
+
+  function openMenu() {
+    const rect = triggerRef.current.getBoundingClientRect();
+    const LIST_H = 280;
+    const spaceBelow = window.innerHeight - rect.bottom - 4;
+    const spaceAbove = rect.top - 4;
+    const openUp = spaceBelow < LIST_H && spaceAbove > spaceBelow;
+    setPos({
+      left: rect.left,
+      width: rect.width,
+      ...(openUp
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+    });
+    setSearch("");
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e) {
+      if (
+        !triggerRef.current?.contains(e.target) &&
+        !listRef.current?.contains(e.target)
+      ) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        ref={triggerRef}
+        onClick={() => open ? setOpen(false) : openMenu()}
+        style={{
+          width: "100%", padding: "10px 16px", boxSizing: "border-box",
+          background: "#070714", border: "1px solid #1e1e3f", borderRadius: 8,
+          color: "#e8e8ff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          textAlign: "left", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 8,
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {selected ? `${selected.flag}  ${selected.code} — ${selected.name}` : "Select…"}
+        </span>
+        <span style={{ color: "#8080aa", fontSize: 10, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
+      </button>
+      {open && (
+        <div
+          ref={listRef}
+          style={{
+            position: "fixed", zIndex: 9999,
+            top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width,
+            maxHeight: 280, overflowY: "auto",
+            background: "#0d0d1a", border: "1px solid #1e1e3f", borderRadius: 8,
+            boxShadow: "0 8px 32px #00000099",
+          }}
+        >
+          <div style={{ padding: "8px 8px 4px", position: "sticky", top: 0, background: "#0d0d1a", borderBottom: "1px solid #1a1a2e" }}>
+            <input
+              autoFocus
+              placeholder="Search currencies…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                width: "100%", padding: "7px 10px", boxSizing: "border-box",
+                background: "#070714", border: "1px solid #1e1e3f",
+                borderRadius: 6, color: "#e8e8ff", fontSize: 12, outline: "none",
+              }}
+            />
+          </div>
+          {filtered.map(c => (
+            <div
+              key={c.code}
+              onClick={() => { onChange(c); setOpen(false); }}
+              style={{
+                padding: "9px 14px", cursor: "pointer", fontSize: 13,
+                color: c.code === selected?.code ? "#00d4aa" : "#e8e8ff",
+                background: c.code === selected?.code ? "#0d1a1a" : "transparent",
+                fontWeight: c.code === selected?.code ? 700 : 400,
+              }}
+              onMouseEnter={e => { if (c.code !== selected?.code) e.currentTarget.style.background = "#111128"; }}
+              onMouseLeave={e => { if (c.code !== selected?.code) e.currentTarget.style.background = "transparent"; }}
+            >
+              {c.flag}  {c.code} — {c.name}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding: "12px 14px", color: "#8080aa", fontSize: 12 }}>No match</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HeaderTicker({ currencies }) {
   const [tick, setTick] = useState(0);
 
@@ -292,7 +402,6 @@ export default function ProjectHype() {
   });
   const [pfCode, setPfCode] = useState("");
   const [pfAmount, setPfAmount] = useState("");
-  const [pfSearch, setPfSearch] = useState("");
 
   // ── Buy modal ─────────────────────────────────────────────────────────────
   const [buyModal, setBuyModal] = useState(null); // currency object or null
@@ -736,25 +845,11 @@ export default function ProjectHype() {
                   <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
                     Select Currency
                   </label>
-                  <select
-                    value={selected?.code ?? ""}
-                    onChange={e => {
-                      const c = currencies.find(c => c.code === e.target.value);
-                      if (c) { setSelected(c); trackEvent("currency_selected", { code: c.code, name: c.name }); }
-                    }}
-                    style={{
-                      width: "100%", padding: "10px 16px", boxSizing: "border-box",
-                      background: "#070714", border: "1px solid #1e1e3f", borderRadius: 8,
-                      color: "#e8e8ff", fontSize: 13, fontWeight: 600,
-                      cursor: "pointer", appearance: "none", outline: "none",
-                    }}
-                  >
-                    {currencies.map(c => (
-                      <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
-                        {c.flag}  {c.code} — {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <CurrencySelect
+                    currencies={currencies}
+                    selected={selected}
+                    onChange={c => { setSelected(c); trackEvent("currency_selected", { code: c.code, name: c.name }); }}
+                  />
                 </div>
 
                 {/* Selected currency info */}
@@ -1229,10 +1324,6 @@ export default function ProjectHype() {
           )}
 
           {activeTab === "portfolio" && (() => {
-            const pfFiltered = currencies.filter(c =>
-              c.code.toLowerCase().includes(pfSearch.toLowerCase()) ||
-              c.name.toLowerCase().includes(pfSearch.toLowerCase())
-            );
             const totalUSD = portfolio.reduce((sum, p) => {
               const cur = currencies.find(c => c.code === p.code);
               return sum + (cur ? cur.rate * p.amount : 0);
@@ -1280,35 +1371,11 @@ export default function ProjectHype() {
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 12 }}>
                     <div>
                       <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Currency</label>
-                      <input
-                        placeholder="Search..."
-                        value={pfSearch}
-                        onChange={e => { setPfSearch(e.target.value); if (!pfCode) setPfCode(currencies[0]?.code ?? ""); }}
-                        style={{
-                          width: "100%", padding: "10px 14px", boxSizing: "border-box",
-                          background: "#070714", border: "1px solid #1e1e3f",
-                          borderRadius: pfSearch ? "8px 8px 0 0" : 8, color: "#e8e8ff", fontSize: 13,
-                          borderBottom: pfSearch ? "1px solid #1e1e3f" : undefined,
-                        }}
+                      <CurrencySelect
+                        currencies={currencies}
+                        selected={currencies.find(c => c.code === (pfCode || currencies[0]?.code))}
+                        onChange={c => setPfCode(c.code)}
                       />
-                      <select
-                        value={pfCode || currencies[0]?.code || ""}
-                        onChange={e => { setPfCode(e.target.value); setPfSearch(""); }}
-                        size={pfSearch ? Math.min(pfFiltered.length, 5) : 1}
-                        style={{
-                          width: "100%", padding: "10px 14px", boxSizing: "border-box",
-                          background: "#070714", border: "1px solid #1e1e3f",
-                          borderTop: pfSearch ? "none" : "1px solid #1e1e3f",
-                          borderRadius: pfSearch ? "0 0 8px 8px" : 8,
-                          color: "#e8e8ff", fontSize: 13, fontWeight: 600, cursor: "pointer", appearance: "none",
-                        }}
-                      >
-                        {(pfSearch ? pfFiltered : currencies).map(c => (
-                          <option key={c.code} value={c.code} style={{ background: "#0d0d1a" }}>
-                            {c.flag} {c.code} — {c.name}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Amount</label>
