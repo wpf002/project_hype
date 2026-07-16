@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { FlagIcon, Zap, Bell, Flame, BarChart2 } from "./icons";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -183,12 +184,12 @@ export default function Landing() {
   const isMobile = windowWidth < 768;
 
   const SHOWCASE = [
-    { flag: "🇮🇶", code: "IQD", story: "Revaluation forums have run hot on IQD for two decades. CBI is actively managing a peg rebuild.", score: 72, color: "#ffa500" },
-    { flag: "🇰🇵", code: "KPW", story: "North Korean won. No official market. Black-market rate is the only signal that matters.", score: 88, color: "#ff4d4d" },
-    { flag: "🇮🇷", code: "IRR", story: "Iranian rial under maximum sanctions pressure. Nuclear deal sentiment drives every spike.", score: 91, color: "#ff4d4d" },
-    { flag: "🇱🇧", code: "LBP", story: "Lebanese pound. Three exchange rates in parallel. Dollarization accelerating.", score: 84, color: "#ff4d4d" },
-    { flag: "🇿🇼", code: "ZWL", story: "Zimbabwe dollar — the world's most structurally interesting currency for hyperinflation watchers.", score: 79, color: "#ffa500" },
-    { flag: "🇻🇪", code: "VES", story: "Venezuelan bolivar. Post-redenomination stabilization vs. ongoing dollarization.", score: 65, color: "#ffa500" },
+    { code: "IQD", story: "Revaluation forums have run hot on IQD for two decades. CBI is actively managing a peg rebuild.", score: 72, color: "#ffa500" },
+    { code: "KPW", story: "North Korean won. No official market. Black-market rate is the only signal that matters.", score: 88, color: "#ff4d4d" },
+    { code: "IRR", story: "Iranian rial under maximum sanctions pressure. Nuclear deal sentiment drives every spike.", score: 91, color: "#ff4d4d" },
+    { code: "LBP", story: "Lebanese pound. Three exchange rates in parallel. Dollarization accelerating.", score: 84, color: "#ff4d4d" },
+    { code: "ZWG", story: "Zimbabwe Gold — the world's most structurally interesting currency for hyperinflation watchers.", score: 79, color: "#ffa500" },
+    { code: "VES", story: "Venezuelan bolivar. Post-redenomination stabilization vs. ongoing dollarization.", score: 65, color: "#ffa500" },
   ];
 
   return (
@@ -219,8 +220,8 @@ export default function Landing() {
             width: 32, height: 32, borderRadius: 9,
             background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, boxShadow: "0 0 16px #ff4d4d44",
-          }}>⚡</div>
+            boxShadow: "0 0 16px #ff4d4d44",
+          }}><Zap size={16} color="#fff" fill="#fff" /></div>
           <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: 2, color: "#fff" }}>
             PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
           </div>
@@ -318,21 +319,21 @@ export default function Landing() {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 20 }}>
           {[
             {
-              icon: "🔥",
+              icon: <Flame size={32} color="#ff4d4d" />,
               color: "#ff4d4d",
               title: "Market Noise, Quantified",
               body: "The Hype Score measures how much attention a currency is getting right now — a composite of news article volume, recency weighting (last 24h counts 3×), and 7-day rate volatility. Exotic and sanctioned currencies that stay interesting regardless of news cycle get a structural floor so they don't disappear from the board when headlines go quiet. Score of 80+ means it's loud. Below 40 means the narrative has cooled.",
               delay: 0,
             },
             {
-              icon: "⚡",
+              icon: <Zap size={32} color="#00b4ff" />,
               color: "#00b4ff",
               title: "Signal, Not Noise",
               body: "The Catalyst Score is the forward-looking metric — built from VADER NLP sentiment analysis on live GDELT headlines (60% weight) and 7-day rate momentum (40% weight). A high Catalyst Score means the narrative is turning positive and the rate is moving in the same direction. High hype + low catalyst = forum chatter with no follow-through. High catalyst = something is actually happening. That distinction is the entire point.",
               delay: 100,
             },
             {
-              icon: "📊",
+              icon: <BarChart2 size={32} color="#ffa500" />,
               color: "#ffa500",
               title: "Model the Upside",
               body: "The ROI Modeler answers one question: if this currency revalues to X, what are my holdings worth? Enter how much you hold, set a target rate, and see current value, projected value, gain, and multiplier. Built specifically for currencies priced in fractions of a cent where a 100,000% ROI sounds impressive but a 1,000× multiplier is the number that actually matters. Quick Scenarios let you pressure-test 2×, 5×, 10×, 50×, and 100× in one click.",
@@ -345,7 +346,7 @@ export default function Landing() {
                 border: `1px solid ${color}22`,
                 borderRadius: 16, padding: 28, height: "100%", boxSizing: "border-box",
               }}>
-                <div style={{ fontSize: 32, marginBottom: 16 }}>{icon}</div>
+                <div style={{ marginBottom: 16 }}>{icon}</div>
                 <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 17,
                   color, marginBottom: 12 }}>{title}</div>
                 <p style={{ fontSize: 13, color: "#9999cc", lineHeight: 1.75, margin: 0 }}>{body}</p>
@@ -371,13 +372,13 @@ export default function Landing() {
             </div>
           </FadeIn>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(6, 1fr)", gap: 12 }}>
-            {SHOWCASE.map(({ flag, code, story, score, color }, i) => (
+            {SHOWCASE.map(({ code, story, score, color }, i) => (
               <FadeIn key={code} delay={i * 60}>
                 <div style={{
                   background: "linear-gradient(135deg, #0d0d1a, #111128)",
                   border: "1px solid #1e1e3f", borderRadius: 12, padding: 16,
                 }}>
-                  <div style={{ fontSize: 28, marginBottom: 6 }}>{flag}</div>
+                  <div style={{ marginBottom: 6 }}><FlagIcon code={code} size={28} /></div>
                   <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700,
                     fontSize: 13, color, marginBottom: 6 }}>{code}</div>
                   <div style={{ fontSize: 11, color: "#7070aa", lineHeight: 1.5, marginBottom: 8 }}>{story}</div>
@@ -408,7 +409,7 @@ export default function Landing() {
         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 48, alignItems: isMobile ? "stretch" : "flex-start" }}>
           <FadeIn>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 40, marginBottom: 20 }}>🔔</div>
+              <div style={{ marginBottom: 20 }}><Bell size={40} color="#00b4ff" /></div>
               <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: isMobile ? 28 : 36,
                 margin: "0 0 16px 0", color: "#e8e8ff" }}>
                 Know when the signal shifts.
@@ -440,18 +441,18 @@ export default function Landing() {
                 borderRadius: 10, border: "1px solid #1e1e3f",
                 display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>⚡</div>
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Zap size={12} color="#fff" fill="#fff" /></div>
                 <div>
                   <div style={{ fontSize: 11, color: "#8080aa" }}>From: alerts@projecthype.io</div>
-                  <div style={{ fontSize: 12, color: "#e8e8ff", fontWeight: 700 }}>🔔 IQD Catalyst Score spiked +21 pts</div>
+                  <div style={{ fontSize: 12, color: "#e8e8ff", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}><Bell size={12} /> IQD Catalyst Score spiked +21 pts</div>
                 </div>
               </div>
               <div style={{ padding: "18px 20px", background: "#070714", borderRadius: 12, border: "1px solid #1e3a5f" }}>
                 <div style={{ fontSize: 11, color: "#5c5c8a", marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>
                   Catalyst Alert · Project Hype
                 </div>
-                <div style={{ fontSize: 15, color: "#00b4ff", fontWeight: 700, marginBottom: 8 }}>
-                  🇮🇶 IQD  <span style={{ color: "#00d4aa" }}>27 → 48</span>
+                <div style={{ fontSize: 15, color: "#00b4ff", fontWeight: 700, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <FlagIcon code="IQD" size={15} /> IQD  <span style={{ color: "#00d4aa" }}>27 → 48</span>
                 </div>
                 <div style={{ fontSize: 12, color: "#7070aa", lineHeight: 1.7, marginBottom: 16 }}>
                   Catalyst Score jumped <span style={{ color: "#00d4aa" }}>+21 points</span> in the last scoring cycle.
@@ -530,8 +531,8 @@ export default function Landing() {
                 <div style={{
                   width: 28, height: 28, borderRadius: 8,
                   background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
-                }}>⚡</div>
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}><Zap size={14} color="#fff" fill="#fff" /></div>
                 <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 14, letterSpacing: 2, color: "#fff" }}>
                   PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
                 </span>

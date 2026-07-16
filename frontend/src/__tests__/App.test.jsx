@@ -346,7 +346,7 @@ describe("ROI Calculator", () => {
 describe("Alert modal", () => {
   it("opens when the bell button is clicked", async () => {
     await renderWithData();
-    const bell = screen.getByText("🔔", { selector: "button" });
+    const bell = screen.getByRole("button", { name: /alerts/i });
     fireEvent.click(bell);
     await waitFor(() =>
       expect(screen.getByText(/Catalyst Score Alerts/i)).toBeInTheDocument()
@@ -355,7 +355,7 @@ describe("Alert modal", () => {
 
   it("shows email input inside the modal", async () => {
     await renderWithData();
-    fireEvent.click(screen.getByText("🔔", { selector: "button" }));
+    fireEvent.click(screen.getByRole("button", { name: /alerts/i }));
     await waitFor(() =>
       expect(
         screen.getByPlaceholderText(/you@example\.com/i)
@@ -365,7 +365,7 @@ describe("Alert modal", () => {
 
   it("shows error when submitting with invalid email", async () => {
     await renderWithData();
-    fireEvent.click(screen.getByText("🔔", { selector: "button" }));
+    fireEvent.click(screen.getByRole("button", { name: /alerts/i }));
     await waitFor(() => screen.getByPlaceholderText(/you@example\.com/i));
 
     const emailInput = screen.getByPlaceholderText(/you@example\.com/i);
@@ -379,7 +379,7 @@ describe("Alert modal", () => {
 
   it("shows success state after valid subscription", async () => {
     await renderWithData();
-    fireEvent.click(screen.getByText("🔔", { selector: "button" }));
+    fireEvent.click(screen.getByRole("button", { name: /alerts/i }));
     await waitFor(() => screen.getByPlaceholderText(/you@example\.com/i));
 
     const emailInput = screen.getByPlaceholderText(/you@example\.com/i);
@@ -395,7 +395,7 @@ describe("Alert modal", () => {
 
   it("closes modal when Cancel is clicked", async () => {
     await renderWithData();
-    fireEvent.click(screen.getByText("🔔", { selector: "button" }));
+    fireEvent.click(screen.getByRole("button", { name: /alerts/i }));
     await waitFor(() => screen.getByText(/Cancel/i));
 
     fireEvent.click(screen.getByText("Cancel"));

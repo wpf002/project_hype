@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import HOW_TO_BUY from "./howToBuy";
+import {
+  FlagIcon, Zap, BarChart2, Flame, Target, Info, Briefcase,
+  Bell, AlertTriangle, Newspaper, Link2, Search, TrendingUp,
+  Eye, Check, CheckCircle2, X, AlertCircle, Circle,
+} from "./icons";
 
 // In docker-compose / nginx proxy: VITE_API_URL="" (or unset) → relative /api/* URLs
 // In Railway production: VITE_API_URL=https://backend-production-6057.up.railway.app
@@ -268,8 +273,8 @@ function CurrencySelect({ currencies, selected, onChange }) {
           justifyContent: "space-between", gap: 8,
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {selected ? `${selected.flag}  ${selected.code} — ${selected.name}` : "Select…"}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+          {selected ? <><FlagIcon code={selected.code} size={14} />{selected.code} — {selected.name}</> : "Select…"}
         </span>
         <span style={{ color: "#8080aa", fontSize: 10, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
       </button>
@@ -310,7 +315,7 @@ function CurrencySelect({ currencies, selected, onChange }) {
               onMouseEnter={e => { if (c.code !== selected?.code) e.currentTarget.style.background = "#111128"; }}
               onMouseLeave={e => { if (c.code !== selected?.code) e.currentTarget.style.background = "transparent"; }}
             >
-              {c.flag}  {c.code} — {c.name}
+              <FlagIcon code={c.code} size={14} style={{ marginRight: 4 }} />{c.code} — {c.name}
             </div>
           ))}
           {filtered.length === 0 && (
@@ -633,7 +638,7 @@ export default function ProjectHype() {
         alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 20,
       }}>
         <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}`}</style>
-        <div style={{ fontSize: 40 }}>⚠️</div>
+        <AlertTriangle size={40} color="#ffa500" />
         <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#e8e8ff" }}>
           Unable to reach the Project Hype API
         </div>
@@ -667,7 +672,7 @@ export default function ProjectHype() {
           display: "flex", alignItems: "center", padding: isMobile ? "0 16px" : "0 40px", gap: 16 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10,
             background: "linear-gradient(135deg,#ff4d4d,#ff8c00)",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, animation: "pulse 1.5s infinite" }}>⚡</div>
+            display: "flex", alignItems: "center", justifyContent: "center", animation: "pulse 1.5s infinite" }}><Zap size={18} color="#fff" fill="#fff" /></div>
           <div>
             <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: 2 }}>
               PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
@@ -724,7 +729,7 @@ export default function ProjectHype() {
         padding: "7px 20px", textAlign: isMobile ? "left" : "center", fontSize: 11,
         color: "#7a6a40", letterSpacing: 0.3,
       }}>
-        ⚠ Project Hype is a <strong style={{ color: "#a08040" }}>speculative research tool</strong> — scores reflect news activity and short-term rate signals, not financial fundamentals. <strong style={{ color: "#a08040" }}>Not investment advice.</strong> Do your own research.
+        <AlertTriangle size={11} style={{ marginRight: 4, verticalAlign: "middle", color: "#7a6a40" }} /> Project Hype is a <strong style={{ color: "#a08040" }}>speculative research tool</strong> — scores reflect news activity and short-term rate signals, not financial fundamentals. <strong style={{ color: "#a08040" }}>Not investment advice.</strong> Do your own research.
       </div>
 
       {/* Header */}
@@ -742,8 +747,8 @@ export default function ProjectHype() {
               width: 36, height: 36, borderRadius: 10,
               background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 18, fontWeight: 700, boxShadow: "0 0 20px #ff4d4d44"
-            }}>⚡</div>
+              fontWeight: 700, boxShadow: "0 0 20px #ff4d4d44"
+            }}><Zap size={18} color="#fff" fill="#fff" /></div>
             <div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#fff" }}>
@@ -774,14 +779,15 @@ export default function ProjectHype() {
                 setAlertModal(true);
               }}
               title="Set Catalyst Score alerts"
+              aria-label="Alerts"
               style={{
                 background: "none", border: "1px solid #1e1e3f", borderRadius: 8,
-                color: "#8080aa", fontSize: 16, cursor: "pointer",
+                color: "#8080aa", cursor: "pointer",
                 padding: "5px 9px", lineHeight: 1, transition: "all 0.15s",
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
-            >🔔</button>
+            ><Bell size={18} /></button>
           </div>
         </div>
         {/* Gradient accent line */}
@@ -812,8 +818,8 @@ export default function ProjectHype() {
             ...(isMobile ? {} : { overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexWrap: "nowrap" }),
           }}>
             {["calculator", "markets", "heatmap", "signals", "portfolio", "about"].map(tab => {
-              const labelDesktop = tab === "calculator" ? "⚡ ROI Calculator" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype Map" : tab === "signals" ? "🎯 Signal Strength" : tab === "about" ? "ℹ️ About" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`;
-              const labelMobile = tab === "calculator" ? "⚡ ROI" : tab === "markets" ? "📊 Markets" : tab === "heatmap" ? "🔥 Hype" : tab === "signals" ? "🎯 Signals" : tab === "about" ? "ℹ️ About" : `💼 Portfolio${portfolio.length > 0 ? ` (${portfolio.length})` : ""}`;
+              const labelDesktop = tab === "calculator" ? <><Zap size={12} /> ROI Calculator</> : tab === "markets" ? <><BarChart2 size={12} /> Markets</> : tab === "heatmap" ? <><Flame size={12} /> Hype Map</> : tab === "signals" ? <><Target size={12} /> Signal Strength</> : tab === "about" ? <><Info size={12} /> About</> : <><Briefcase size={12} /> Portfolio{portfolio.length > 0 ? ` (${portfolio.length})` : ""}</>;
+              const labelMobile = tab === "calculator" ? <><Zap size={11} /> ROI</> : tab === "markets" ? <><BarChart2 size={11} /> Markets</> : tab === "heatmap" ? <><Flame size={11} /> Hype</> : tab === "signals" ? <><Target size={11} /> Signals</> : tab === "about" ? <><Info size={11} /> About</> : <><Briefcase size={11} /> Portfolio{portfolio.length > 0 ? ` (${portfolio.length})` : ""}</>;
               return (
                 <button key={tab} onClick={() => { setActiveTab(tab); trackEvent("tab_changed", { tab }); }} style={{
                   padding: isMobile ? "8px 4px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
@@ -856,15 +862,15 @@ export default function ProjectHype() {
                 <div style={{
                   background: "#070714", borderRadius: 10, padding: "14px 16px", marginBottom: 20
                 }}>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>{selected.flag}</div>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}><FlagIcon code={selected.code} size={24} /></div>
                   <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#00d4aa" }}>
                     {selected.rate.toFixed(8)} <span style={{ fontSize: 12, color: "#8080aa" }}>USD</span>
                     <RateBadge live={selected.live} source={selected.source} />
                     {selected.source === "analyst" && (
-                      <span title="Official rate — black market rate may differ significantly" style={{ marginLeft: 6, cursor: "help", fontSize: 13 }}>⚠️</span>
+                      <span title="Official rate — black market rate may differ significantly" style={{ marginLeft: 6, cursor: "help" }}><AlertTriangle size={13} /></span>
                     )}
                     {selected.source === "scraped" && (
-                      <span title={`Scraped from parallel-market tracker`} style={{ marginLeft: 6, cursor: "help", fontSize: 13 }}>🔍</span>
+                      <span title={`Scraped from parallel-market tracker`} style={{ marginLeft: 6, cursor: "help" }}><Search size={13} /></span>
                     )}
                   </div>
                   <div style={{ marginTop: 4, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
@@ -984,7 +990,7 @@ export default function ProjectHype() {
                     </>
                   ) : (
                     <div style={{ fontSize: 11, color: "#8080aa", marginTop: 8 }}>
-                      {(selected.hype_score ?? selected.hype) >= 80 ? "🔥 Extreme speculation" : (selected.hype_score ?? selected.hype) >= 55 ? "⚡ Elevated interest" : "📊 Moderate tracking"}
+                      {(selected.hype_score ?? selected.hype) >= 80 ? <><Flame size={12} /> Extreme speculation</> : (selected.hype_score ?? selected.hype) >= 55 ? <><Zap size={12} /> Elevated interest</> : <><BarChart2 size={12} /> Moderate tracking</>}
                     </div>
                   )}
                 </div>
@@ -1006,7 +1012,7 @@ export default function ProjectHype() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>🎯 Signal Strength</div>
+                        <div style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}><Target size={11} /> Signal Strength</div>
                         <div style={{ fontSize: 11, color: catColor }}>{signal}</div>
                       </div>
                       <div style={{ textAlign: "right" }}>
@@ -1018,11 +1024,11 @@ export default function ProjectHype() {
                       <div style={{ width: `${cat}%`, height: "100%", background: catColor, borderRadius: 3, boxShadow: `0 0 8px ${catColor}` }} />
                     </div>
                     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
-                      <div style={{ fontSize: 11, color: sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#8080aa" }}>
-                        📰 {sentLabel}
+                      <div style={{ fontSize: 11, color: sent > 10 ? "#00d4aa" : sent < -10 ? "#ff4d4d" : "#8080aa", display: "flex", alignItems: "center", gap: 4 }}>
+                        <Newspaper size={11} /> {sentLabel}
                       </div>
-                      <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#8080aa" }}>
-                        📈 {momLabel}
+                      <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#8080aa", display: "flex", alignItems: "center", gap: 4 }}>
+                        <TrendingUp size={11} /> {momLabel}
                       </div>
                     </div>
                     <div style={{ fontSize: 10, color: catColor, borderTop: "1px solid #1a1a2e", paddingTop: 8 }}>
@@ -1109,7 +1115,7 @@ export default function ProjectHype() {
                           >
                             {/* Header: flag + code + name + change */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{c.flag}</span>
+                              <FlagIcon code={c.code} size={22} />
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa", letterSpacing: 0.5 }}>{c.code}</span>
@@ -1233,7 +1239,7 @@ export default function ProjectHype() {
                           onMouseEnter={e => e.currentTarget.style.background = "#0f0f24"}
                           onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#111128" : "transparent"}
                         >
-                          <div style={{ fontSize: 18 }}>{c.flag}</div>
+                          <FlagIcon code={c.code} size={18} />
                           <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 13, color: "#00d4aa" }}>{c.code}</div>
                           <div style={{ fontSize: 13, color: "#9999cc", display: "flex", alignItems: "center", gap: 4 }}>{c.name}<SanctionsBadge sanctions={c.sanctions} /></div>
                           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#e8e8ff", display: "flex", alignItems: "center", gap: 4 }}>
@@ -1340,8 +1346,8 @@ export default function ProjectHype() {
                     padding: "14px 20px", display: "flex", alignItems: "center",
                     justifyContent: "space-between", gap: 12,
                   }}>
-                    <div style={{ fontSize: 13, color: "#7799cc" }}>
-                      👁 Viewing a shared portfolio
+                    <div style={{ fontSize: 13, color: "#7799cc", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Eye size={13} /> Viewing a shared portfolio
                     </div>
                     <button
                       onClick={() => {
@@ -1443,7 +1449,7 @@ export default function ProjectHype() {
                         onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
                         onMouseLeave={e => e.currentTarget.style.opacity = shareLoading ? "0.5" : "1"}
                       >
-                        {shareLoading ? "…" : "🔗 SHARE"}
+                        {shareLoading ? "…" : <><Link2 size={12} /> SHARE</>}
                       </button>
                     </div>
                   </div>
@@ -1455,7 +1461,7 @@ export default function ProjectHype() {
                     background: "#0d0d1a", border: "1px dashed #1e1e3f", borderRadius: 16,
                     padding: "40px 24px", textAlign: "center", flex: 1,
                   }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>💼</div>
+                    <div style={{ marginBottom: 12 }}><Briefcase size={40} color="#8080aa" /></div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#8080aa", marginBottom: 6 }}>No positions yet</div>
                     <div style={{ fontSize: 13, color: "#5c5c8a", lineHeight: 1.6 }}>
                       Add your first position above, or use the <strong style={{ color: "#8080aa" }}>+</strong> button in the Markets table to add a currency instantly.
@@ -1475,7 +1481,7 @@ export default function ProjectHype() {
                           borderBottom: i < portfolio.length - 1 ? "1px solid #0f0f22" : "none",
                           display: "flex", alignItems: "center", gap: 14,
                         }}>
-                          <div style={{ fontSize: 26, flexShrink: 0 }}>{cur.flag}</div>
+                          <FlagIcon code={cur.code} size={26} style={{ flexShrink: 0 }} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
                               <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, color: "#00d4aa" }}>{cur.code}</span>
@@ -1504,7 +1510,7 @@ export default function ProjectHype() {
                             </div>
                             {cur.catalyst_score != null && (
                               <div style={{ fontSize: 11, color: catalystColor(cur.catalyst_score), fontWeight: 700, marginTop: 2 }}>
-                                ⚡ CAT {Math.round(cur.catalyst_score)}
+                                <Zap size={11} style={{ verticalAlign: "middle" }} /> CAT {Math.round(cur.catalyst_score)}
                               </div>
                             )}
                           </div>
@@ -1519,7 +1525,7 @@ export default function ProjectHype() {
                             onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff4d4d"; e.currentTarget.style.color = "#ff4d4d"; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
                           >
-                            ✕
+                            <X size={14} />
                           </button>
                         </div>
                       );
@@ -1560,7 +1566,7 @@ export default function ProjectHype() {
                       onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
                       title={`${c.name} — Hype: ${Math.round(c.hype_score ?? c.hype)}`}
                     >
-                      <div style={{ fontSize: Math.max(8, size / 5), lineHeight: 1 }}>{c.flag}</div>
+                      <FlagIcon code={c.code} size={Math.max(8, Math.round(size / 5))} />
                       <div style={{ fontSize: Math.max(7, size / 6), fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#fff", marginTop: 2 }}>{c.code}</div>
                       {size > 70 && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.7)" }}>{Math.round(c.hype_score ?? c.hype)}</div>}
                     </div>
@@ -1579,7 +1585,7 @@ export default function ProjectHype() {
               }}>
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: isMobile ? 13 : 18, letterSpacing: isMobile ? 0 : 1, marginBottom: 6 }}>
-                    {isMobile ? "🎯 SIGNAL STRENGTH" : "🎯 SPECULATIVE SIGNAL STRENGTH"}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Target size={isMobile ? 13 : 18} />{isMobile ? "SIGNAL STRENGTH" : "SPECULATIVE SIGNAL STRENGTH"}</span>
                   </div>
                   <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.6 }}>
                     Currencies ranked by <strong style={{ color: "#9999cc" }}>Catalyst Score</strong> — a composite of news sentiment and 7-day rate momentum. High scores indicate active narratives and recent movement, <strong style={{ color: "#7a6a40" }}>not a prediction or recommendation</strong>. Updated every 12 hours.
@@ -1674,7 +1680,7 @@ export default function ProjectHype() {
                         <div style={{ fontSize: 10, color: "#5c5c8a", fontFamily: "'Space Mono', monospace" }}>{i + 1}</div>
 
                         {/* Flag */}
-                        <div style={{ fontSize: isMobile ? 16 : 20 }}>{c.flag}</div>
+                        <FlagIcon code={c.code} size={isMobile ? 16 : 20} />
 
                         {isMobile ? (
                           <>
@@ -1936,7 +1942,7 @@ export default function ProjectHype() {
                   border: "1px solid #1e1e3f", borderRadius: 16, padding: isMobile ? 16 : 28, flex: 1
                 }}>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: isMobile ? 16 : 20, letterSpacing: isMobile ? 0.5 : 1, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    ℹ️ About Project Hype
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Info size={isMobile ? 16 : 20} /> About Project Hype</span>
                   </div>
                   <div style={{ fontSize: 13, color: "#8080aa", lineHeight: 1.6, marginBottom: 12 }}>
                     A field guide to speculative currency intelligence — what the scores mean, where the data comes from, and how to use the tools.
@@ -2020,7 +2026,7 @@ export default function ProjectHype() {
 
               {/* Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📰 LATEST INTEL</div>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}><Newspaper size={14} /> LATEST INTEL</div>
                 {headlines.length > 0 && (
                   <div style={{
                     fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, letterSpacing: 1,
@@ -2097,8 +2103,8 @@ export default function ProjectHype() {
               <div style={{ height: 1, background: "#1a1a33", margin: "18px 0" }} />
 
               {/* ── Section: Top Movers 24H ── */}
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12 }}>
-                📊 TOP MOVERS · 24H
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 5 }}>
+                <BarChart2 size={12} /> TOP MOVERS · 24H
               </div>
               {(() => {
                 const movers = [...currencies]
@@ -2121,7 +2127,7 @@ export default function ProjectHype() {
                           onMouseEnter={e => e.currentTarget.style.background = "#111128"}
                           onMouseLeave={e => e.currentTarget.style.background = "#070714"}
                         >
-                          <span style={{ fontSize: 16 }}>{c.flag}</span>
+                          <FlagIcon code={c.code} size={16} />
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
                             <div style={{ fontSize: 10, color: "#8080aa" }}>{c.name}</div>
@@ -2146,8 +2152,8 @@ export default function ProjectHype() {
 
               {/* ── Section: Top Signals ── */}
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12 }}>
-                  ⚡ TOP SIGNALS
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 5 }}>
+                  <Zap size={12} /> TOP SIGNALS
                 </div>
                 {(() => {
                   const top = [...currencies]
@@ -2170,7 +2176,7 @@ export default function ProjectHype() {
                             onMouseEnter={e => e.currentTarget.style.background = "#111128"}
                             onMouseLeave={e => e.currentTarget.style.background = "#070714"}
                           >
-                            <span style={{ fontSize: 16 }}>{c.flag}</span>
+                            <FlagIcon code={c.code} size={16} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 12, fontWeight: 700, color: "#e8e8ff", fontFamily: "'Space Mono', monospace" }}>{c.code}</div>
                               <div style={{ fontSize: 10, color: "#8080aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
@@ -2194,8 +2200,8 @@ export default function ProjectHype() {
 
               {/* ── Section: Institutional Signals ── */}
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12 }}>
-                  🚨 INSTITUTIONAL SIGNALS
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 5 }}>
+                  <AlertTriangle size={12} /> INSTITUTIONAL SIGNALS
                 </div>
                 {loadingSignals ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2213,10 +2219,10 @@ export default function ProjectHype() {
                       const bg = isPositive ? "#00d4aa11" : "#ff4d4d11";
                       const border = isPositive ? "#00d4aa33" : "#ff4d4d33";
                       const label = {
-                        IMF_POSITIVE: "🟢 IMF POSITIVE",
-                        IMF_NEGATIVE: "🔴 IMF NEGATIVE",
-                        SANCTIONS_RELIEF: "🟢 SANCTIONS RELIEF",
-                        SANCTIONS_ADDED: "🔴 SANCTIONS ADDED",
+                        IMF_POSITIVE: "IMF POSITIVE",
+                        IMF_NEGATIVE: "IMF NEGATIVE",
+                        SANCTIONS_RELIEF: "SANCTIONS RELIEF",
+                        SANCTIONS_ADDED: "SANCTIONS ADDED",
                       }[sig.signal_type] || sig.signal_type;
                       return (
                         <div key={sig.id} style={{ padding: "8px 10px", borderRadius: 8, background: bg, border: `1px solid ${border}` }}>
@@ -2264,12 +2270,12 @@ export default function ProjectHype() {
                   padding: "5px 12px", borderRadius: 6, border: "none", cursor: "pointer",
                   background: bottomView === "hype" ? "linear-gradient(135deg, #1e1e4f, #252560)" : "transparent",
                   color: bottomView === "hype" ? "#ffa500" : "#8080aa", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
-                }}>🔥 TOP HYPE</button>
+                }}><Flame size={12} style={{ verticalAlign: "middle" }} /> TOP HYPE</button>
                 <button onClick={() => setBottomView("catalyst")} style={{
                   padding: "5px 12px", borderRadius: 6, border: "none", cursor: "pointer",
                   background: bottomView === "catalyst" ? "linear-gradient(135deg, #0d1a2e, #0d2040)" : "transparent",
                   color: bottomView === "catalyst" ? "#00b4ff" : "#8080aa", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
-                }}>⚡ TOP CATALYST</button>
+                }}><Zap size={12} style={{ verticalAlign: "middle" }} /> TOP CATALYST</button>
               </div>
             </div>
             {bottomView === "hype" ? topHype.map((c, i) => (
@@ -2279,7 +2285,7 @@ export default function ProjectHype() {
                 onMouseLeave={e => e.currentTarget.style.opacity = "1"}
               >
                 <div style={{ color: "#5c5c8a", fontFamily: "'Space Mono', monospace", fontSize: 11, minWidth: 16 }}>#{i + 1}</div>
-                <div style={{ fontSize: 22 }}>{c.flag}</div>
+                <FlagIcon code={c.code} size={22} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
                   <div style={{ fontSize: 11, color: "#8080aa" }}>{c.name}</div>
@@ -2293,7 +2299,7 @@ export default function ProjectHype() {
                 onMouseLeave={e => e.currentTarget.style.opacity = "1"}
               >
                 <div style={{ color: "#5c5c8a", fontFamily: "'Space Mono', monospace", fontSize: 11, minWidth: 16 }}>#{i + 1}</div>
-                <div style={{ fontSize: 22 }}>{c.flag}</div>
+                <FlagIcon code={c.code} size={22} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e8e8ff" }}>{c.code}</div>
                   <div style={{ fontSize: 11, color: "#8080aa" }}>{c.name}</div>
@@ -2305,7 +2311,7 @@ export default function ProjectHype() {
 
           {/* Quick Scenarios */}
           <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24 }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, marginBottom: 16 }}>⚡ QUICK SCENARIOS</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}><Zap size={14} /> QUICK SCENARIOS</div>
             <div style={{ fontSize: 12, color: "#8080aa", marginBottom: 14 }}>{selected.code} · {parseFloat(amount || 0).toLocaleString()} units</div>
             {[2, 5, 10, 50, 100].map(mult => {
               const tgt = selected.rate * mult;
@@ -2333,7 +2339,7 @@ export default function ProjectHype() {
           {/* Rate History */}
           <div style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)", border: "1px solid #1e1e3f", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>📈 RATE HISTORY</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}><TrendingUp size={14} /> RATE HISTORY</div>
               <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · {rateHistory.length} pts</div>
             </div>
             <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
@@ -2415,7 +2421,7 @@ export default function ProjectHype() {
             >
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <span style={{ fontSize: 28 }}>{buyModal.flag}</span>
+                <FlagIcon code={buyModal.code} size={28} />
                 <div>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20 }}>
                     How to Buy {buyModal.code}
@@ -2538,7 +2544,7 @@ export default function ProjectHype() {
             }}
           >
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
-              🔗 Share Portfolio
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Link2 size={18} /> Share Portfolio</span>
             </div>
             <div style={{ fontSize: 12, color: "#8080aa", marginBottom: 20 }}>
               Anyone with this link can view your current positions.
@@ -2564,7 +2570,7 @@ export default function ProjectHype() {
                   transition: "all 0.2s",
                 }}
               >
-                {shareCopied ? "✓ COPIED" : "COPY"}
+                {shareCopied ? <><Check size={12} /> COPIED</> : "COPY"}
               </button>
             </div>
             <button
@@ -2601,7 +2607,7 @@ export default function ProjectHype() {
           >
             {alertSubmitted ? (
               <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
+                <div style={{ marginBottom: 16 }}><CheckCircle2 size={40} color="#00d4aa" /></div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
                   You're subscribed
                 </div>
@@ -2612,8 +2618,8 @@ export default function ProjectHype() {
                   {[...alertCodes].map(code => {
                     const cur = currencies.find(c => c.code === code);
                     return (
-                      <span key={code} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 12, background: "#1e1e3f", color: "#9999cc" }}>
-                        {cur?.flag} {code}
+                      <span key={code} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 12, background: "#1e1e3f", color: "#9999cc", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {cur && <FlagIcon code={code} size={14} />} {code}
                       </span>
                     );
                   })}
@@ -2627,7 +2633,7 @@ export default function ProjectHype() {
             ) : (
               <>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 6 }}>
-                  🔔 Catalyst Score Alerts
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Bell size={18} /> Catalyst Score Alerts</span>
                 </div>
                 <div style={{ fontSize: 12, color: "#8080aa", lineHeight: 1.6, marginBottom: 20 }}>
                   We'll email you when any tracked currency's Catalyst Score jumps <strong style={{ color: "#00b4ff" }}>15+ points</strong> between scoring runs. Unsubscribe anytime.
@@ -2680,7 +2686,7 @@ export default function ProjectHype() {
                           }}
                           style={{ accentColor: "#00b4ff", width: 14, height: 14, flexShrink: 0 }}
                         />
-                        <span style={{ fontSize: 16 }}>{c.flag}</span>
+                        <FlagIcon code={c.code} size={16} />
                         <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 12, color: "#00d4aa" }}>{c.code}</span>
                         <span style={{ fontSize: 12, color: "#8080aa" }}>{c.name}</span>
                         {c.catalyst_score != null && (
@@ -2740,7 +2746,7 @@ export default function ProjectHype() {
                     opacity: alertLoading ? 0.7 : 1, marginBottom: 12,
                   }}
                 >
-                  {alertLoading ? "Subscribing…" : "🔔 Notify me when Catalyst Score spikes"}
+                  {alertLoading ? "Subscribing…" : <><Bell size={16} style={{ verticalAlign: "middle" }} /> Notify me when Catalyst Score spikes</>}
                 </button>
 
                 <button onClick={() => setAlertModal(false)} style={{
