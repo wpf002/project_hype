@@ -180,6 +180,10 @@ async function renderWithError() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(16_000);
   });
+  // Restore real timers before returning. happy-dom uses setTimeout internally
+  // during DOM teardown; if fake timers are still active when afterEach cleanup
+  // runs, those internal calls stall and the hook times out.
+  vi.useRealTimers();
 }
 
 describe("Error state", () => {
@@ -212,11 +216,11 @@ describe("Error state", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(16_000);
     });
+    // Restore real timers before assertions so happy-dom teardown doesn't stall.
+    vi.useRealTimers();
     expect(screen.getByText(/Retry/i)).toBeInTheDocument();
 
-    // Click Retry; switch back to real timers so waitFor works normally
     fireEvent.click(screen.getByText(/Retry/i));
-    vi.useRealTimers();
 
     await waitFor(() =>
       expect(screen.getAllByText("IQD").length).toBeGreaterThan(0),
