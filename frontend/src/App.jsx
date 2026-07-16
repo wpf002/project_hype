@@ -944,7 +944,10 @@ export default function ProjectHype() {
                     <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: results.targetVal ? "#ffa500" : "#5c5c8a" }}>
                       {results.targetVal ? fmt(results.targetVal) : "—"}
                     </div>
-                    {results.targetVal && <div style={{ fontSize: 11, color: "#8a7a5a", marginTop: 6 }}>at {parseFloat(targetRate).toFixed(8)} USD</div>}
+                    {results.targetVal
+                      ? <div style={{ fontSize: 11, color: "#8a7a5a", marginTop: 6 }}>at {parseFloat(targetRate).toFixed(8)} USD</div>
+                      : <div style={{ fontSize: 11, color: "#5c5c8a", marginTop: 6 }}>Enter a target rate above ↑</div>
+                    }
                   </div>
                   <div style={{
                     background: results.roi && parseFloat(results.roi) > 0 ? "linear-gradient(135deg, #0d1a1a, #111e1e)" : "linear-gradient(135deg, #1a0d0d, #1e1111)",
@@ -955,11 +958,13 @@ export default function ProjectHype() {
                     <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: !results.roi ? "#5c5c8a" : parseFloat(results.roi) > 0 ? "#00d4aa" : "#ff4d4d" }}>
                       {results.roi ? `${parseFloat(results.roi) > 0 ? "+" : ""}${Number(results.roi).toLocaleString()}%` : "—"}
                     </div>
-                    {results.gain != null && results.multiplier && (
+                    {results.gain != null && results.multiplier ? (
                       <div style={{ fontSize: 11, color: "#5a8a8a", marginTop: 6 }}>
                         {fmt(results.gain)} · {results.multiplier.toFixed(2)}x
                       </div>
-                    )}
+                    ) : !results.roi ? (
+                      <div style={{ fontSize: 11, color: "#5c5c8a", marginTop: 6 }}>Enter a target rate above ↑</div>
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -973,8 +978,8 @@ export default function ProjectHype() {
 
               {/* Market Context */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
-                <StatCard label="Market Cap" value={selected.mcap === "N/A" ? "—" : `$${selected.mcap}`} sub="Estimated" />
-                <StatCard label="24h Volume" value={selected.vol === "N/A" ? "—" : `$${selected.vol}`} sub="Reported" />
+                <StatCard label="Market Cap" value={selected.mcap === "N/A" ? "—" : `$${selected.mcap}`} sub={selected.mcap === "N/A" ? "No reliable data" : "Estimated"} />
+                <StatCard label="24h Volume" value={selected.vol === "N/A" ? "—" : `$${selected.vol}`} sub={selected.vol === "N/A" ? "No reliable data" : "Reported"} />
                 <div style={{
                   background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
                   border: "1px solid #1e1e3f", borderRadius: 12, padding: "18px 20px", flex: 1
