@@ -31,6 +31,7 @@ from typing import Dict, List, Tuple
 import httpx
 
 from data.currencies import CURRENCIES, EXOTIC_NO_LIVE
+from services.commodity_service import get_commodity_changes
 from db.db import (
     get_history,
     write_hype_snapshots,
@@ -46,6 +47,46 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 
 HIGH_FLOOR_CODES = EXOTIC_NO_LIVE
+
+# Commodity drivers per currency:
+#   Positive weight  → exporter / price-linked (commodity up = currency bullish)
+#   Negative weight  → importer (commodity up = currency bearish)
+# Currencies not listed here receive a neutral 50 on the commodity axis.
+COMMODITY_LINKS: Dict[str, list] = {
+    # Oil exporters
+    "IQD": [("oil",    +1.0)],
+    "NGN": [("oil",    +1.0)],
+    "VES": [("oil",    +1.0)],
+    "AZN": [("oil",    +1.0)],
+    "KZT": [("oil",    +0.7), ("gold",   +0.3)],
+    "YER": [("oil",    +0.8)],
+    "SDG": [("oil",    +0.5)],
+    "IRR": [("oil",    +0.5)],          # exports via grey channels
+    "SYP": [("oil",    +0.3)],          # minor pre-war oil
+    # Oil importers
+    "PKR": [("oil",    -0.8)],
+    "TRY": [("oil",    -0.6)],
+    "EGP": [("oil",    -0.4)],
+    "IDR": [("oil",    -0.4)],
+    "MMK": [("oil",    -0.5)],
+    "LAK": [("oil",    -0.5)],
+    "BDT": [("oil",    -0.3)],
+    # Gold-linked
+    "GHS": [("gold",   +0.6), ("cocoa",  +0.4)],
+    "ZWG": [("gold",   +1.0)],          # gold-backed currency
+    "MNT": [("gold",   +0.4), ("copper", +0.6)],   # Oyu Tolgoi copper/gold
+    "ETB": [("gold",   +0.6)],
+    "TZS": [("gold",   +0.7)],
+    "UZS": [("gold",   +0.8)],
+    "SLL": [("gold",   +0.5)],
+    # Copper / industrial metals
+    "CDF": [("copper", +0.8)],          # DRC cobalt/copper (no liquid cobalt futures)
+    # Agricultural
+    "ARS": [("soy",    +0.8)],
+    "XOF": [("cocoa",  +0.7)],
+    # LNG proxy (natural gas correlated with oil)
+    "MZN": [("oil",    +0.4)],
+}
 
 CLAUDE_BATCH_SIZE = 8  # headlines per API call
 
@@ -338,6 +379,7 @@ async def calculate_all_hype_scores() -> None:
     raw_sentiment_source: Dict[str, str] = {}
     raw_volatility: Dict[str, float] = {}
     raw_momentum: Dict[str, float] = {}
+    raw_commodity: Dict[str, float] = {}
 
     # news_semaphore(5): caps concurrent RSS + Claude calls; releases the slot
     # before sleeping so the 0.5s courtesy gap doesn't hold the semaphore idle.
@@ -355,6 +397,23 @@ async def calculate_all_hype_scores() -> None:
 
     await asyncio.gather(*[fetch_one(c) for c in CURRENCIES])
     use_news = any(v > 0 for v in raw_volume.values())
+
+    # Fetch commodity price changes (14-day %) — runs concurrently with vol/mom below.
+    commodity_changes = await get_commodity_changes()
+    has_commodity = bool(commodity_changes)
+
+    # Compute raw commodity score for each currency with defined links.
+    # Currencies missing from COMMODITY_LINKS stay absent from raw_commodity;
+    # they'll receive a neutral 50 after normalisation.
+    for c in CURRENCIES:
+        code = c["code"]
+        links = COMMODITY_LINKS.get(code, [])
+        if not links or not has_commodity:
+            continue
+        available = [(comm, w) for comm, w in links if comm in commodity_changes]
+        if not available:
+            continue
+        raw_commodity[code] = sum(w * commodity_changes[comm] for comm, w in available)
 
     # vol_mom_semaphore(10): caps concurrent DB queries for volatility + momentum.
     # Without this, all 40×2=80 get_history() calls land simultaneously and
@@ -385,6 +444,14 @@ async def calculate_all_hype_scores() -> None:
     mom_min = min(raw_momentum.values(), default=0)
     norm_momentum = _normalise({k: v - mom_min for k, v in raw_momentum.items()})
 
+    # Normalise commodity scores among linked currencies only, then assign
+    # 50 (neutral) to currencies with no commodity relationship so they don't
+    # drag linked currencies' scores toward the centre.
+    norm_commodity_linked = _normalise(raw_commodity) if raw_commodity else {}
+    norm_commodity: Dict[str, float] = {
+        c["code"]: norm_commodity_linked.get(c["code"], 50.0) for c in CURRENCIES
+    }
+
     # ── Compose scores ─────────────────────────────────────────────────────
     hype_out: Dict[str, dict] = {}
     catalyst_out: Dict[str, dict] = {}
@@ -407,13 +474,30 @@ async def calculate_all_hype_scores() -> None:
             )
         hype_score = round(max(floor, min(100.0, raw_hype)), 2)
 
+        comm = norm_commodity.get(code, 50.0)
+
         if use_news:
-            raw_catalyst = (
-                0.60 * norm_sentiment.get(code, 50)
-                + 0.40 * norm_momentum.get(code, 50)
-            )
+            if has_commodity:
+                # 3-factor: news sentiment 50%, rate momentum 30%, commodity 20%
+                raw_catalyst = (
+                    0.50 * norm_sentiment.get(code, 50)
+                    + 0.30 * norm_momentum.get(code, 50)
+                    + 0.20 * comm
+                )
+            else:
+                raw_catalyst = (
+                    0.60 * norm_sentiment.get(code, 50)
+                    + 0.40 * norm_momentum.get(code, 50)
+                )
         else:
-            raw_catalyst = norm_momentum.get(code, 50)
+            if has_commodity:
+                raw_catalyst = (
+                    0.60 * norm_momentum.get(code, 50)
+                    + 0.40 * comm
+                )
+            else:
+                raw_catalyst = norm_momentum.get(code, 50)
+
         catalyst_score = round(max(0.0, min(100.0, raw_catalyst)), 2)
 
         hype_out[code] = {
@@ -426,6 +510,7 @@ async def calculate_all_hype_scores() -> None:
             "sentiment": round(raw_sentiment.get(code, 0.0), 2),
             "momentum": round(raw_momentum.get(code, 0.0), 4),
             "sentiment_source": raw_sentiment_source.get(code, "keyword_fallback"),
+            "commodity": round(comm, 2),
         }
 
     await write_hype_snapshots(hype_out)

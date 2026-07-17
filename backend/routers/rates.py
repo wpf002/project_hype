@@ -35,6 +35,7 @@ class CurrencyRate(BaseModel):
     sentiment: Optional[float] = None
     momentum_7d: Optional[float] = None
     sentiment_source: Optional[str] = None
+    commodity_signal: Optional[float] = None  # normalised 0–100; 50 = neutral
     sanctions: Optional[str] = None   # "comprehensive" | "targeted" | None
 
 
@@ -70,6 +71,7 @@ async def get_all_currency_rates(request: Request):
                 sentiment=cat.get("sentiment"),
                 momentum_7d=cat.get("momentum_7d"),
                 sentiment_source=cat.get("sentiment_source"),
+                commodity_signal=cat.get("commodity"),
                 sanctions=currency.get("sanctions"),
             )
         )
@@ -110,6 +112,7 @@ async def get_single_currency_rate(request: Request, code: str):
         sentiment=cat.get("sentiment"),
         momentum_7d=cat.get("momentum_7d"),
         sentiment_source=cat.get("sentiment_source"),
+        commodity_signal=cat.get("commodity"),
         sanctions=currency.get("sanctions"),
     )
 
