@@ -22,6 +22,18 @@ const HYPE_COLORS = {
   low: "#00d4aa",
 };
 
+// Primary commodity driver label per currency (mirrors backend COMMODITY_LINKS).
+// Used in the Catalyst panel to contextualise the commodity signal.
+const COMMODITY_DRIVER = {
+  IQD: "Oil", NGN: "Oil", VES: "Oil", AZN: "Oil", KZT: "Oil/Gold",
+  YER: "Oil", SDG: "Oil", IRR: "Oil", SYP: "Oil", MZN: "LNG",
+  PKR: "Oil ↑bad", TRY: "Oil ↑bad", EGP: "Oil ↑bad",
+  IDR: "Oil ↑bad", MMK: "Oil ↑bad", LAK: "Oil ↑bad", BDT: "Oil ↑bad",
+  GHS: "Gold/Cocoa", ZWG: "Gold", MNT: "Copper/Gold",
+  ETB: "Gold", TZS: "Gold", UZS: "Gold", SLL: "Gold",
+  CDF: "Copper", ARS: "Soy", XOF: "Cocoa",
+};
+
 function HypeBar({ score, title }) {
   const color = score >= 80 ? HYPE_COLORS.high : score >= 55 ? HYPE_COLORS.mid : HYPE_COLORS.low;
   return (
@@ -381,6 +393,7 @@ export default function ProjectHype() {
   const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState("20000000");
   const [targetRate, setTargetRate] = useState("");
+  const [usdBuy, setUsdBuy] = useState("");
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === "undefined") return "calculator";
@@ -923,6 +936,50 @@ export default function ProjectHype() {
                 </div>
               </div>
 
+              {/* Buy with USD */}
+              <div style={{ marginTop: 16 }}>
+                <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                  Buy with USD
+                </label>
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ position: "relative", flex: "0 0 180px" }}>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#8080aa", fontSize: 14, pointerEvents: "none" }}>$</span>
+                    <input
+                      type="number"
+                      placeholder="e.g. 500"
+                      value={usdBuy}
+                      onChange={e => setUsdBuy(e.target.value)}
+                      style={{
+                        width: "100%", padding: "12px 12px 12px 26px", boxSizing: "border-box",
+                        background: "#070714", border: "1px solid #1e1e3f",
+                        borderRadius: 8, color: "#00d4aa", fontSize: 16,
+                        fontFamily: "'Space Mono', monospace", fontWeight: 700
+                      }}
+                    />
+                  </div>
+                  {(() => {
+                    const usd = parseFloat(usdBuy);
+                    const rate = selected?.rate;
+                    if (!usd || usd <= 0 || !rate || rate <= 0) {
+                      return <span style={{ fontSize: 13, color: "#5c5c8a" }}>= ? {selected?.code}</span>;
+                    }
+                    const units = usd / rate;
+                    const formatted = units >= 1e9 ? `${(units / 1e9).toFixed(2)}B`
+                      : units >= 1e6 ? `${(units / 1e6).toFixed(2)}M`
+                      : units >= 1e3 ? `${(units / 1e3).toFixed(2)}K`
+                      : units.toFixed(2);
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, color: "#5c5c8a" }}>=</span>
+                        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#e8e8ff" }}>{formatted}</span>
+                        <span style={{ fontSize: 13, color: "#8080aa" }}>{selected?.code}</span>
+                        <span style={{ fontSize: 10, color: "#4a4a6a" }}>@ {rate.toFixed(8)}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
               {/* Results */}
               {results ? (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
@@ -1006,10 +1063,17 @@ export default function ProjectHype() {
                 const cat = selected.catalyst_score;
                 const sent = selected.sentiment ?? 0;
                 const mom = selected.momentum_7d ?? 0;
+                const comm = selected.commodity_signal;
                 const catColor = cat >= 65 ? "#00d4aa" : cat >= 40 ? "#ffa500" : "#ff4d4d";
                 const sentLabel = sent > 10 ? "Bullish narrative" : sent < -10 ? "Bearish narrative" : "Neutral narrative";
                 const momLabel = mom > 0.5 ? `+${mom.toFixed(2)}% 7d momentum` : mom < -0.5 ? `${mom.toFixed(2)}% 7d decline` : "Flat rate trend";
                 const signal = cat >= 65 ? "High speculative signal activity" : cat >= 40 ? "Mixed signals — limited catalyst data" : "Low signal activity";
+                const driver = COMMODITY_DRIVER[selected.code];
+                const commColor = comm == null ? null : comm > 55 ? "#00d4aa" : comm < 45 ? "#ff4d4d" : "#8080aa";
+                const commLabel = comm == null ? null
+                  : comm > 55 ? `${driver || "Commodity"}: bullish`
+                  : comm < 45 ? `${driver || "Commodity"}: bearish`
+                  : driver ? `${driver}: neutral` : null;
                 return (
                   <div style={{
                     background: "linear-gradient(135deg, #0d0d1a 0%, #111128 100%)",
@@ -1035,9 +1099,14 @@ export default function ProjectHype() {
                       <div style={{ fontSize: 11, color: mom > 0.5 ? "#00d4aa" : mom < -0.5 ? "#ff4d4d" : "#8080aa", display: "flex", alignItems: "center", gap: 4 }}>
                         <TrendingUp size={11} /> {momLabel}
                       </div>
+                      {commLabel && (
+                        <div style={{ fontSize: 11, color: commColor, display: "flex", alignItems: "center", gap: 4 }}>
+                          <BarChart2 size={11} /> {commLabel}
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: 10, color: catColor, borderTop: "1px solid #1a1a2e", paddingTop: 8 }}>
-                      Signal strength reflects news activity & rate movement only — not a prediction or investment advice.
+                      Signal strength reflects news sentiment, rate movement{driver ? ", and commodity trends" : ""} — not a prediction or investment advice.
                     </div>
                   </div>
                 );
