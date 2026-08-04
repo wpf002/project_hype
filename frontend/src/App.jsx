@@ -394,6 +394,7 @@ export default function ProjectHype() {
   const [amount, setAmount] = useState("20000000");
   const [targetRate, setTargetRate] = useState("");
   const [usdBuy, setUsdBuy] = useState("");
+  const [unitsBuy, setUnitsBuy] = useState("");
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === "undefined") return "calculator";
@@ -569,6 +570,36 @@ export default function ProjectHype() {
     calculate();
   }, [selected, amount, targetRate]);
 
+  // ── Reset converter when currency changes (rate changed, old values stale) ─
+  useEffect(() => {
+    setUsdBuy("");
+    setUnitsBuy("");
+  }, [selected?.code]);
+
+  function handleUsdBuyChange(val) {
+    setUsdBuy(val);
+    const usd = parseFloat(val);
+    const rate = selected?.rate;
+    if (usd > 0 && rate > 0) {
+      const units = usd / rate;
+      setUnitsBuy(units >= 1 ? String(Math.round(units)) : units.toFixed(6));
+    } else {
+      setUnitsBuy("");
+    }
+  }
+
+  function handleUnitsBuyChange(val) {
+    setUnitsBuy(val);
+    const units = parseFloat(val);
+    const rate = selected?.rate;
+    if (units > 0 && rate > 0) {
+      const usd = units * rate;
+      setUsdBuy(usd >= 0.01 ? usd.toFixed(2) : usd.toFixed(6));
+    } else {
+      setUsdBuy("");
+    }
+  }
+
   // ── Fetch news whenever the selected currency changes ─────────────────────
   useEffect(() => {
     if (!selected) return;
@@ -637,6 +668,13 @@ export default function ProjectHype() {
     if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
     if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}K`;
     return `$${n.toFixed(4)}`;
+  };
+
+  // Full dollar format — no abbreviation, always shows exact amount with commas.
+  // Used for Target Value and ROI gain where precision matters.
+  const fmtFull = (n) => {
+    if (n === null || n === undefined) return "—";
+    return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
 
@@ -936,47 +974,57 @@ export default function ProjectHype() {
                 </div>
               </div>
 
-              {/* Buy with USD */}
-              <div style={{ marginTop: 16 }}>
-                <label style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
-                  Buy with USD
-                </label>
-                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                  <div style={{ position: "relative", flex: "0 0 180px" }}>
-                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#8080aa", fontSize: 14, pointerEvents: "none" }}>$</span>
+              {/* Bidirectional currency converter */}
+              <div style={{ marginTop: 20 }}>
+                <div style={{ fontSize: 11, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>
+                  Convert
+                </div>
+                <div style={{ display: "flex", alignItems: "stretch", borderRadius: 10, overflow: "hidden", border: "1px solid #1e1e3f" }}>
+                  {/* USD side */}
+                  <div style={{ flex: 1, background: "#070714", padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, color: "#5a8a5a", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>USD</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ color: "#5a8a5a", fontSize: 16, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={usdBuy}
+                        onChange={e => handleUsdBuyChange(e.target.value)}
+                        style={{
+                          flex: 1, background: "transparent", border: "none", outline: "none",
+                          color: "#00d4aa", fontSize: 20, fontWeight: 700,
+                          fontFamily: "'Space Mono', monospace", padding: 0, minWidth: 0
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {/* Swap divider */}
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 14px", background: "#0d0d1a",
+                    color: "#3a3a5a", fontSize: 18, userSelect: "none", flexShrink: 0
+                  }}>⇄</div>
+                  {/* Currency side */}
+                  <div style={{ flex: 1, background: "#070714", padding: "14px 16px" }}>
+                    <div style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{selected.code}</div>
                     <input
                       type="number"
-                      placeholder="e.g. 500"
-                      value={usdBuy}
-                      onChange={e => setUsdBuy(e.target.value)}
+                      min="0"
+                      placeholder="0"
+                      value={unitsBuy}
+                      onChange={e => handleUnitsBuyChange(e.target.value)}
                       style={{
-                        width: "100%", padding: "12px 12px 12px 26px", boxSizing: "border-box",
-                        background: "#070714", border: "1px solid #1e1e3f",
-                        borderRadius: 8, color: "#00d4aa", fontSize: 16,
-                        fontFamily: "'Space Mono', monospace", fontWeight: 700
+                        width: "100%", background: "transparent", border: "none", outline: "none",
+                        color: "#e8e8ff", fontSize: 20, fontWeight: 700,
+                        fontFamily: "'Space Mono', monospace", padding: 0, minWidth: 0,
+                        boxSizing: "border-box"
                       }}
                     />
                   </div>
-                  {(() => {
-                    const usd = parseFloat(usdBuy);
-                    const rate = selected?.rate;
-                    if (!usd || usd <= 0 || !rate || rate <= 0) {
-                      return <span style={{ fontSize: 13, color: "#5c5c8a" }}>= ? {selected?.code}</span>;
-                    }
-                    const units = usd / rate;
-                    const formatted = units >= 1e9 ? `${(units / 1e9).toFixed(2)}B`
-                      : units >= 1e6 ? `${(units / 1e6).toFixed(2)}M`
-                      : units >= 1e3 ? `${(units / 1e3).toFixed(2)}K`
-                      : units.toFixed(2);
-                    return (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 13, color: "#5c5c8a" }}>=</span>
-                        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: "#e8e8ff" }}>{formatted}</span>
-                        <span style={{ fontSize: 13, color: "#8080aa" }}>{selected?.code}</span>
-                        <span style={{ fontSize: 10, color: "#4a4a6a" }}>@ {rate.toFixed(8)}</span>
-                      </div>
-                    );
-                  })()}
+                </div>
+                <div style={{ fontSize: 10, color: "#3a3a5a", marginTop: 6 }}>
+                  1 {selected.code} = {selected.rate.toFixed(8)} USD
                 </div>
               </div>
 
@@ -999,7 +1047,7 @@ export default function ProjectHype() {
                   }}>
                     <div style={{ fontSize: 11, color: "#8a7a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Target Value</div>
                     <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: results.targetVal ? "#ffa500" : "#5c5c8a" }}>
-                      {results.targetVal ? fmt(results.targetVal) : "—"}
+                      {results.targetVal ? fmtFull(results.targetVal) : "—"}
                     </div>
                     {results.targetVal
                       ? <div style={{ fontSize: 11, color: "#8a7a5a", marginTop: 6 }}>at {parseFloat(targetRate).toFixed(8)} USD</div>
@@ -1017,7 +1065,7 @@ export default function ProjectHype() {
                     </div>
                     {results.gain != null && results.multiplier ? (
                       <div style={{ fontSize: 11, color: "#5a8a8a", marginTop: 6 }}>
-                        {fmt(results.gain)} · {results.multiplier.toFixed(2)}x
+                        {fmtFull(results.gain)} · {results.multiplier.toFixed(2)}x
                       </div>
                     ) : !results.roi ? (
                       <div style={{ fontSize: 11, color: "#5c5c8a", marginTop: 6 }}>Enter a target rate above ↑</div>
