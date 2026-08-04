@@ -981,10 +981,10 @@ export default function ProjectHype() {
                 </div>
                 <div style={{ display: "flex", alignItems: "stretch", borderRadius: 10, overflow: "hidden", border: "1px solid #1e1e3f" }}>
                   {/* USD side */}
-                  <div style={{ flex: 1, background: "#070714", padding: "14px 16px" }}>
-                    <div style={{ fontSize: 10, color: "#5a8a5a", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>USD</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ color: "#5a8a5a", fontSize: 16, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>$</span>
+                  <div style={{ flex: 1, background: "#070714", padding: "18px 22px" }}>
+                    <div style={{ fontSize: 10, color: "#5a8a5a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>USD</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#5a8a5a", fontSize: 18, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>$</span>
                       <input
                         type="number"
                         min="0"
@@ -993,7 +993,7 @@ export default function ProjectHype() {
                         onChange={e => handleUsdBuyChange(e.target.value)}
                         style={{
                           flex: 1, background: "transparent", border: "none", outline: "none",
-                          color: "#00d4aa", fontSize: 20, fontWeight: 700,
+                          color: "#00d4aa", fontSize: 22, fontWeight: 700,
                           fontFamily: "'Space Mono', monospace", padding: 0, minWidth: 0
                         }}
                       />
@@ -1002,12 +1002,12 @@ export default function ProjectHype() {
                   {/* Swap divider */}
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    padding: "0 14px", background: "#0d0d1a",
-                    color: "#3a3a5a", fontSize: 18, userSelect: "none", flexShrink: 0
+                    padding: "0 20px", background: "#0d0d1a",
+                    color: "#3a3a5a", fontSize: 20, userSelect: "none", flexShrink: 0
                   }}>⇄</div>
                   {/* Currency side */}
-                  <div style={{ flex: 1, background: "#070714", padding: "14px 16px" }}>
-                    <div style={{ fontSize: 10, color: "#8080aa", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{selected.code}</div>
+                  <div style={{ flex: 1, background: "#070714", padding: "18px 22px" }}>
+                    <div style={{ fontSize: 10, color: "#8080aa", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>{selected.code}</div>
                     <input
                       type="number"
                       min="0"
@@ -1016,14 +1016,14 @@ export default function ProjectHype() {
                       onChange={e => handleUnitsBuyChange(e.target.value)}
                       style={{
                         width: "100%", background: "transparent", border: "none", outline: "none",
-                        color: "#e8e8ff", fontSize: 20, fontWeight: 700,
+                        color: "#e8e8ff", fontSize: 22, fontWeight: 700,
                         fontFamily: "'Space Mono', monospace", padding: 0, minWidth: 0,
                         boxSizing: "border-box"
                       }}
                     />
                   </div>
                 </div>
-                <div style={{ fontSize: 10, color: "#3a3a5a", marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: "#3a3a5a", marginTop: 8 }}>
                   1 {selected.code} = {selected.rate.toFixed(8)} USD
                 </div>
               </div>
