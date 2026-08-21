@@ -631,6 +631,16 @@ async def get_signals(code: str, limit: int = 10) -> List[dict]:
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 
+def _parse_props(raw) -> dict:
+    """asyncpg returns JSONB columns as str; normalise to a dict for JSON output."""
+    if isinstance(raw, dict):
+        return raw
+    try:
+        return json.loads(raw) if raw else {}
+    except (ValueError, TypeError):
+        return {}
+
+
 async def write_analytics_event(event_name: str, props: dict, visitor_hash: str = "") -> None:
     """Insert one analytics event row. Swallows errors so callers stay fire-and-forget."""
     try:
@@ -756,7 +766,8 @@ async def get_analytics_summary() -> dict:
             "recent": [
                 {
                     "event": r["event_name"],
-                    "props": r["props"],
+                    # asyncpg hands JSONB back as a string; parse so callers get an object
+                    "props": _parse_props(r["props"]),
                     "at": r["created_at"].isoformat() if r["created_at"] else None,
                 }
                 for r in recent
