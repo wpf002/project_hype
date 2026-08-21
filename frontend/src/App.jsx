@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import HOW_TO_BUY from "./howToBuy";
+import { trackEvent } from "./analytics.js";
 import {
   FlagIcon, Zap, BarChart2, Flame, Target, Info, Briefcase,
   Bell, AlertTriangle, Newspaper, Link2, Search, TrendingUp,
@@ -10,18 +11,6 @@ import {
 // In Railway production: VITE_API_URL=https://backend-production-6057.up.railway.app
 const API = import.meta.env.VITE_API_URL || "";
 
-function trackEvent(name, props) {
-  // Fire-and-forget: POST to our own analytics endpoint.
-  // Never throws — a failed analytics write must never affect the user.
-  try {
-    fetch(`${API}/api/analytics/event`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: name, props: props || {} }),
-      keepalive: true,
-    }).catch(() => {});
-  } catch (_) {}
-}
 
 const HYPE_COLORS = {
   high: "#ff4d4d",
