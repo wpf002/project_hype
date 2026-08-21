@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from slowapi.errors import RateLimitExceeded
 
 from rate_limit import limiter
-from routers import rates, roi, news, history, portfolio, hype, alerts, signals
+from routers import rates, roi, news, history, portfolio, hype, alerts, signals, analytics
 from db.db import init_db
 from services.hype_service import calculate_all_hype_scores
 from services.signal_service import poll_signals
@@ -149,6 +149,7 @@ app.include_router(portfolio.router, prefix="/api")
 app.include_router(hype.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
 app.include_router(signals.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 
 @app.get("/")
@@ -170,5 +171,7 @@ async def root():
             "POST /api/alerts/subscribe",
             "DELETE /api/alerts/unsubscribe",
             "GET  /api/signals/{code}",
+            "POST /api/analytics/event",
+            "GET  /api/analytics/summary",
         ],
     }

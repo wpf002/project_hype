@@ -136,6 +136,18 @@ async def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_signals_code_ts "
             "ON signals (code, processed_at DESC)"
         )
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS analytics_events (
+                id         BIGSERIAL PRIMARY KEY,
+                event_name TEXT      NOT NULL,
+                props      JSONB     NOT NULL DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_analytics_event_ts "
+            "ON analytics_events (event_name, created_at DESC)"
+        )
 
     logger.info("DB pool initialised, all tables ready.")
 
@@ -605,3 +617,82 @@ async def get_signals(code: str, limit: int = 10) -> List[dict]:
     except Exception:
         logger.exception("Failed to fetch signals for %s", code)
         return []
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+async def write_analytics_event(event_name: str, props: dict) -> None:
+    """Insert one analytics event row. Silently swallows errors so callers stay fire-and-forget."""
+    import json as _json
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO analytics_events (event_name, props) VALUES ($1, $2::jsonb)",
+                event_name,
+                _json.dumps(props),
+            )
+    except Exception:
+        logger.warning("Analytics write failed for event=%s", event_name, exc_info=True)
+
+
+async def get_analytics_summary() -> dict:
+    """
+    Return event counts grouped by event_name for:
+      - last 24 hours
+      - last 7 days
+      - last 30 days
+      - all time
+    Also returns the 20 most recent raw events for a quick tail view.
+    """
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            # Counts per window per event name
+            rows_30d = await conn.fetch("""
+                SELECT event_name,
+                       COUNT(*) FILTER (WHERE created_at >= now() - INTERVAL '24 hours') AS last_24h,
+                       COUNT(*) FILTER (WHERE created_at >= now() - INTERVAL '7 days')  AS last_7d,
+                       COUNT(*) FILTER (WHERE created_at >= now() - INTERVAL '30 days') AS last_30d,
+                       COUNT(*)                                                           AS all_time
+                FROM analytics_events
+                GROUP BY event_name
+                ORDER BY all_time DESC
+            """)
+            # Total unique "sessions" approximated by distinct days with any event
+            total_row = await conn.fetchrow(
+                "SELECT COUNT(*) AS total FROM analytics_events"
+            )
+            # 20 most recent events for a quick tail view
+            recent = await conn.fetch(
+                "SELECT event_name, props, created_at FROM analytics_events ORDER BY created_at DESC LIMIT 20"
+            )
+
+        events = [
+            {
+                "event": r["event_name"],
+                "last_24h": r["last_24h"],
+                "last_7d": r["last_7d"],
+                "last_30d": r["last_30d"],
+                "all_time": r["all_time"],
+            }
+            for r in rows_30d
+        ]
+
+        recent_list = [
+            {
+                "event": r["event_name"],
+                "props": r["props"],
+                "at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in recent
+        ]
+
+        return {
+            "total_events": total_row["total"] if total_row else 0,
+            "by_event": events,
+            "recent": recent_list,
+        }
+    except Exception:
+        logger.exception("Failed to fetch analytics summary")
+        return {"total_events": 0, "by_event": [], "recent": []}

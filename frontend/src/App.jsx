@@ -11,9 +11,16 @@ import {
 const API = import.meta.env.VITE_API_URL || "";
 
 function trackEvent(name, props) {
-  if (typeof window.plausible !== "undefined") {
-    window.plausible(name, { props });
-  }
+  // Fire-and-forget: POST to our own analytics endpoint.
+  // Never throws — a failed analytics write must never affect the user.
+  try {
+    fetch(`${API}/api/analytics/event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: name, props: props || {} }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 const HYPE_COLORS = {

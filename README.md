@@ -44,7 +44,7 @@
 | News & NLP | NewsAPI + VADER sentiment analysis |
 | Commodity Data | Yahoo Finance futures API (WTI, gold, copper, soybeans, cocoa) |
 | Email | SendGrid |
-| Analytics | Plausible (privacy-friendly, no cookies) |
+| Analytics | Self-hosted — FastAPI + PostgreSQL (no third-party scripts) |
 
 ---
 
@@ -287,7 +287,7 @@ project_hype/
     ├── railway.toml
     ├── nginx.conf
     ├── vite.config.js
-    ├── index.html               Plausible analytics script
+    ├── index.html               Entry point (no third-party analytics scripts)
     └── src/
         ├── main.jsx             Route: / → Landing, /app → App
         ├── Landing.jsx          Marketing landing page
