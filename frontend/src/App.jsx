@@ -431,6 +431,16 @@ export default function ProjectHype() {
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
 
+  // ── Disclaimer modal (shown once per browser, dismissed to localStorage) ──
+  const [disclaimerOpen, setDisclaimerOpen] = useState(() => {
+    try { return !localStorage.getItem("hype_disclaimer_v1"); }
+    catch { return true; }
+  });
+  function dismissDisclaimer() {
+    try { localStorage.setItem("hype_disclaimer_v1", "1"); } catch {}
+    setDisclaimerOpen(false);
+  }
+
   // ── Alert modal ───────────────────────────────────────────────────────────
   const [alertModal, setAlertModal] = useState(false);
   const [alertEmail, setAlertEmail] = useState("");
@@ -774,13 +784,16 @@ export default function ProjectHype() {
         .tab-bar::-webkit-scrollbar{display:none}
       `}</style>
 
-      {/* Disclaimer banner */}
+      {/* Persistent disclaimer banner */}
       <div style={{
-        background: "#0a0a1a", borderBottom: "1px solid #2a1a00",
-        padding: "7px 20px", textAlign: isMobile ? "left" : "center", fontSize: 11,
-        color: "#7a6a40", letterSpacing: 0.3,
+        background: "#110a00", borderBottom: "1px solid #3a2200",
+        padding: "9px 20px", textAlign: isMobile ? "left" : "center", fontSize: 12,
+        color: "#b08040", letterSpacing: 0.3, lineHeight: 1.5,
       }}>
-        <AlertTriangle size={11} style={{ marginRight: 4, verticalAlign: "middle", color: "#7a6a40" }} /> Project Hype is a <strong style={{ color: "#a08040" }}>speculative research tool</strong> — scores reflect news activity and short-term rate signals, not financial fundamentals. <strong style={{ color: "#a08040" }}>Not investment advice.</strong> Do your own research.
+        <AlertTriangle size={12} style={{ marginRight: 5, verticalAlign: "middle", color: "#ffa500" }} />
+        <strong style={{ color: "#ffa500" }}>For entertainment &amp; research only.</strong>{" "}
+        Project Hype is <strong style={{ color: "#ffa500" }}>NOT financial advice</strong> and is <strong style={{ color: "#ffa500" }}>NOT a recommendation to buy, sell, or hold any currency or asset.</strong>{" "}
+        Scores are based on automated signals and may be inaccurate. Always do your own research and consult a licensed financial advisor.
       </div>
 
       {/* Header */}
@@ -2517,6 +2530,72 @@ export default function ProjectHype() {
         </div>{/* end bottom panels */}
 
       </div>{/* end main layout */}
+
+      {/* ── Disclaimer modal (shown on first visit) ──────────────────────────── */}
+      {disclaimerOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2000,
+          background: "rgba(0,0,0,0.88)", display: "flex",
+          alignItems: "center", justifyContent: "center", padding: 24,
+        }}>
+          <div style={{
+            background: "#0d0d1a", border: "1px solid #3a2200",
+            borderRadius: 16, maxWidth: 560, width: "100%",
+            padding: isMobile ? "28px 20px" : "40px 44px",
+            boxShadow: "0 0 60px #ff430022",
+          }}>
+            {/* Icon + title */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12,
+                background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <AlertTriangle size={24} color="#fff" />
+              </div>
+              <div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: 1 }}>
+                  Before You Continue
+                </div>
+                <div style={{ fontSize: 12, color: "#8080aa", marginTop: 2 }}>Please read this carefully</div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ fontSize: 14, color: "#c0c0e0", lineHeight: 1.75 }}>
+              <p style={{ margin: "0 0 14px" }}>
+                <strong style={{ color: "#ffa500" }}>Project Hype is a speculative research and entertainment tool.</strong>{" "}
+                It uses automated signals — news sentiment, short-term rate momentum, and commodity price changes — to generate scores for exotic and frontier currencies.
+              </p>
+              <p style={{ margin: "0 0 14px" }}>
+                <strong style={{ color: "#ff4d4d", fontSize: 15 }}>This is NOT financial advice.</strong>{" "}
+                Nothing on this platform constitutes a recommendation to buy, sell, hold, or trade any currency, asset, or financial instrument.
+              </p>
+              <p style={{ margin: "0 0 14px" }}>
+                Scores and data may be <strong style={{ color: "#ffa500" }}>inaccurate, incomplete, or significantly delayed.</strong>{" "}
+                Speculative currencies carry <strong style={{ color: "#ffa500" }}>extreme risk</strong> — you can lose everything. Many of the currencies tracked are subject to capital controls, sanctions, or severe illiquidity.
+              </p>
+              <p style={{ margin: 0, color: "#8080aa", fontSize: 12 }}>
+                Always consult a licensed financial advisor before making any investment decision. By continuing, you confirm you understand this tool is for research and entertainment purposes only.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={dismissDisclaimer}
+              style={{
+                marginTop: 28, width: "100%", padding: "14px 24px",
+                background: "linear-gradient(135deg, #ff4d4d, #ff8c00)",
+                border: "none", borderRadius: 10, color: "#fff",
+                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                fontFamily: "'Syne',sans-serif", letterSpacing: 1,
+              }}
+            >
+              I Understand — Continue to Project Hype
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* How to Buy modal */}
       {buyModal && (() => {
