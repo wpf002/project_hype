@@ -438,6 +438,7 @@ export default function ProjectHype() {
   });
   function dismissDisclaimer() {
     try { localStorage.setItem("hype_disclaimer_v1", "1"); } catch {}
+    trackEvent("disclaimer_accepted", {});
     setDisclaimerOpen(false);
   }
 
@@ -593,6 +594,7 @@ export default function ProjectHype() {
     if (usd > 0 && rate > 0) {
       const units = usd / rate;
       setUnitsBuy(units >= 1 ? String(Math.round(units)) : units.toFixed(6));
+      trackEvent("converter_used", { code: selected?.code, direction: "usd_to_currency" });
     } else {
       setUnitsBuy("");
     }
@@ -605,6 +607,7 @@ export default function ProjectHype() {
     if (units > 0 && rate > 0) {
       const usd = units * rate;
       setUsdBuy(usd >= 0.01 ? usd.toFixed(2) : usd.toFixed(6));
+      trackEvent("converter_used", { code: selected?.code, direction: "currency_to_usd" });
     } else {
       setUsdBuy("");
     }
@@ -1319,7 +1322,7 @@ export default function ProjectHype() {
                                 }}
                               >+ PORTFOLIO</button>
                               <button
-                                onClick={e => { e.stopPropagation(); setBuyModal(c); }}
+                                onClick={e => { e.stopPropagation(); setBuyModal(c); trackEvent("buy_modal_opened", { code: c.code }); }}
                                 style={{
                                   flex: 1, background: "#070714", border: "1px solid #1e1e3f", borderRadius: 7,
                                   color: "#00b4ff", fontSize: 11, fontWeight: 700, cursor: "pointer",
@@ -1425,7 +1428,7 @@ export default function ProjectHype() {
                           </div>
                           <div style={{ display: "flex", alignItems: "center" }}>
                             <button
-                              onClick={e => { e.stopPropagation(); setBuyModal(c); }}
+                              onClick={e => { e.stopPropagation(); setBuyModal(c); trackEvent("buy_modal_opened", { code: c.code }); }}
                               title={`How to buy ${c.code}`}
                               style={{
                                 background: "none", border: "1px solid #1e1e3f", borderRadius: 5,
