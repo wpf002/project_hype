@@ -42,7 +42,7 @@
 | Serving | nginx (Docker) / Railway |
 | Rates | Open Exchange Rates (primary) + ExchangeRate-API v6 (fallback) |
 | News & NLP | NewsAPI + VADER sentiment analysis |
-| Commodity Data | Yahoo Finance futures API (WTI, gold, copper, soybeans, cocoa) |
+| Commodity Data | Yahoo Finance futures (primary) + Alpha Vantage ETF proxies (fallback) |
 | Email | SendGrid |
 | Analytics | Self-hosted — FastAPI + PostgreSQL (no third-party scripts) |
 
@@ -143,6 +143,7 @@ VITE_API_URL=http://localhost:8000 npm run dev
 |---|---|---|
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string (`postgresql://user:pass@host/db`). Railway injects this automatically. |
 | `FX_API_KEY` | No | [ExchangeRate-API v6](https://www.exchangerate-api.com/) key. Without it, all currencies use analyst fallback rates. |
+| `ALPHA_VANTAGE_KEY` | No | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) free key. Fallback source for commodity prices when Yahoo Finance is unavailable. Without it, the commodity factor is skipped whenever Yahoo fails and every currency scores a neutral 50 on that axis — check `commodity_feed.degraded` in `GET /api/status`. |
 | `NEWSAPI_KEY` | No | [NewsAPI.org](https://newsapi.org/) key. Without it, analyst-written mock headlines are served and Catalyst Score is 100% rate momentum. |
 | `SENDGRID_API_KEY` | No | SendGrid key for catalyst spike alert emails. |
 | `SENDGRID_FROM_EMAIL` | No | Sender address for alerts (e.g. `alerts@yourdomain.com`). |
@@ -190,6 +191,7 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | `ANTHROPIC_API_KEY` | Claude Haiku API key for geopolitical sentiment scoring |
 | `OXR_APP_ID` | Open Exchange Rates app ID — primary live FX feed |
 | `FX_API_KEY` | ExchangeRate-API v6 key — fallback FX feed |
+| `ALPHA_VANTAGE_KEY` | Alpha Vantage free key — commodity price fallback when Yahoo Finance is rate-limited |
 | `NEWSAPI_KEY` | NewsAPI.org key — Tier 2 news headlines |
 | `SENDGRID_API_KEY` | SendGrid API key for catalyst spike alert emails |
 | `ALERT_FROM_EMAIL` | Verified sender address for alert emails (e.g. `alerts@yourdomain.com`) |
@@ -246,7 +248,8 @@ Full interactive docs: `/docs` (Swagger UI) and `/redoc`.
 | [ExchangeRate-API v6](https://www.exchangerate-api.com/) | Fallback live FX feed |
 | [NewsAPI.org](https://newsapi.org/) | Real-time headlines for NLP sentiment scoring |
 | [VADER NLP](https://github.com/cjhutto/vaderSentiment) | Sentiment analysis on headlines for Catalyst Score |
-| [Yahoo Finance Futures API](https://finance.yahoo.com/) | 14-day commodity price history (CL=F, GC=F, HG=F, ZS=F, CC=F) |
+| [Yahoo Finance Futures](https://finance.yahoo.com/) | 14-day commodity price history (CL=F, GC=F, HG=F, ZS=F, CC=F). Free/no key, but currently rate-limited — see fallback below |
+| [Alpha Vantage](https://www.alphavantage.co/) | Commodity fallback via liquid ETF proxies (USO, GLD, CPER, SOYB, NIB). Only called for tickers Yahoo fails, preserving the 25 req/day free tier |
 | [Anthropic Claude](https://www.anthropic.com/) | Geopolitical narrative sentiment scoring |
 | Analyst fallback rates | Fixed rates for sanctioned/exotic currencies with no reliable market feed |
 | [SendGrid](https://sendgrid.com/) | Transactional email for catalyst spike alerts |
