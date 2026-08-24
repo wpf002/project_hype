@@ -23,6 +23,26 @@ export function trackEvent(name, props) {
   }
 }
 
+// Debounced variant, for events driven by continuous input.
+//
+// Typing "20000000" into the converter fires a change handler per keystroke.
+// Sending one event each would make the metric count keystrokes rather than
+// conversions, and would put eight rows in the database for one interaction.
+// Trailing-edge only: the event describes what the user settled on.
+const _pending = new Map();
+
+export function trackEventDebounced(name, props, waitMs = 600) {
+  const existing = _pending.get(name);
+  if (existing) clearTimeout(existing);
+  _pending.set(
+    name,
+    setTimeout(() => {
+      _pending.delete(name);
+      trackEvent(name, props);
+    }, waitMs)
+  );
+}
+
 // Fired once per page load. `page` distinguishes the landing page from the
 // dashboard so we can see the top-of-funnel → app conversion rate.
 export function trackPageView(page) {

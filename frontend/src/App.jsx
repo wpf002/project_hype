@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import HOW_TO_BUY from "./howToBuy";
-import { trackEvent } from "./analytics.js";
+import { trackEvent, trackEventDebounced } from "./analytics.js";
 import {
   FlagIcon, Zap, BarChart2, Flame, Target, Info, Briefcase,
   Bell, AlertTriangle, Newspaper, Link2, Search, TrendingUp,
@@ -635,7 +635,7 @@ export default function ProjectHype() {
     if (usd > 0 && rate > 0) {
       const units = usd / rate;
       setUnitsBuy(units >= 1 ? String(Math.round(units)) : units.toFixed(6));
-      trackEvent("converter_used", { code: selected?.code, direction: "usd_to_currency" });
+      trackEventDebounced("converter_used", { code: selected?.code, direction: "usd_to_currency" });
     } else {
       setUnitsBuy("");
     }
@@ -648,7 +648,7 @@ export default function ProjectHype() {
     if (units > 0 && rate > 0) {
       const usd = units * rate;
       setUsdBuy(usd >= 0.01 ? usd.toFixed(2) : usd.toFixed(6));
-      trackEvent("converter_used", { code: selected?.code, direction: "currency_to_usd" });
+      trackEventDebounced("converter_used", { code: selected?.code, direction: "currency_to_usd" });
     } else {
       setUsdBuy("");
     }

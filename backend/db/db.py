@@ -158,6 +158,13 @@ async def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_analytics_visitor_ts "
             "ON analytics_events (visitor_hash, created_at DESC)"
         )
+        # The summary filters purely on time windows. Both indexes above are
+        # composites led by another column, so neither serves those scans —
+        # this one does, and it also backs the retention prune.
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_analytics_created_at "
+            "ON analytics_events (created_at DESC)"
+        )
 
     logger.info("DB pool initialised, all tables ready.")
 
@@ -655,6 +662,36 @@ async def write_analytics_event(event_name: str, props: dict, visitor_hash: str 
             )
     except Exception:
         logger.warning("Analytics write failed for event=%s", event_name, exc_info=True)
+
+
+# Analytics retention. Longer than the 7-day rate/hype windows because trend
+# data is the point of the table, but bounded — without this it grows forever.
+ANALYTICS_RETENTION_DAYS = 180
+
+
+async def prune_analytics_events() -> int:
+    """
+    Delete analytics rows past the retention window. Called from a background
+    loop rather than on every write: events arrive one at a time, so pruning
+    per-write would run a DELETE for every page view.
+    Returns the number of rows removed.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=ANALYTICS_RETENTION_DAYS)
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            status = await conn.execute(
+                "DELETE FROM analytics_events WHERE created_at < $1", cutoff
+            )
+        # asyncpg returns e.g. "DELETE 42"
+        removed = int(status.split()[-1]) if status and status.split()[-1].isdigit() else 0
+        if removed:
+            logger.info("Pruned %d analytics events older than %d days",
+                        removed, ANALYTICS_RETENTION_DAYS)
+        return removed
+    except Exception:
+        logger.exception("Failed to prune analytics_events")
+        return 0
 
 
 async def get_analytics_summary() -> dict:

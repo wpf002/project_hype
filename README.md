@@ -145,6 +145,8 @@ VITE_API_URL=http://localhost:8000 npm run dev
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string (`postgresql://user:pass@host/db`). Railway injects this automatically. |
 | `FX_API_KEY` | No | [ExchangeRate-API v6](https://www.exchangerate-api.com/) key. Without it, all currencies use analyst fallback rates. |
 | `ALPHA_VANTAGE_KEY` | No | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) free key. Tier 2 of the commodity provider chain, giving daily granularity for gold/copper/soy. Without it the chain still works — it falls through to FRED, which needs no key. |
+| `ANALYTICS_SALT` | **In prod** | Random string salting the daily visitor hash. This repo is public, so a hardcoded default would let anyone reverse visitor hashes by enumerating IPs. Unset in production, the app falls back to a random per-process salt and logs an error — visitor counts then reset on every restart. |
+| `ANALYTICS_TOKEN` | **In prod** | Shared secret guarding `GET /api/analytics/summary`, which exposes traffic metrics and runs full-table scans. Unset in production, that endpoint returns 404. Send it as the `X-Analytics-Token` header. |
 | `NEWSAPI_KEY` | No | [NewsAPI.org](https://newsapi.org/) key. Without it, analyst-written mock headlines are served and Catalyst Score is 100% rate momentum. |
 | `SENDGRID_API_KEY` | No | SendGrid key for catalyst spike alert emails. |
 | `SENDGRID_FROM_EMAIL` | No | Sender address for alerts (e.g. `alerts@yourdomain.com`). |
@@ -193,6 +195,8 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | `OXR_APP_ID` | Open Exchange Rates app ID — primary live FX feed |
 | `FX_API_KEY` | ExchangeRate-API v6 key — fallback FX feed |
 | `ALPHA_VANTAGE_KEY` | Alpha Vantage free key — commodity price fallback when Yahoo Finance is rate-limited |
+| `ANALYTICS_SALT` | Random string salting the daily visitor hash — required in production |
+| `ANALYTICS_TOKEN` | Shared secret for `GET /api/analytics/summary` — required in production |
 | `NEWSAPI_KEY` | NewsAPI.org key — Tier 2 news headlines |
 | `SENDGRID_API_KEY` | SendGrid API key for catalyst spike alert emails |
 | `ALERT_FROM_EMAIL` | Verified sender address for alert emails (e.g. `alerts@yourdomain.com`) |
@@ -227,7 +231,9 @@ To redeploy without a code change: Railway dashboard → service → **Redeploy*
 |---|---|---|
 | `GET` | `/api/rates` | All 40 currencies — rate, hype score, catalyst score, 24h change |
 | `GET` | `/api/rate/{code}` | Single currency + news query metadata |
-| `GET` | `/api/status` | Service health — version, db status, uptime, score freshness |
+| `GET` | `/api/status` | Service health — version, db status, uptime, score freshness, commodity feed health |
+| `POST` | `/api/analytics/event` | Record a frontend event. Public, but the body is sanitised and hard-capped |
+| `GET` | `/api/analytics/summary` | Visitor/event metrics. Requires the `X-Analytics-Token` header |
 | `POST` | `/api/roi` | ROI calculation. Body: `{ code, amount, target_rate }` |
 | `GET` | `/api/news/{code}` | Up to 5 headlines for a currency |
 | `GET` | `/api/history/{code}` | Rate snapshots (last 24, newest first) |

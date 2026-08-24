@@ -18,7 +18,12 @@ import services.commodity_service as cs
 
 
 @pytest.fixture(autouse=True)
-def _reset_module_state():
+def _reset_module_state(monkeypatch):
+    # Neutralise Alpha Vantage pacing by default — otherwise any test that
+    # exercises the AV path waits the real 13s gap per call. The two pacing
+    # tests re-enable a small gap explicitly.
+    monkeypatch.setattr(cs, "AV_REQUEST_GAP", 0.0)
+    monkeypatch.setattr(cs, "_av_last_call", 0.0)
     cs._cache["data"] = None
     cs._cache["fetched_at"] = 0.0
     cs._last_errors.clear()
@@ -267,3 +272,57 @@ def test_cache_prevents_refetch(monkeypatch):
 
     assert first == second
     assert len(calls) == n, "second call must be served from cache"
+
+
+def test_alpha_vantage_calls_are_paced_across_commodities(monkeypatch):
+    """
+    Regression: all commodities resolve concurrently via asyncio.gather, so a
+    per-chain `await asyncio.sleep(GAP)` delayed every AV call equally and then
+    let them fire simultaneously — spacing nothing. Pacing must be enforced
+    across commodities, not within one chain.
+    """
+    import time as _time
+
+    starts = []
+    today = date(2026, 8, 20)
+
+    async def av(session, symbol):
+        starts.append(_time.monotonic())
+        return [(today - timedelta(days=14), 100.0), (today, 101.0)]
+
+    async def dead(session, symbol):
+        raise RuntimeError("down")
+
+    monkeypatch.setitem(cs._FETCHERS, "alphavantage", av)
+    monkeypatch.setitem(cs._FETCHERS, "yahoo", dead)
+    monkeypatch.setitem(cs._FETCHERS, "fred", dead)
+    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "k")
+    monkeypatch.setattr(cs, "AV_REQUEST_GAP", 0.05)
+    monkeypatch.setattr(cs, "_av_last_call", 0.0)
+
+    asyncio.run(cs.get_commodity_changes())
+
+    assert len(starts) >= 2, "expected multiple AV calls to pace"
+    gaps = [b - a for a, b in zip(sorted(starts), sorted(starts)[1:])]
+    assert all(g >= 0.04 for g in gaps), f"AV calls not spaced: {gaps}"
+
+
+def test_first_alpha_vantage_call_is_not_delayed(monkeypatch):
+    """Pacing waits only for the remainder of the gap, never a fixed sleep."""
+    import time as _time
+    today = date(2026, 8, 20)
+
+    async def av(session, symbol):
+        return [(today - timedelta(days=14), 100.0), (today, 101.0)]
+
+    monkeypatch.setitem(cs._FETCHERS, "alphavantage", av)
+    monkeypatch.setattr(cs, "AV_REQUEST_GAP", 5.0)
+    monkeypatch.setattr(cs, "_av_last_call", 0.0)
+
+    async def one():
+        async with httpx.AsyncClient() as s:
+            return await cs._fetch_av_paced(s, "GLD")
+
+    t0 = _time.monotonic()
+    asyncio.run(one())
+    assert _time.monotonic() - t0 < 1.0, "first call must not wait a full gap"

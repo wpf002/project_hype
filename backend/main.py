@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from rate_limit import limiter
 from routers import rates, roi, news, history, portfolio, hype, alerts, signals, analytics
-from db.db import init_db
+from db.db import init_db, prune_analytics_events
 from services.hype_service import calculate_all_hype_scores
 from services.signal_service import poll_signals
 from services.fx_service import get_all_rates
@@ -58,6 +58,16 @@ async def _rate_snapshot_loop() -> None:
             logger.exception("Rate snapshot loop iteration failed")
 
 
+async def _analytics_prune_loop() -> None:
+    """Enforce analytics retention once a day."""
+    while True:
+        try:
+            await prune_analytics_events()
+        except Exception:
+            logger.exception("Analytics prune failed — will retry in 24h")
+        await asyncio.sleep(86400)  # 24 hours
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -66,6 +76,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_hype_engine_loop())
     asyncio.create_task(_signal_polling_loop())
     asyncio.create_task(_rate_snapshot_loop())
+    asyncio.create_task(_analytics_prune_loop())
     yield
 
 

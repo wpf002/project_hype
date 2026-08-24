@@ -74,6 +74,14 @@ FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 # spacing requests generously costs nothing.
 AV_REQUEST_GAP = 13.0
 
+# Alpha Vantage pacing must be enforced ACROSS commodities, not within one
+# chain. All commodities resolve concurrently via asyncio.gather, so a plain
+# per-chain sleep just delays every AV call by the same amount and then lets
+# them fire simultaneously — spacing nothing. This lock serialises AV calls and
+# holds the gap between consecutive ones.
+_av_lock = asyncio.Lock()
+_av_last_call = 0.0
+
 # Headers are PER-PROVIDER on purpose — the two upstreams want opposite things.
 #
 # Yahoo blocks requests that don't look like a browser, so it gets a browser
@@ -165,6 +173,9 @@ def normalise_to_window(observations: List[Observation]) -> Optional[float]:
     This is what lets a monthly series be compared with a daily one. Returns
     None if the series cannot support a meaningful change.
     """
+    # Dict build collapses duplicate dates, keeping the LAST value seen — the
+    # newest revision when a provider restates a day. Sorted by date afterwards,
+    # so input ordering does not matter.
     clean = sorted({d: p for d, p in observations if p is not None and p > 0}.items())
     if len(clean) < 2:
         return None
@@ -268,6 +279,27 @@ _FETCHERS = {
 }
 
 
+async def _fetch_av_paced(session: httpx.AsyncClient, symbol: str) -> List[Observation]:
+    """
+    Alpha Vantage call, serialised and rate-paced across all commodities.
+
+    Holds _av_lock for the whole call so at most one AV request is in flight,
+    and sleeps only for the remainder of AV_REQUEST_GAP since the previous one
+    (never a fixed sleep, so the first call is not delayed).
+    """
+    global _av_last_call
+    async with _av_lock:
+        wait = AV_REQUEST_GAP - (time.monotonic() - _av_last_call)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        try:
+            return await _FETCHERS["alphavantage"](session, symbol)
+        finally:
+            # Stamp on the way out so the gap is measured between call ends,
+            # keeping the spacing correct even for slow responses.
+            _av_last_call = time.monotonic()
+
+
 async def _resolve_commodity(session: httpx.AsyncClient, key: str) -> Optional[float]:
     """Walk this commodity's provider chain until one yields a usable change."""
     attempts: List[str] = []
@@ -276,9 +308,10 @@ async def _resolve_commodity(session: httpx.AsyncClient, key: str) -> Optional[f
             attempts.append(f"{provider}: no key")
             continue
         try:
-            if provider == "alphavantage" and attempts:
-                await asyncio.sleep(AV_REQUEST_GAP)  # respect 5 req/min
-            observations = await _FETCHERS[provider](session, symbol)
+            if provider == "alphavantage":
+                observations = await _fetch_av_paced(session, symbol)
+            else:
+                observations = await _FETCHERS[provider](session, symbol)
             pct = normalise_to_window(observations)
             if pct is None:
                 attempts.append(f"{provider}: insufficient data")
