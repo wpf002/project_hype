@@ -11,6 +11,7 @@ commodity factor rather than crashing.
 import asyncio
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 import httpx
@@ -19,6 +20,31 @@ logger = logging.getLogger(__name__)
 
 _CACHE_TTL = 6 * 3600
 _cache: Dict = {"data": None, "fetched_at": 0.0}
+
+# Last-attempt health, surfaced via /api/status. Without this a total upstream
+# outage is invisible: every currency silently scores a neutral 50 on the
+# commodity axis and the catalyst score quietly drops to its 2-factor form.
+_last_errors: Dict[str, str] = {}
+_health: Dict = {
+    "last_attempt_at": None,
+    "last_success_at": None,
+    "tickers_ok": 0,
+    "tickers_total": 0,
+    "last_error": None,
+}
+
+
+def get_commodity_health() -> Dict:
+    """Cache/fetch health for /api/status. Never performs a network call."""
+    age = None
+    if _cache["fetched_at"]:
+        age = int(time.time() - _cache["fetched_at"])
+    return {
+        **_health,
+        "cache_age_seconds": age,
+        "cache_populated": _cache["data"] is not None,
+        "degraded": _health["tickers_ok"] == 0 and _health["last_attempt_at"] is not None,
+    }
 
 _HEADERS = {
     "User-Agent": (
@@ -75,11 +101,19 @@ async def _fetch_pct_change(
         if old_price <= 0:
             return None
 
+        _last_errors.pop(key, None)
         pct = round((new_price / old_price - 1.0) * 100.0, 2)
         logger.info("Commodity %s (%s): %.2f%% change over %d sessions", key, ticker, pct, len(closes))
         return pct
 
+    except httpx.HTTPStatusError as exc:
+        reason = f"HTTP {exc.response.status_code}"
+        _last_errors[key] = reason
+        logger.warning("Commodity fetch failed — %s (%s): %s", key, ticker, reason)
+        return None
     except Exception as exc:
+        reason = type(exc).__name__
+        _last_errors[key] = reason
         logger.warning("Commodity fetch failed — %s (%s): %s", key, ticker, exc)
         return None
 
@@ -103,12 +137,28 @@ async def get_commodity_changes() -> Dict[str, float]:
     for key, val in zip(TICKERS.keys(), raw_results):
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             results[key] = float(val)
+        elif isinstance(val, BaseException):
+            _last_errors[key] = type(val).__name__
+
+    errors = [f"{k}: {v}" for k, v in sorted(_last_errors.items()) if k not in results]
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    _health["last_attempt_at"] = now_iso
+    _health["tickers_ok"] = len(results)
+    _health["tickers_total"] = len(TICKERS)
+    _health["last_error"] = "; ".join(errors) if errors else None
+    if results:
+        _health["last_success_at"] = now_iso
 
     if results:
         _cache["data"] = results
         _cache["fetched_at"] = time.time()
         logger.info("Commodity cache updated (%d/%d tickers): %s", len(results), len(TICKERS), results)
     else:
-        logger.warning("All commodity fetches failed — commodity factor skipped this cycle")
+        logger.error(
+            "All %d commodity fetches failed — commodity factor DISABLED this cycle; "
+            "every currency will score a neutral 50 on the commodity axis",
+            len(TICKERS),
+        )
 
     return results

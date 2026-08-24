@@ -8,6 +8,7 @@ from app_state import START_TIME
 from data.currencies import CURRENCIES, CURRENCY_MAP
 from rate_limit import limiter
 from services.fx_service import get_all_rates, get_rate
+from services.commodity_service import get_commodity_health
 from db.db import (
     get_all_changes_24h, get_change_24h,
     get_latest_hype_scores, get_latest_catalyst_scores,
@@ -139,6 +140,10 @@ async def get_status():
         "last_hype_run": last_hype_run,
         "last_rate_fetch": last_rate_fetch,
         "db_status": db_status,
+        # Commodity feed health — when degraded, every currency scores a neutral
+        # 50 on the commodity axis and the catalyst score silently falls back to
+        # its 2-factor form. Surfaced here so the outage is observable.
+        "commodity_feed": get_commodity_health(),
         "uptime_seconds": int(time.time() - START_TIME),
     }
 

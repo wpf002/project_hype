@@ -15,9 +15,23 @@ HYPE SCORE (0–100)  — backward-looking: how much noise right now?
   20%  Rate volatility  — stdev of rate_snapshots over last 24h (normalised)
   10%  Baseline floor   — exotic/sanctioned currencies floor 60, others floor 20
 
-CATALYST SCORE (0–100) — forward-looking: appreciation potential
-  60%  News sentiment   — Claude compound score averaged across article titles/descriptions
-  40%  Rate momentum    — % rate change over last 7 days (normalised)
+CATALYST SCORE (0–100) — forward-looking: appreciation potential.
+Weights degrade gracefully depending on which inputs are available:
+
+  news + commodity    50% sentiment · 30% momentum · 20% commodity
+  news, no commodity  60% sentiment · 40% momentum
+  no news, commodity  60% momentum  · 40% commodity
+  neither             100% momentum
+
+  Sentiment  — Claude compound score averaged across article titles/descriptions
+  Momentum   — % rate change over last 7 days (normalised)
+  Commodity  — 14-day % change in linked commodity futures, normalised across
+               commodity-linked currencies only; unlinked currencies get 50.
+
+NOTE: the commodity factor depends on an external feed. When that feed is
+unavailable every currency scores a neutral 50 on the commodity axis and the
+score silently falls back to a row above. Check `commodity_feed.degraded` in
+GET /api/status to tell a real neutral reading from a dead upstream.
 """
 
 import asyncio
