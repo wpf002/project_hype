@@ -26,6 +26,9 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy as a template — PORT is substituted at container start
 COPY nginx.conf /etc/nginx/templates/default.conf.template
+# Security headers snippet, included by the server block and by every location
+# block that defines its own add_header (nginx drops inherited headers there).
+COPY nginx-security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # Default port for local docker-compose; Railway overrides with its own $PORT.
 # Must be ≥1024 since we run unprivileged (no CAP_NET_BIND_SERVICE).
