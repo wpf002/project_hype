@@ -17,6 +17,10 @@ coarse for a 14-day change. Liquid commodity ETFs track their underlying
 futures closely enough for a directional signal, and TIME_SERIES_DAILY covers
 all five uniformly.
 
+Cocoa is the one commodity with no fallback: both iPath cocoa ETNs were
+delisted and no liquid US-listed pure-cocoa ETF replaced them, so cocoa comes
+from Yahoo or not at all. See AV_PROXIES for why no substitute was used.
+
 Cache: 12 hours, matching the hype/catalyst engine cycle that is its only
 consumer. At worst that is 5 AV requests per 12h = 10/day, inside the 25/day
 free tier.
@@ -68,12 +72,22 @@ TICKERS: Dict[str, str] = {
 
 # Alpha Vantage ETF proxies (fallback source). See module docstring for why
 # these are ETFs rather than AV's native commodity endpoints.
+#
+# COCOA HAS NO ENTRY ON PURPOSE. Both iPath cocoa ETNs (NIB, CHOC) were
+# delisted and there is no liquid US-listed pure-cocoa ETF to replace them.
+# A loose proxy (a broad agriculture fund, a chocolate manufacturer) would not
+# track cocoa closely enough, and feeding it in would silently corrupt the
+# scores for GHS and XOF rather than leaving them honestly neutral. Cocoa
+# therefore comes from Yahoo's CC=F or not at all.
+#
+# Degradation when cocoa is unavailable is already correct:
+#   GHS (gold +0.6, cocoa +0.4) -> scores on gold alone, still directional
+#   XOF (cocoa only)            -> neutral 50, no signal claimed
 AV_PROXIES: Dict[str, str] = {
     "oil":    "USO",    # United States Oil Fund — tracks WTI
     "gold":   "GLD",    # SPDR Gold Shares
     "copper": "CPER",   # United States Copper Index Fund
     "soy":    "SOYB",   # Teucrium Soybean Fund
-    "cocoa":  "NIB",    # iPath Bloomberg Cocoa ETN
 }
 
 # Per-commodity failure reasons and the source each value came from,
@@ -99,6 +113,7 @@ def get_commodity_health() -> Dict:
         "degraded": _health["tickers_ok"] == 0 and _health["last_attempt_at"] is not None,
         "sources": dict(_sources),
         "alpha_vantage_configured": bool(ALPHA_VANTAGE_KEY),
+        "no_fallback_source": sorted(set(TICKERS) - set(AV_PROXIES)),
     }
 
 
@@ -232,7 +247,18 @@ async def get_commodity_changes() -> Dict[str, float]:
                 "Yahoo returned %d/%d commodities; falling back to Alpha Vantage for: %s",
                 len(results), len(TICKERS), ", ".join(missing),
             )
-            for i, key in enumerate(missing):
+            fallback_able = [k for k in missing if k in AV_PROXIES]
+            no_fallback = [k for k in missing if k not in AV_PROXIES]
+            if no_fallback:
+                logger.warning(
+                    "No fallback source exists for: %s — these stay unavailable "
+                    "until Yahoo recovers",
+                    ", ".join(sorted(no_fallback)),
+                )
+                for k in no_fallback:
+                    _last_errors[k] = f"{_last_errors.get(k, 'yahoo failed')}; no fallback source"
+
+            for i, key in enumerate(fallback_able):
                 if i:
                     await asyncio.sleep(AV_REQUEST_GAP)  # respect 5 req/min
                 val = await _fetch_alpha_vantage(session, key, AV_PROXIES[key])

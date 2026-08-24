@@ -2,7 +2,7 @@
 
 **Live speculative foreign currency intelligence dashboard** — real-time hype scoring, NLP catalyst analysis, commodity signal integration, ROI modeling, and catalyst spike alerts for 40 exotic and undervalued currencies.
 
-**Live:** https://frontend-production-f60f1.up.railway.app  
+**Live:** https://project-hype.up.railway.app  
 **API:** https://backend-production-6057.up.railway.app  
 **API Docs:** https://backend-production-6057.up.railway.app/docs
 
@@ -179,7 +179,7 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | Service | Railway root directory | URL |
 | --- | --- | --- |
 | **backend** | `backend/` | <https://backend-production-6057.up.railway.app> |
-| **frontend** | `frontend/` | <https://frontend-production-f60f1.up.railway.app> |
+| **frontend** | `frontend/` | <https://project-hype.up.railway.app> |
 
 ### Required environment variables
 
@@ -195,8 +195,8 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | `NEWSAPI_KEY` | NewsAPI.org key — Tier 2 news headlines |
 | `SENDGRID_API_KEY` | SendGrid API key for catalyst spike alert emails |
 | `ALERT_FROM_EMAIL` | Verified sender address for alert emails (e.g. `alerts@yourdomain.com`) |
-| `APP_URL` | `https://frontend-production-f60f1.up.railway.app` |
-| `ALLOWED_ORIGINS` | `https://frontend-production-f60f1.up.railway.app` |
+| `APP_URL` | `https://project-hype.up.railway.app` |
+| `ALLOWED_ORIGINS` | `https://project-hype.up.railway.app` |
 
 #### Frontend service (build-time variable — triggers a full image rebuild)
 
@@ -249,7 +249,7 @@ Full interactive docs: `/docs` (Swagger UI) and `/redoc`.
 | [NewsAPI.org](https://newsapi.org/) | Real-time headlines for NLP sentiment scoring |
 | [VADER NLP](https://github.com/cjhutto/vaderSentiment) | Sentiment analysis on headlines for Catalyst Score |
 | [Yahoo Finance Futures](https://finance.yahoo.com/) | 14-day commodity price history (CL=F, GC=F, HG=F, ZS=F, CC=F). Free/no key, but currently rate-limited — see fallback below |
-| [Alpha Vantage](https://www.alphavantage.co/) | Commodity fallback via liquid ETF proxies (USO, GLD, CPER, SOYB, NIB). Only called for tickers Yahoo fails, preserving the 25 req/day free tier |
+| [Alpha Vantage](https://www.alphavantage.co/) | Commodity fallback via liquid ETF proxies (USO, GLD, CPER, SOYB). Only called for tickers Yahoo fails, preserving the 25 req/day free tier. **Cocoa has no fallback** — both iPath cocoa ETNs were delisted and no liquid US-listed pure-cocoa ETF replaced them, so cocoa comes from Yahoo or not at all |
 | [Anthropic Claude](https://www.anthropic.com/) | Geopolitical narrative sentiment scoring |
 | Analyst fallback rates | Fixed rates for sanctioned/exotic currencies with no reliable market feed |
 | [SendGrid](https://sendgrid.com/) | Transactional email for catalyst spike alerts |

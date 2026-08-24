@@ -153,7 +153,8 @@ def test_alpha_vantage_only_called_for_tickers_yahoo_missed(monkeypatch):
     result = asyncio.run(cs.get_commodity_changes())
 
     assert "oil" not in called, "oil succeeded via Yahoo — must not burn AV quota"
-    assert set(called) == set(cs.TICKERS) - {"oil"}
+    # Only commodities with an AV proxy are eligible; cocoa has none by design.
+    assert set(called) == (set(cs.AV_PROXIES) - {"oil"})
     assert result["oil"] == 5.0
     assert cs.get_commodity_health()["degraded"] is False
 
@@ -173,3 +174,35 @@ def test_cache_prevents_refetch(monkeypatch):
 
     assert first == second
     assert len(calls) == n_after_first, "second call must be served from cache"
+
+
+def test_commodity_without_av_proxy_does_not_crash(monkeypatch):
+    """
+    Cocoa has no Alpha Vantage proxy by design. The fallback loop must skip it
+    cleanly rather than KeyError on AV_PROXIES[key].
+    """
+    async def yahoo_all_fail(session, key, ticker):
+        cs._last_errors[key] = "yahoo HTTP 429"
+        return None
+
+    async def av(session, key, symbol):
+        assert key in cs.AV_PROXIES, f"{key} has no proxy and must not reach AV"
+        return 3.0
+
+    monkeypatch.setattr(cs, "_fetch_yahoo", yahoo_all_fail)
+    monkeypatch.setattr(cs, "_fetch_alpha_vantage", av)
+    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "k")
+    monkeypatch.setattr(cs, "AV_REQUEST_GAP", 0)
+
+    result = asyncio.run(cs.get_commodity_changes())
+
+    assert "cocoa" not in result, "cocoa has no fallback and cannot be recovered"
+    assert set(result) == set(cs.AV_PROXIES)
+    health = cs.get_commodity_health()
+    assert health["no_fallback_source"] == ["cocoa"]
+    assert "no fallback source" in health["last_error"]
+
+
+def test_every_av_proxy_maps_to_a_known_commodity():
+    """Guards against a typo'd key silently disabling a fallback."""
+    assert set(cs.AV_PROXIES).issubset(set(cs.TICKERS))
