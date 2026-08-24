@@ -2,57 +2,87 @@
 Commodity Price Service — 14-day % changes for the commodities that drive
 speculative currency movements in Project Hype.
 
-Sources (in order, mirroring the primary/fallback pattern in fx_service):
+PROVIDER CHAIN
+--------------
+Each commodity declares an ordered list of providers, tried until one returns
+usable data. No single upstream can disable the factor:
 
-  1. Yahoo Finance V8 chart API — free, no key, no quota. Tried first so it
-     costs nothing when it works. As of Aug 2026 Yahoo returns HTTP 429 for
-     unauthenticated futures requests, so in practice this usually fails.
-  2. Alpha Vantage TIME_SERIES_DAILY — requires ALPHA_VANTAGE_KEY. Only called
-     for tickers Yahoo failed, which preserves the small free-tier quota and
-     means AV usage drops back to zero automatically if Yahoo recovers.
+  yahoo         Free, no key, daily. Fast when it works, but unreliable — it
+                has returned HTTP 429 for all futures tickers for extended
+                periods. Tried first only because it is free and costs nothing.
+  alphavantage  Daily, via liquid ETF proxies. Requires ALPHA_VANTAGE_KEY and
+                is capped at 25 requests/day, so it is used only where its
+                daily granularity beats FRED's monthly.
+  fred          St. Louis Fed. No API key, no quota, no bot detection, and it
+                covers every commodity we track — this is the guaranteed floor.
+                Daily for WTI; monthly for the IMF global-price series.
 
-Why ETF proxies for Alpha Vantage: AV's native commodity endpoints only return
-daily data for oil and natural gas — copper, soy and cocoa are monthly, far too
-coarse for a 14-day change. Liquid commodity ETFs track their underlying
-futures closely enough for a directional signal, and TIME_SERIES_DAILY covers
-all five uniformly.
+Ordering is per-commodity, not global. Oil goes to FRED before Alpha Vantage
+because FRED's WTI series is daily *and* free, so spending quota on it would
+buy nothing. Cocoa has no ETF proxy (both iPath cocoa ETNs were delisted and
+nothing liquid replaced them), so it runs yahoo -> fred.
 
-Cocoa is the one commodity with no fallback: both iPath cocoa ETNs were
-delisted and no liquid US-listed pure-cocoa ETF replaced them, so cocoa comes
-from Yahoo or not at all. See AV_PROXIES for why no substitute was used.
+MIXED GRANULARITY
+-----------------
+Sources disagree on sampling: FRED WTI is daily, FRED cocoa is monthly. Naively
+comparing "first vs last row" would make a monthly series look far more volatile
+than a daily one purely because it spans more calendar time, biasing every
+currency linked to it.
 
-Cache: 12 hours, matching the hype/catalyst engine cycle that is its only
-consumer. At worst that is 5 AV requests per 12h = 10/day, inside the 25/day
-free tier.
+Every provider therefore returns raw (date, price) observations, and a single
+shared function normalises them: it picks the observation closest to 14 days
+before the newest, measures the ACTUAL span, and converts the change to a
+14-day equivalent geometrically. A monthly series spanning 31 days and a daily
+series spanning 14 become directly comparable.
 
-Graceful failure: returns {} if every source fails; callers skip the commodity
-factor rather than crashing. Because that failure is otherwise invisible,
-get_commodity_health() reports it via GET /api/status.
+Cache: 12 hours, matching the catalyst engine cycle that is its only consumer.
+
+Graceful failure: returns {} only if every provider fails for every commodity.
+Because that would silently neutralise a scoring factor, get_commodity_health()
+reports per-commodity status and which provider served each value, surfaced via
+GET /api/status.
 """
 
 import asyncio
+import csv
+import io
 import logging
 import os
 import time
-from datetime import datetime, timezone
-from typing import Dict, Optional, Tuple
+from datetime import date, datetime, timedelta, timezone
+from typing import Dict, List, Optional, Tuple
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# 12h — the catalyst engine runs every 12h and is the only consumer, so a
-# shorter TTL would burn Alpha Vantage quota for data nothing reads.
+Observation = Tuple[date, float]
+
+# The horizon every provider's data is normalised onto.
+TARGET_WINDOW_DAYS = 14
+# How much history to request. Wide enough that a monthly series yields several
+# points while a daily series still comfortably covers the 14-day window.
+_LOOKBACK_DAYS = 150
+
 _CACHE_TTL = 12 * 3600
 _cache: Dict = {"data": None, "fetched_at": 0.0}
 
 ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_KEY", "")
 AV_URL = "https://www.alphavantage.co/query"
+FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 # AV free tier allows 5 requests/minute. The engine runs twice a day, so
-# spacing requests generously costs nothing and keeps us well clear.
+# spacing requests generously costs nothing.
 AV_REQUEST_GAP = 13.0
 
-_HEADERS = {
+# Headers are PER-PROVIDER on purpose — the two upstreams want opposite things.
+#
+# Yahoo blocks requests that don't look like a browser, so it gets a browser
+# User-Agent. FRED does the reverse: a browser UA asking for raw CSV trips its
+# anti-scraping heuristics and the connection stalls until it times out (it
+# hangs rather than returning 4xx, which makes it look like a network fault).
+# FRED is happy with an honest identifying client string, which is better
+# API-client practice anyway. Verified empirically — do not unify these.
+_BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -61,37 +91,43 @@ _HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-# Yahoo Finance futures tickers (primary source)
-TICKERS: Dict[str, str] = {
-    "oil":    "CL=F",   # WTI Crude Oil Futures
-    "gold":   "GC=F",   # Gold Futures
-    "copper": "HG=F",   # Copper Futures (CMX)
-    "soy":    "ZS=F",   # Soybean Futures
-    "cocoa":  "CC=F",   # Cocoa Futures
+_SCRIPT_HEADERS = {
+    "User-Agent": "project-hype/1.3 (+https://project-hype.up.railway.app)",
+    "Accept": "text/csv",
 }
 
-# Alpha Vantage ETF proxies (fallback source). See module docstring for why
-# these are ETFs rather than AV's native commodity endpoints.
-#
-# COCOA HAS NO ENTRY ON PURPOSE. Both iPath cocoa ETNs (NIB, CHOC) were
-# delisted and there is no liquid US-listed pure-cocoa ETF to replace them.
-# A loose proxy (a broad agriculture fund, a chocolate manufacturer) would not
-# track cocoa closely enough, and feeding it in would silently corrupt the
-# scores for GHS and XOF rather than leaving them honestly neutral. Cocoa
-# therefore comes from Yahoo's CC=F or not at all.
-#
-# Degradation when cocoa is unavailable is already correct:
-#   GHS (gold +0.6, cocoa +0.4) -> scores on gold alone, still directional
-#   XOF (cocoa only)            -> neutral 50, no signal claimed
-AV_PROXIES: Dict[str, str] = {
-    "oil":    "USO",    # United States Oil Fund — tracks WTI
-    "gold":   "GLD",    # SPDR Gold Shares
-    "copper": "CPER",   # United States Copper Index Fund
-    "soy":    "SOYB",   # Teucrium Soybean Fund
+# Per-commodity provider chain, tried in order. See module docstring for why
+# the ordering differs per commodity.
+SOURCES: Dict[str, List[Tuple[str, str]]] = {
+    "oil": [
+        ("yahoo", "CL=F"),
+        ("fred", "DCOILWTICO"),      # daily AND free — beats spending AV quota
+        ("alphavantage", "USO"),
+    ],
+    "gold": [
+        ("yahoo", "GC=F"),
+        ("alphavantage", "GLD"),     # daily, beats FRED's monthly gold index
+        ("fred", "IR14270"),         # Import Price Index: Nonmonetary Gold
+    ],
+    "copper": [
+        ("yahoo", "HG=F"),
+        ("alphavantage", "CPER"),
+        ("fred", "PCOPPUSDM"),       # Global price of Copper
+    ],
+    "soy": [
+        ("yahoo", "ZS=F"),
+        ("alphavantage", "SOYB"),
+        ("fred", "PSOYBUSDM"),       # Global price of Soybeans
+    ],
+    "cocoa": [
+        ("yahoo", "CC=F"),
+        ("fred", "PCOCOUSDM"),       # Global price of Cocoa — no ETF proxy exists
+    ],
 }
 
-# Per-commodity failure reasons and the source each value came from,
-# surfaced via get_commodity_health().
+# Kept for callers/tests that reason about the commodity set.
+TICKERS: Dict[str, str] = {k: v[0][1] for k, v in SOURCES.items()}
+
 _last_errors: Dict[str, str] = {}
 _sources: Dict[str, str] = {}
 _health: Dict = {
@@ -113,168 +149,185 @@ def get_commodity_health() -> Dict:
         "degraded": _health["tickers_ok"] == 0 and _health["last_attempt_at"] is not None,
         "sources": dict(_sources),
         "alpha_vantage_configured": bool(ALPHA_VANTAGE_KEY),
-        "no_fallback_source": sorted(set(TICKERS) - set(AV_PROXIES)),
+        "providers": {k: [p for p, _ in v] for k, v in SOURCES.items()},
     }
 
 
-def _pct_change(closes: list) -> Optional[float]:
-    """% change between the first and last close in a series."""
-    closes = [c for c in closes if c is not None]
-    if len(closes) < 2 or closes[0] <= 0:
-        return None
-    return round((closes[-1] / closes[0] - 1.0) * 100.0, 2)
-
-
-async def _fetch_yahoo(session: httpx.AsyncClient, key: str, ticker: str) -> Optional[float]:
+def normalise_to_window(observations: List[Observation]) -> Optional[float]:
     """
-    14-day % close change for one Yahoo futures ticker.
-    range=21d so we retain >=14 trading days after weekends/holidays.
-    Returns None on any failure so callers can fall back per-commodity.
+    Convert a price series into a TARGET_WINDOW_DAYS-equivalent % change.
+
+    Picks the observation closest to TARGET_WINDOW_DAYS before the newest one,
+    measures the real calendar span between them, and scales geometrically:
+
+        (last / first) ** (TARGET_WINDOW_DAYS / span_days) - 1
+
+    This is what lets a monthly series be compared with a daily one. Returns
+    None if the series cannot support a meaningful change.
     """
-    try:
-        resp = await session.get(
-            f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
-            params={"interval": "1d", "range": "21d", "includePrePost": "false"},
-            headers=_HEADERS,
-            timeout=12.0,
-        )
-        resp.raise_for_status()
-        closes = (
-            resp.json().get("chart", {})
-                .get("result", [{}])[0]
-                .get("indicators", {})
-                .get("quote", [{}])[0]
-                .get("close", [])
-        )
-        pct = _pct_change(closes)
-        if pct is None:
-            _last_errors[key] = "insufficient data"
-            return None
-        _last_errors.pop(key, None)
-        _sources[key] = "yahoo"
-        logger.info("Commodity %s (%s) via Yahoo: %+.2f%%", key, ticker, pct)
-        return pct
-    except httpx.HTTPStatusError as exc:
-        _last_errors[key] = f"yahoo HTTP {exc.response.status_code}"
-        return None
-    except Exception as exc:
-        _last_errors[key] = f"yahoo {type(exc).__name__}"
+    clean = sorted({d: p for d, p in observations if p is not None and p > 0}.items())
+    if len(clean) < 2:
         return None
 
+    last_date, last_price = clean[-1]
+    target = last_date - timedelta(days=TARGET_WINDOW_DAYS)
 
-async def _fetch_alpha_vantage(session: httpx.AsyncClient, key: str, symbol: str) -> Optional[float]:
-    """
-    14-day % close change for one Alpha Vantage ETF proxy.
-    Uses outputsize=compact (last 100 sessions) and takes the most recent 15.
-    """
-    try:
-        resp = await session.get(
-            AV_URL,
-            params={
-                "function": "TIME_SERIES_DAILY",
-                "symbol": symbol,
-                "outputsize": "compact",
-                "apikey": ALPHA_VANTAGE_KEY,
-            },
-            headers=_HEADERS,
-            timeout=20.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    # Closest earlier observation to the target date; never the newest itself.
+    earlier = [(d, p) for d, p in clean[:-1]]
+    first_date, first_price = min(earlier, key=lambda dp: abs((dp[0] - target).days))
 
-        # AV signals throttling/errors with HTTP 200 and an explanatory key
-        for problem in ("Note", "Information", "Error Message"):
-            if problem in data:
-                _last_errors[key] = f"alphavantage: {str(data[problem])[:80]}"
-                logger.warning("Alpha Vantage %s (%s): %s", key, symbol, data[problem])
-                return None
-
-        series = data.get("Time Series (Daily)", {})
-        if not series:
-            _last_errors[key] = "alphavantage: empty series"
-            return None
-
-        # Oldest-first, then take the trailing 15 sessions (~14 day change)
-        closes = [
-            float(series[d]["4. close"])
-            for d in sorted(series.keys())
-            if "4. close" in series[d]
-        ][-15:]
-
-        pct = _pct_change(closes)
-        if pct is None:
-            _last_errors[key] = "alphavantage: insufficient data"
-            return None
-        _last_errors.pop(key, None)
-        _sources[key] = f"alphavantage:{symbol}"
-        logger.info("Commodity %s (%s) via Alpha Vantage: %+.2f%%", key, symbol, pct)
-        return pct
-    except httpx.HTTPStatusError as exc:
-        _last_errors[key] = f"alphavantage HTTP {exc.response.status_code}"
+    span = (last_date - first_date).days
+    if span <= 0 or first_price <= 0:
         return None
-    except Exception as exc:
-        _last_errors[key] = f"alphavantage {type(exc).__name__}"
+
+    ratio = last_price / first_price
+    if ratio <= 0:
         return None
+
+    pct = (ratio ** (TARGET_WINDOW_DAYS / span) - 1.0) * 100.0
+    return round(pct, 2)
+
+
+async def _fetch_yahoo(session: httpx.AsyncClient, symbol: str) -> List[Observation]:
+    resp = await session.get(
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+        params={"interval": "1d", "range": "3mo", "includePrePost": "false"},
+        headers=_BROWSER_HEADERS,
+        timeout=12.0,
+    )
+    resp.raise_for_status()
+    result = resp.json()["chart"]["result"][0]
+    stamps = result.get("timestamp") or []
+    closes = result["indicators"]["quote"][0].get("close") or []
+    return [
+        (datetime.fromtimestamp(t, tz=timezone.utc).date(), float(c))
+        for t, c in zip(stamps, closes)
+        if c is not None
+    ]
+
+
+async def _fetch_alpha_vantage(session: httpx.AsyncClient, symbol: str) -> List[Observation]:
+    if not ALPHA_VANTAGE_KEY:
+        raise RuntimeError("no ALPHA_VANTAGE_KEY configured")
+    resp = await session.get(
+        AV_URL,
+        params={
+            "function": "TIME_SERIES_DAILY",
+            "symbol": symbol,
+            "outputsize": "compact",
+            "apikey": ALPHA_VANTAGE_KEY,
+        },
+        headers=_BROWSER_HEADERS,
+        timeout=20.0,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    # AV signals throttling/errors with HTTP 200 plus an explanatory key
+    for problem in ("Note", "Information", "Error Message"):
+        if problem in data:
+            raise RuntimeError(str(data[problem])[:90])
+    series = data.get("Time Series (Daily)", {})
+    if not series:
+        raise RuntimeError("empty series")
+    return [
+        (date.fromisoformat(d), float(v["4. close"]))
+        for d, v in series.items()
+        if "4. close" in v
+    ]
+
+
+async def _fetch_fred(session: httpx.AsyncClient, series_id: str) -> List[Observation]:
+    start = (datetime.now(timezone.utc).date() - timedelta(days=_LOOKBACK_DAYS)).isoformat()
+    resp = await session.get(
+        FRED_CSV_URL,
+        params={"id": series_id, "cosd": start},
+        headers=_SCRIPT_HEADERS,
+        timeout=20.0,
+    )
+    resp.raise_for_status()
+    rows = list(csv.reader(io.StringIO(resp.text)))
+    if not rows or "observation_date" not in rows[0][0]:
+        raise RuntimeError("unexpected CSV shape")
+    out: List[Observation] = []
+    for row in rows[1:]:
+        if len(row) < 2 or row[1] in (".", ""):   # FRED marks gaps with "."
+            continue
+        try:
+            out.append((date.fromisoformat(row[0]), float(row[1])))
+        except ValueError:
+            continue
+    if not out:
+        raise RuntimeError("no usable observations")
+    return out
+
+
+_FETCHERS = {
+    "yahoo": _fetch_yahoo,
+    "alphavantage": _fetch_alpha_vantage,
+    "fred": _fetch_fred,
+}
+
+
+async def _resolve_commodity(session: httpx.AsyncClient, key: str) -> Optional[float]:
+    """Walk this commodity's provider chain until one yields a usable change."""
+    attempts: List[str] = []
+    for provider, symbol in SOURCES[key]:
+        if provider == "alphavantage" and not ALPHA_VANTAGE_KEY:
+            attempts.append(f"{provider}: no key")
+            continue
+        try:
+            if provider == "alphavantage" and attempts:
+                await asyncio.sleep(AV_REQUEST_GAP)  # respect 5 req/min
+            observations = await _FETCHERS[provider](session, symbol)
+            pct = normalise_to_window(observations)
+            if pct is None:
+                attempts.append(f"{provider}: insufficient data")
+                continue
+            _sources[key] = f"{provider}:{symbol}"
+            _last_errors.pop(key, None)
+            logger.info(
+                "Commodity %s via %s (%s): %+.2f%% (14d-equiv, %d observations)",
+                key, provider, symbol, pct, len(observations),
+            )
+            return pct
+        except httpx.HTTPStatusError as exc:
+            attempts.append(f"{provider}: HTTP {exc.response.status_code}")
+        except Exception as exc:
+            # Some httpx errors carry an empty message (ReadError('')), which
+            # would log as a bare "provider: " and hide the real cause.
+            detail = str(exc).strip() or type(exc).__name__
+            attempts.append(f"{provider}: {detail}"[:110])
+
+    _last_errors[key] = " | ".join(attempts)
+    logger.warning("Commodity %s unavailable — %s", key, _last_errors[key])
+    return None
 
 
 async def get_commodity_changes() -> Dict[str, float]:
     """
-    Returns {commodity_key: pct_change_14d}.
+    Returns {commodity_key: pct_change_14d_equivalent}.
     Partial results are valid — callers omit links for missing commodities.
-    Returns {} only if every source fails for every commodity.
+    Returns {} only if every provider fails for every commodity.
     """
     if _cache["data"] is not None and (time.time() - _cache["fetched_at"]) < _CACHE_TTL:
         return _cache["data"]
 
     results: Dict[str, float] = {}
-
     async with httpx.AsyncClient(follow_redirects=True) as session:
-        # ── Primary: Yahoo, all tickers concurrently (free, no quota) ────────
-        raw = await asyncio.gather(
-            *[_fetch_yahoo(session, k, t) for k, t in TICKERS.items()],
+        resolved = await asyncio.gather(
+            *[_resolve_commodity(session, k) for k in SOURCES],
             return_exceptions=True,
         )
-        for key, val in zip(TICKERS.keys(), raw):
-            if isinstance(val, (int, float)) and not isinstance(val, bool):
-                results[key] = float(val)
-            elif isinstance(val, BaseException):
-                _last_errors[key] = f"yahoo {type(val).__name__}"
-
-        # ── Fallback: Alpha Vantage, only for what Yahoo missed ─────────────
-        missing = [k for k in TICKERS if k not in results]
-        if missing and ALPHA_VANTAGE_KEY:
-            logger.info(
-                "Yahoo returned %d/%d commodities; falling back to Alpha Vantage for: %s",
-                len(results), len(TICKERS), ", ".join(missing),
-            )
-            fallback_able = [k for k in missing if k in AV_PROXIES]
-            no_fallback = [k for k in missing if k not in AV_PROXIES]
-            if no_fallback:
-                logger.warning(
-                    "No fallback source exists for: %s — these stay unavailable "
-                    "until Yahoo recovers",
-                    ", ".join(sorted(no_fallback)),
-                )
-                for k in no_fallback:
-                    _last_errors[k] = f"{_last_errors.get(k, 'yahoo failed')}; no fallback source"
-
-            for i, key in enumerate(fallback_able):
-                if i:
-                    await asyncio.sleep(AV_REQUEST_GAP)  # respect 5 req/min
-                val = await _fetch_alpha_vantage(session, key, AV_PROXIES[key])
-                if val is not None:
-                    results[key] = val
-        elif missing and not ALPHA_VANTAGE_KEY:
-            logger.warning(
-                "Yahoo returned %d/%d commodities and ALPHA_VANTAGE_KEY is not set — "
-                "no fallback available for: %s",
-                len(results), len(TICKERS), ", ".join(missing),
-            )
+    for key, val in zip(SOURCES.keys(), resolved):
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            results[key] = float(val)
+        elif isinstance(val, BaseException):
+            _last_errors[key] = f"unhandled {type(val).__name__}"
 
     now_iso = datetime.now(timezone.utc).isoformat()
     _health["last_attempt_at"] = now_iso
     _health["tickers_ok"] = len(results)
-    _health["tickers_total"] = len(TICKERS)
+    _health["tickers_total"] = len(SOURCES)
     for k in results:
         _last_errors.pop(k, None)
     _health["last_error"] = "; ".join(f"{k}: {v}" for k, v in sorted(_last_errors.items())) or None
@@ -283,13 +336,11 @@ async def get_commodity_changes() -> Dict[str, float]:
         _health["last_success_at"] = now_iso
         _cache["data"] = results
         _cache["fetched_at"] = time.time()
-        logger.info("Commodity cache updated (%d/%d): %s", len(results), len(TICKERS), results)
+        logger.info("Commodity cache updated (%d/%d): %s", len(results), len(SOURCES), results)
     else:
         logger.error(
-            "All %d commodity fetches failed across every source — commodity factor "
-            "DISABLED this cycle; every currency scores a neutral 50 on that axis. "
-            "Last errors: %s",
-            len(TICKERS), _health["last_error"],
+            "Every provider failed for every commodity — commodity factor DISABLED "
+            "this cycle; all currencies score a neutral 50 on that axis. Errors: %s",
+            _health["last_error"],
         )
-
     return results

@@ -1,13 +1,15 @@
 """
-Commodity service — source fallback, parsing and failure observability.
+Commodity service — provider chain, mixed-granularity normalisation, and
+failure observability.
 
-These tests never hit the network. They exist because the commodity factor
-failed silently in production for an extended period (Yahoo began returning
-HTTP 429), and nothing distinguished "commodity genuinely neutral" from
-"upstream dead".
+Context: the commodity factor silently produced neutral-50 for every currency
+in production for an extended period because Yahoo began returning HTTP 429 and
+nothing surfaced it. These tests lock in the resilience and the observability.
+All tests are network-free.
 """
 
 import asyncio
+from datetime import date, timedelta
 
 import httpx
 import pytest
@@ -17,7 +19,6 @@ import services.commodity_service as cs
 
 @pytest.fixture(autouse=True)
 def _reset_module_state():
-    """Each test gets a clean cache/health so ordering can't leak state."""
     cs._cache["data"] = None
     cs._cache["fetched_at"] = 0.0
     cs._last_errors.clear()
@@ -29,96 +30,184 @@ def _reset_module_state():
     yield
 
 
-class _Resp:
-    def __init__(self, payload):
-        self._payload = payload
+# ── Window normalisation ─────────────────────────────────────────────────────
 
-    def raise_for_status(self):
-        pass
-
-    def json(self):
-        return self._payload
+def test_normalise_exact_14_day_span_is_unscaled():
+    today = date(2026, 8, 20)
+    obs = [(today - timedelta(days=14), 100.0), (today, 110.0)]
+    assert cs.normalise_to_window(obs) == 10.0
 
 
-class _FakeSession:
-    """Minimal stand-in for httpx.AsyncClient — get() must be awaitable."""
+def test_normalise_scales_monthly_series_down_to_14_days():
+    """
+    The core of mixed-granularity support: a ~30-day move must be expressed as
+    its 14-day equivalent, or monthly sources would look far more volatile than
+    daily ones and bias every currency linked to them.
+    """
+    today = date(2026, 8, 20)
+    obs = [(today - timedelta(days=30), 100.0), (today, 130.0)]
 
-    def __init__(self, payload):
-        self._payload = payload
+    pct = cs.normalise_to_window(obs)
 
-    async def get(self, *args, **kwargs):
-        return _Resp(self._payload)
-
-
-def _av_payload(closes):
-    """Build an Alpha Vantage TIME_SERIES_DAILY payload from a close list."""
-    return {
-        "Time Series (Daily)": {
-            f"2026-08-{i + 1:02d}": {"4. close": f"{c}"} for i, c in enumerate(closes)
-        }
-    }
+    expected = round(((130 / 100) ** (14 / 30) - 1) * 100, 2)
+    assert pct == expected
+    assert 0 < pct < 30, "14d equivalent must be well below the raw 30d move"
 
 
-def test_pct_change_basic():
-    assert cs._pct_change([100.0, 110.0]) == 10.0
-    assert cs._pct_change([100.0, 90.0]) == -10.0
+def test_daily_and_monthly_agree_on_same_underlying_trend():
+    """Two sources sampling one trend at different rates must not disagree."""
+    today = date(2026, 8, 20)
+    daily_rate = 1.01  # +1%/day compounding
+
+    daily = [(today - timedelta(days=d), 100.0 * daily_rate ** (30 - d)) for d in range(30, -1, -1)]
+    monthly = [(today - timedelta(days=30), 100.0), (today, 100.0 * daily_rate ** 30)]
+
+    assert cs.normalise_to_window(daily) == pytest.approx(
+        cs.normalise_to_window(monthly), abs=0.25
+    )
 
 
-def test_pct_change_rejects_unusable_series():
-    assert cs._pct_change([]) is None
-    assert cs._pct_change([100.0]) is None          # need >= 2 points
-    assert cs._pct_change([0.0, 50.0]) is None      # non-positive base
-    assert cs._pct_change([None, None]) is None
+def test_normalise_picks_observation_closest_to_target():
+    """Extra history must not widen the window."""
+    today = date(2026, 8, 20)
+    obs = [
+        (today - timedelta(days=120), 10.0),   # far history — must be ignored
+        (today - timedelta(days=15), 100.0),   # closest to the 14-day target
+        (today, 110.0),
+    ]
+    pct = cs.normalise_to_window(obs)
+    assert pct == pytest.approx(((110 / 100) ** (14 / 15) - 1) * 100, abs=0.01)
 
 
-def test_alpha_vantage_parses_trailing_15_sessions():
-    """Only the most recent 15 closes define the ~14-day change."""
-    closes = [float(100 + i) for i in range(20)]  # 100..119
-    session = _FakeSession(_av_payload(closes))
-
-    pct = asyncio.run(cs._fetch_alpha_vantage(session, "oil", "USO"))
-
-    # trailing 15 of 100..119 is 105..119
-    assert pct == pytest.approx(round((119 / 105 - 1) * 100, 2))
-    assert cs._sources["oil"] == "alphavantage:USO"
-    assert "oil" not in cs._last_errors
+@pytest.mark.parametrize("obs", [
+    [],
+    [(date(2026, 8, 20), 100.0)],                                  # single point
+    [(date(2026, 8, 20), 0.0), (date(2026, 8, 6), 100.0)],         # zero price
+    [(date(2026, 8, 20), 100.0), (date(2026, 8, 20), 110.0)],      # zero span
+])
+def test_normalise_rejects_unusable_series(obs):
+    assert cs.normalise_to_window(obs) is None
 
 
-@pytest.mark.parametrize("problem_key", ["Note", "Information", "Error Message"])
-def test_alpha_vantage_detects_soft_errors(problem_key):
-    """AV signals throttling with HTTP 200 plus an explanatory key, not a 4xx."""
-    session = _FakeSession({problem_key: "rate limit reached"})
-
-    pct = asyncio.run(cs._fetch_alpha_vantage(session, "gold", "GLD"))
-
-    assert pct is None
-    assert "alphavantage" in cs._last_errors["gold"]
-    assert "gold" not in cs._sources
-
-
-def test_yahoo_http_error_records_status_code():
-    """A 429 must be recorded verbatim — that is the real production failure."""
-    class S:
-        async def get(self, *a, **k):
-            raise httpx.HTTPStatusError(
-                "429", request=httpx.Request("GET", "http://x"),
-                response=httpx.Response(429),
-            )
-
-    pct = asyncio.run(cs._fetch_yahoo(S(), "oil", "CL=F"))
-
-    assert pct is None
-    assert cs._last_errors["oil"] == "yahoo HTTP 429"
+def test_normalise_ignores_none_and_negative_prices():
+    today = date(2026, 8, 20)
+    obs = [
+        (today - timedelta(days=14), 100.0),
+        (today - timedelta(days=7), None),
+        (today - timedelta(days=3), -5.0),
+        (today, 110.0),
+    ]
+    assert cs.normalise_to_window(obs) == 10.0
 
 
-def test_health_reports_degraded_when_everything_fails(monkeypatch):
-    """The whole point: total failure must be observable, not silent."""
-    async def all_fail(session, key, ticker):
-        cs._last_errors[key] = "yahoo HTTP 429"
-        return None
+# ── Provider chain ───────────────────────────────────────────────────────────
 
-    monkeypatch.setattr(cs, "_fetch_yahoo", all_fail)
+def test_every_commodity_has_a_keyless_provider():
+    """
+    Architectural guarantee: no commodity may depend solely on a flaky or
+    key-gated upstream. FRED needs no key and has no quota, so each chain must
+    include it as a floor.
+    """
+    for commodity, chain in cs.SOURCES.items():
+        providers = [p for p, _ in chain]
+        assert "fred" in providers, f"{commodity} has no keyless fallback"
+
+
+def test_chain_falls_through_to_later_provider(monkeypatch):
+    async def yahoo_dead(session, symbol):
+        raise httpx.HTTPStatusError(
+            "429", request=httpx.Request("GET", "http://x"), response=httpx.Response(429)
+        )
+
+    today = date(2026, 8, 20)
+    async def fred_ok(session, series_id):
+        return [(today - timedelta(days=14), 100.0), (today, 105.0)]
+
+    monkeypatch.setitem(cs._FETCHERS, "yahoo", yahoo_dead)
+    monkeypatch.setitem(cs._FETCHERS, "fred", fred_ok)
     monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "")
+
+    result = asyncio.run(cs.get_commodity_changes())
+
+    assert set(result) == set(cs.SOURCES), "FRED floor must cover every commodity"
+    assert all(v == 5.0 for v in result.values())
+    assert cs.get_commodity_health()["degraded"] is False
+    assert all(s.startswith("fred:") for s in cs._sources.values())
+
+
+def test_alpha_vantage_skipped_without_key(monkeypatch):
+    called = []
+
+    async def av(session, symbol):
+        called.append(symbol)
+        raise AssertionError("must not be called without a key")
+
+    async def dead(session, symbol):
+        raise RuntimeError("down")
+
+    monkeypatch.setitem(cs._FETCHERS, "alphavantage", av)
+    monkeypatch.setitem(cs._FETCHERS, "yahoo", dead)
+    monkeypatch.setitem(cs._FETCHERS, "fred", dead)
+    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "")
+
+    asyncio.run(cs.get_commodity_changes())
+
+    assert called == []
+    assert "no key" in cs.get_commodity_health()["last_error"]
+
+
+def test_earlier_provider_wins(monkeypatch):
+    today = date(2026, 8, 20)
+
+    async def yahoo_ok(session, symbol):
+        return [(today - timedelta(days=14), 100.0), (today, 120.0)]
+
+    async def fred_should_not_run(session, series_id):
+        raise AssertionError("must not reach FRED when Yahoo succeeded")
+
+    monkeypatch.setitem(cs._FETCHERS, "yahoo", yahoo_ok)
+    monkeypatch.setitem(cs._FETCHERS, "fred", fred_should_not_run)
+
+    result = asyncio.run(cs.get_commodity_changes())
+
+    assert all(v == 20.0 for v in result.values())
+    assert all(s.startswith("yahoo:") for s in cs._sources.values())
+
+
+# ── Observability ────────────────────────────────────────────────────────────
+
+def test_empty_message_exception_still_reports_a_cause():
+    """
+    httpx.ReadError('') has no message; logging it raw produced a bare
+    'fred: ' that hid the real failure during development.
+    """
+    async def blank(session, symbol):
+        raise httpx.ReadError("")
+
+    async def main():
+        for name in cs._FETCHERS:
+            cs._FETCHERS[name] = blank
+        async with httpx.AsyncClient() as s:
+            return await cs._resolve_commodity(s, "cocoa")
+
+    original = dict(cs._FETCHERS)
+    try:
+        assert asyncio.run(main()) is None
+    finally:
+        cs._FETCHERS.update(original)
+
+    err = cs._last_errors["cocoa"]
+    assert "ReadError" in err, f"cause must survive, got {err!r}"
+    assert not err.rstrip().endswith(":"), "must not log a bare 'provider:'"
+
+
+def test_total_failure_is_reported_as_degraded(monkeypatch):
+    async def dead(session, symbol):
+        raise RuntimeError("upstream down")
+
+    for name in list(cs._FETCHERS):
+        monkeypatch.setitem(cs._FETCHERS, name, dead)
+    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "k")
 
     result = asyncio.run(cs.get_commodity_changes())
     health = cs.get_commodity_health()
@@ -126,83 +215,55 @@ def test_health_reports_degraded_when_everything_fails(monkeypatch):
     assert result == {}
     assert health["degraded"] is True
     assert health["tickers_ok"] == 0
-    assert health["alpha_vantage_configured"] is False
-    assert "429" in health["last_error"]
+    assert "upstream down" in health["last_error"]
 
 
-def test_alpha_vantage_only_called_for_tickers_yahoo_missed(monkeypatch):
-    """Preserves the small AV free-tier quota."""
-    async def yahoo_partial(session, key, ticker):
-        if key == "oil":
-            cs._sources[key] = "yahoo"
-            return 5.0
-        cs._last_errors[key] = "yahoo HTTP 429"
-        return None
+def test_partial_success_is_not_degraded(monkeypatch):
+    today = date(2026, 8, 20)
 
-    called = []
+    async def only_oil(session, symbol):
+        if symbol == "DCOILWTICO":
+            return [(today - timedelta(days=14), 100.0), (today, 102.0)]
+        raise RuntimeError("down")
 
-    async def av(session, key, symbol):
-        called.append(key)
-        return 1.0
+    async def dead(session, symbol):
+        raise RuntimeError("down")
 
-    monkeypatch.setattr(cs, "_fetch_yahoo", yahoo_partial)
-    monkeypatch.setattr(cs, "_fetch_alpha_vantage", av)
-    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "k")
-    monkeypatch.setattr(cs, "AV_REQUEST_GAP", 0)
+    monkeypatch.setitem(cs._FETCHERS, "fred", only_oil)
+    monkeypatch.setitem(cs._FETCHERS, "yahoo", dead)
+    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "")
 
     result = asyncio.run(cs.get_commodity_changes())
+    health = cs.get_commodity_health()
 
-    assert "oil" not in called, "oil succeeded via Yahoo — must not burn AV quota"
-    # Only commodities with an AV proxy are eligible; cocoa has none by design.
-    assert set(called) == (set(cs.AV_PROXIES) - {"oil"})
-    assert result["oil"] == 5.0
-    assert cs.get_commodity_health()["degraded"] is False
+    assert set(result) == {"oil"}
+    assert health["degraded"] is False, "partial data is still usable"
+    assert health["tickers_ok"] == 1
+
+
+def test_fred_must_not_use_a_browser_user_agent():
+    """
+    Regression guard: FRED stalls browser-like User-Agents when serving raw
+    CSV, which surfaced as an unexplained ReadTimeout. Yahoo needs the opposite.
+    These header sets must stay distinct.
+    """
+    assert "Mozilla" not in cs._SCRIPT_HEADERS["User-Agent"]
+    assert "Mozilla" in cs._BROWSER_HEADERS["User-Agent"]
 
 
 def test_cache_prevents_refetch(monkeypatch):
+    today = date(2026, 8, 20)
     calls = []
 
-    async def yahoo(session, key, ticker):
-        calls.append(key)
-        return 2.0
+    async def counted(session, symbol):
+        calls.append(symbol)
+        return [(today - timedelta(days=14), 100.0), (today, 101.0)]
 
-    monkeypatch.setattr(cs, "_fetch_yahoo", yahoo)
+    monkeypatch.setitem(cs._FETCHERS, "yahoo", counted)
 
     first = asyncio.run(cs.get_commodity_changes())
-    n_after_first = len(calls)
+    n = len(calls)
     second = asyncio.run(cs.get_commodity_changes())
 
     assert first == second
-    assert len(calls) == n_after_first, "second call must be served from cache"
-
-
-def test_commodity_without_av_proxy_does_not_crash(monkeypatch):
-    """
-    Cocoa has no Alpha Vantage proxy by design. The fallback loop must skip it
-    cleanly rather than KeyError on AV_PROXIES[key].
-    """
-    async def yahoo_all_fail(session, key, ticker):
-        cs._last_errors[key] = "yahoo HTTP 429"
-        return None
-
-    async def av(session, key, symbol):
-        assert key in cs.AV_PROXIES, f"{key} has no proxy and must not reach AV"
-        return 3.0
-
-    monkeypatch.setattr(cs, "_fetch_yahoo", yahoo_all_fail)
-    monkeypatch.setattr(cs, "_fetch_alpha_vantage", av)
-    monkeypatch.setattr(cs, "ALPHA_VANTAGE_KEY", "k")
-    monkeypatch.setattr(cs, "AV_REQUEST_GAP", 0)
-
-    result = asyncio.run(cs.get_commodity_changes())
-
-    assert "cocoa" not in result, "cocoa has no fallback and cannot be recovered"
-    assert set(result) == set(cs.AV_PROXIES)
-    health = cs.get_commodity_health()
-    assert health["no_fallback_source"] == ["cocoa"]
-    assert "no fallback source" in health["last_error"]
-
-
-def test_every_av_proxy_maps_to_a_known_commodity():
-    """Guards against a typo'd key silently disabling a fallback."""
-    assert set(cs.AV_PROXIES).issubset(set(cs.TICKERS))
+    assert len(calls) == n, "second call must be served from cache"

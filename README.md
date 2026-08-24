@@ -20,7 +20,8 @@
 
 - **Hype Score** — composite score (0–100) measuring current market attention: news volume, recency weighting, and 7-day rate volatility. Exotic/sanctioned currencies get a structural floor so they don't disappear from the board when headlines go quiet.
 - **Catalyst Score** — forward-looking signal: news sentiment (50%) + 7-day rate momentum (30%) + commodity signal (20% when data available). High hype + low catalyst = forum chatter. High catalyst = something is actually moving.
-- **Commodity Signal** — 14-day % price change in linked commodity futures (WTI oil, gold, copper, soybeans, cocoa) applied as a directional modifier to exporter/importer currencies. Oil up → bullish for IQD, NGN; bearish for Turkey, Pakistan. Normalized 0–100; 50 = neutral.
+- **Commodity Signal** — 14-day % price change in linked commodities (WTI oil, gold, copper, soybeans, cocoa) applied as a directional modifier to exporter/importer currencies. Oil up → bullish for IQD, NGN; bearish for Turkey, Pakistan. Normalized 0–100; 50 = neutral.
+  Data comes from a 3-tier provider chain (Yahoo → Alpha Vantage → FRED) so no single upstream outage can disable the factor; FRED needs no API key and covers every commodity. Sources sample at different rates, so all series are normalised to a common 14-day-equivalent change before being combined. Live per-commodity status is in `commodity_feed` at `GET /api/status`.
 - **ROI Modeler** — enter an amount held, set a target rate, see current value / projected value / gain / multiplier. Quick Scenarios model 2×, 5×, 10×, 50×, 100× revaluations instantly.
 - **Bidirectional Converter** — Google-style ⇄ converter: type USD to see how many units you get, or type units to see USD cost. Auto-resets when you switch currencies.
 - **Live Rates** — Open Exchange Rates (primary) + ExchangeRate-API (fallback) for ~30 currencies, analyst fallback rates for sanctioned/exotic currencies (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS) with a clear LIVE / EST badge.
@@ -42,7 +43,7 @@
 | Serving | nginx (Docker) / Railway |
 | Rates | Open Exchange Rates (primary) + ExchangeRate-API v6 (fallback) |
 | News & NLP | NewsAPI + VADER sentiment analysis |
-| Commodity Data | Yahoo Finance futures (primary) + Alpha Vantage ETF proxies (fallback) |
+| Commodity Data | 3-tier provider chain: Yahoo Finance → Alpha Vantage → FRED (keyless floor) |
 | Email | SendGrid |
 | Analytics | Self-hosted — FastAPI + PostgreSQL (no third-party scripts) |
 
@@ -143,7 +144,7 @@ VITE_API_URL=http://localhost:8000 npm run dev
 |---|---|---|
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string (`postgresql://user:pass@host/db`). Railway injects this automatically. |
 | `FX_API_KEY` | No | [ExchangeRate-API v6](https://www.exchangerate-api.com/) key. Without it, all currencies use analyst fallback rates. |
-| `ALPHA_VANTAGE_KEY` | No | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) free key. Fallback source for commodity prices when Yahoo Finance is unavailable. Without it, the commodity factor is skipped whenever Yahoo fails and every currency scores a neutral 50 on that axis — check `commodity_feed.degraded` in `GET /api/status`. |
+| `ALPHA_VANTAGE_KEY` | No | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) free key. Tier 2 of the commodity provider chain, giving daily granularity for gold/copper/soy. Without it the chain still works — it falls through to FRED, which needs no key. |
 | `NEWSAPI_KEY` | No | [NewsAPI.org](https://newsapi.org/) key. Without it, analyst-written mock headlines are served and Catalyst Score is 100% rate momentum. |
 | `SENDGRID_API_KEY` | No | SendGrid key for catalyst spike alert emails. |
 | `SENDGRID_FROM_EMAIL` | No | Sender address for alerts (e.g. `alerts@yourdomain.com`). |
@@ -248,8 +249,9 @@ Full interactive docs: `/docs` (Swagger UI) and `/redoc`.
 | [ExchangeRate-API v6](https://www.exchangerate-api.com/) | Fallback live FX feed |
 | [NewsAPI.org](https://newsapi.org/) | Real-time headlines for NLP sentiment scoring |
 | [VADER NLP](https://github.com/cjhutto/vaderSentiment) | Sentiment analysis on headlines for Catalyst Score |
-| [Yahoo Finance Futures](https://finance.yahoo.com/) | 14-day commodity price history (CL=F, GC=F, HG=F, ZS=F, CC=F). Free/no key, but currently rate-limited — see fallback below |
-| [Alpha Vantage](https://www.alphavantage.co/) | Commodity fallback via liquid ETF proxies (USO, GLD, CPER, SOYB). Only called for tickers Yahoo fails, preserving the 25 req/day free tier. **Cocoa has no fallback** — both iPath cocoa ETNs were delisted and no liquid US-listed pure-cocoa ETF replaced them, so cocoa comes from Yahoo or not at all |
+| [Yahoo Finance Futures](https://finance.yahoo.com/) | Commodity tier 1 — free, daily, no key. Frequently rate-limited (HTTP 429), so never relied on alone |
+| [Alpha Vantage](https://www.alphavantage.co/) | Commodity tier 2 — daily, via liquid ETF proxies (GLD, CPER, SOYB). Key required, 25 req/day |
+| [FRED](https://fred.stlouisfed.org/) (St. Louis Fed) | Commodity tier 3 — **no API key, no quota**, covers all five commodities. Daily for WTI, monthly for the IMF global-price series. The guaranteed floor |
 | [Anthropic Claude](https://www.anthropic.com/) | Geopolitical narrative sentiment scoring |
 | Analyst fallback rates | Fixed rates for sanctioned/exotic currencies with no reliable market feed |
 | [SendGrid](https://sendgrid.com/) | Transactional email for catalyst spike alerts |
