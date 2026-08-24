@@ -198,7 +198,6 @@ export default function Landing() {
       fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
         @keyframes glowPulse { 0%,100%{box-shadow:0 0 24px #00d4aa44,0 0 48px #00d4aa22} 50%{box-shadow:0 0 40px #00d4aa88,0 0 80px #00d4aa44} }
         @keyframes meshDrift1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(40px,-30px) scale(1.05)} 66%{transform:translate(-20px,20px) scale(0.98)} }

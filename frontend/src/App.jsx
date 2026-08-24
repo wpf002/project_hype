@@ -71,6 +71,51 @@ function CatalystBar({ score, title }) {
   );
 }
 
+// Persistent liability disclaimer. Rendered on every screen — including the
+// loading and error states, which return early before the main layout and
+// would otherwise show the app with no disclaimer at all.
+function DisclaimerBanner({ isMobile }) {
+  return (
+    <div style={{
+      background: "linear-gradient(180deg, #160d00 0%, #0e0800 100%)",
+      borderBottom: "1px solid #3a2400",
+      padding: isMobile ? "10px 16px" : "11px 24px",
+    }}>
+      <div style={{
+        maxWidth: 980, margin: "0 auto",
+        display: "flex", alignItems: isMobile ? "flex-start" : "center",
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? 7 : 14,
+        justifyContent: "center",
+      }}>
+        {/* Badge — carries the legal weight visually so the prose can stay calm */}
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
+          background: "rgba(255,165,0,0.10)", border: "1px solid rgba(255,165,0,0.30)",
+          borderRadius: 999, padding: "4px 11px",
+          fontSize: 10.5, fontWeight: 800, letterSpacing: 1.1,
+          color: "#ffb02e", textTransform: "uppercase", whiteSpace: "nowrap",
+          fontFamily: "'Space Mono', monospace",
+        }}>
+          <AlertTriangle size={12} color="#ffb02e" />
+          Not Financial Advice
+        </div>
+
+        <div style={{
+          fontSize: 12.5, lineHeight: 1.55, color: "#a8834e",
+          letterSpacing: 0.2, textAlign: "left",
+        }}>
+          <span style={{ color: "#d9a259", fontWeight: 600 }}>
+            Speculative research &amp; entertainment tool.
+          </span>{" "}
+          Never a recommendation to buy, sell, or hold any currency or asset. Scores are
+          automated and may be inaccurate — always do your own research.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ label, value, sub }) {
   return (
     <div style={{
@@ -693,11 +738,13 @@ export default function ProjectHype() {
   // ── Error screen ──────────────────────────────────────────────────────────
   if (ratesError) {
     return (
-      <div style={{
-        minHeight: "100vh", background: "#070714", display: "flex",
-        alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 20,
-      }}>
+      <div style={{ minHeight: "100vh", background: "#070714", fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
         <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}`}</style>
+        <DisclaimerBanner isMobile={isMobile} />
+        <div style={{
+          minHeight: "calc(100vh - 90px)", display: "flex",
+          alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 20,
+        }}>
         <AlertTriangle size={40} color="#ffa500" />
         <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#e8e8ff" }}>
           Unable to reach the Project Hype API
@@ -715,6 +762,7 @@ export default function ProjectHype() {
         >
           ↻ Retry
         </button>
+        </div>
       </div>
     );
   }
@@ -722,11 +770,12 @@ export default function ProjectHype() {
   // ── Loading screen ────────────────────────────────────────────────────────
   if (loadingRates || !selected) {
     return (
-      <div style={{ minHeight: "100vh", background: "#070714" }}>
+      <div style={{ minHeight: "100vh", background: "#070714", fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
         <style>{`
           @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
           @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
         `}</style>
+        <DisclaimerBanner isMobile={isMobile} />
         {/* Header skeleton */}
         <div style={{ height: 64, background: "#0d0d2e", borderBottom: "1px solid #1e1e3f",
           display: "flex", alignItems: "center", padding: isMobile ? "0 16px" : "0 40px", gap: 16 }}>
@@ -771,7 +820,6 @@ export default function ProjectHype() {
       color: "#e8e8ff", fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif", padding: 0,
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
         @keyframes slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes glow { 0%,100%{box-shadow:0 0 20px #00d4aa22} 50%{box-shadow:0 0 40px #00d4aa44} }
@@ -783,17 +831,7 @@ export default function ProjectHype() {
         .tab-bar::-webkit-scrollbar{display:none}
       `}</style>
 
-      {/* Persistent disclaimer banner */}
-      <div style={{
-        background: "#110a00", borderBottom: "1px solid #3a2200",
-        padding: "9px 20px", textAlign: isMobile ? "left" : "center", fontSize: 12,
-        color: "#b08040", letterSpacing: 0.3, lineHeight: 1.5,
-      }}>
-        <AlertTriangle size={12} style={{ marginRight: 5, verticalAlign: "middle", color: "#ffa500" }} />
-        <strong style={{ color: "#ffa500" }}>For entertainment &amp; research only.</strong>{" "}
-        Project Hype is <strong style={{ color: "#ffa500" }}>NOT financial advice</strong> and is <strong style={{ color: "#ffa500" }}>NOT a recommendation to buy, sell, or hold any currency or asset.</strong>{" "}
-        Scores are based on automated signals and may be inaccurate. Always do your own research and consult a licensed financial advisor.
-      </div>
+      <DisclaimerBanner isMobile={isMobile} />
 
       {/* Header */}
       <div style={{ position: "sticky", top: 0, zIndex: 100 }}>

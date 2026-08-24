@@ -4,7 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project HYPE — Speculative Currency Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" />
   <style>
+    /* App-wide font baseline so early-return screens (loading / error) never
+       flash in the browser default serif before the main layout mounts. */
+    body { font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; }
     /* Remove browser spinner arrows from all number inputs app-wide */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
