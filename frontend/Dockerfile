@@ -21,7 +21,7 @@ RUN npm run build
 # nginxinc/nginx-unprivileged runs as a non-root user (uid 101) out of the box
 # and listens on port 8080 by default, eliminating the root-master-process issue.
 # The PORT env var is injected by Railway; local docker-compose uses the default.
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy as a template — PORT is substituted at container start
