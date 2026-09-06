@@ -165,6 +165,26 @@ async def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_analytics_created_at "
             "ON analytics_events (created_at DESC)"
         )
+        # Claude sentiment cache — keyed by a hash of the entire scoring prompt.
+        # The prompt is fully deterministic (static currency story + headline
+        # text, no timestamps), and most currencies have no live feed, so they
+        # re-send byte-identical headlines every 12h sweep. Caching the answer
+        # means we stop paying for scores we have already bought. It has to
+        # outlive the process — a Railway redeploy re-runs the sweep straight
+        # away — so it is a table, not an in-process dict.
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS claude_sentiment_cache (
+                prompt_hash TEXT        PRIMARY KEY,
+                scores      JSONB       NOT NULL,
+                reasoning   TEXT        NOT NULL DEFAULT '',
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        # Backs the retention prune in write_cached_sentiment().
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sentiment_cache_created_at "
+            "ON claude_sentiment_cache (created_at)"
+        )
 
     logger.info("DB pool initialised, all tables ready.")
 
@@ -495,6 +515,70 @@ async def get_latest_catalyst_scores() -> Dict[str, dict]:
     except Exception:
         logger.exception("Failed to fetch latest catalyst scores")
         return {}
+
+
+# ── Claude sentiment cache ─────────────────────────────────────────────────
+#
+# Every entry is one already-paid-for Claude batch response. Both functions
+# fail open: on any error the caller must fall through to a live API call
+# rather than lose the score. A cache miss costs money; a wrong cache hit
+# would cost correctness, so nothing partial is ever stored or returned.
+
+SENTIMENT_CACHE_RETENTION_DAYS = 30
+
+
+async def get_cached_sentiment(prompt_hash: str) -> Optional[dict]:
+    """
+    Return {"scores": [...], "reasoning": "..."} for a prompt already scored,
+    or None if it is not cached (or anything at all goes wrong).
+    """
+    if not prompt_hash:
+        return None
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT scores, reasoning FROM claude_sentiment_cache WHERE prompt_hash = $1",
+                prompt_hash,
+            )
+        if not row:
+            return None
+        # asyncpg returns JSONB columns as str unless a codec is registered.
+        raw = row["scores"]
+        scores = raw if isinstance(raw, list) else json.loads(raw)
+        if not isinstance(scores, list) or not scores:
+            return None
+        return {"scores": [float(s) for s in scores], "reasoning": row["reasoning"] or ""}
+    except Exception:
+        logger.exception("Sentiment cache read failed — will score live instead")
+        return None
+
+
+async def write_cached_sentiment(prompt_hash: str, scores: List[float], reasoning: str) -> None:
+    """
+    Cache one batch's Claude scores and prune entries past the retention window.
+    Callers must never pass an empty score list: a failed call cached forever
+    would freeze that currency into its keyword fallback.
+    """
+    if not prompt_hash or not scores:
+        return
+    cutoff = datetime.now(timezone.utc) - timedelta(days=SENTIMENT_CACHE_RETENTION_DAYS)
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO claude_sentiment_cache (prompt_hash, scores, reasoning) "
+                "VALUES ($1, $2::jsonb, $3) "
+                "ON CONFLICT (prompt_hash) DO NOTHING",
+                prompt_hash,
+                json.dumps(scores),
+                reasoning or "",
+            )
+            await conn.execute(
+                "DELETE FROM claude_sentiment_cache WHERE created_at < $1", cutoff
+            )
+    except Exception:
+        logger.exception("Failed to cache Claude sentiment scores")
 
 
 # ── Shared portfolios ──────────────────────────────────────────────────────

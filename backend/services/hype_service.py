@@ -35,6 +35,7 @@ GET /api/status to tell a real neutral reading from a dead upstream.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -52,6 +53,8 @@ from db.db import (
     write_catalyst_snapshots,
     get_latest_catalyst_scores,
     get_subscribers_for_code,
+    get_cached_sentiment,
+    write_cached_sentiment,
 )
 from services.email_service import send_catalyst_alert
 
@@ -172,7 +175,21 @@ async def score_headlines_with_claude(
     sample_reasoning: str = ""
     for i in range(0, len(texts), CLAUDE_BATCH_SIZE):
         batch = texts[i: i + CLAUDE_BATCH_SIZE]
-        batch_scores, reasoning = await _score_batch_with_claude(batch, currency_code, currency_name, story)
+        # Most currencies have no live RSS feed and fall back to the same static
+        # mock headlines every sweep, so we would otherwise re-buy an identical
+        # answer twice a day forever. A hit here is a call we simply don't make;
+        # a miss, or any cache error, goes to the API exactly as before.
+        cache_key = _prompt_hash(batch, currency_code, currency_name, story)
+        cached = await get_cached_sentiment(cache_key)
+        if cached is not None:
+            batch_scores, reasoning = cached["scores"], cached["reasoning"]
+        else:
+            batch_scores, reasoning = await _score_batch_with_claude(batch, currency_code, currency_name, story)
+            # Only cache a real answer. _score_batch_with_claude returns ([], "")
+            # on any failure, and caching that would freeze this currency into
+            # the keyword fallback until the retention window expires.
+            if batch_scores:
+                await write_cached_sentiment(cache_key, batch_scores, reasoning)
         all_scores.extend(batch_scores)
         if not sample_reasoning and reasoning:
             sample_reasoning = reasoning
@@ -189,15 +206,19 @@ async def score_headlines_with_claude(
     return compound, "claude"
 
 
-async def _score_batch_with_claude(
+def _build_claude_payload(
     texts: List[str],
     currency_code: str,
     currency_name: str,
     story: str,
-) -> tuple:
+) -> dict:
     """
-    Send one batch to Claude and return (scores, sample_reasoning).
-    scores is a list of floats (-1.0 to +1.0), sample_reasoning is one sentence.
+    Build the Messages request body for one batch.
+
+    Lifted verbatim out of _score_batch_with_claude so the sentiment cache can
+    key on the exact bytes that would be sent. Everything the answer depends on
+    — model, max_tokens, system prompt, rendered user prompt — lives in the
+    returned dict, so the cache key cannot drift from the real request.
     """
     # Headlines come from third-party RSS feeds and are UNTRUSTED. Cap length and
     # fence each one so embedded text cannot be interpreted as model instructions
@@ -246,6 +267,47 @@ async def _score_batch_with_claude(
         ),
         "messages": [{"role": "user", "content": user_prompt}],
     }
+
+    return payload
+
+
+def _prompt_hash(
+    texts: List[str],
+    currency_code: str,
+    currency_name: str,
+    story: str,
+) -> str:
+    """
+    Stable fingerprint of the whole request body for one batch: model,
+    max_tokens, system prompt and the rendered user prompt (which carries the
+    currency metadata and the exact headline texts). Nothing volatile goes in —
+    the payload contains no timestamps or ids — so two sweeps that would send
+    byte-identical requests hash the same, which is what lets the cache skip a
+    call we have already paid for. Any edit to the prompt changes the hash and
+    retires every stale answer on its own; there is no version constant to bump.
+
+    Returns "" on any failure, so the caller falls through to a live call.
+    """
+    try:
+        payload = _build_claude_payload(texts, currency_code, currency_name, story)
+        material = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+    except Exception as exc:
+        logger.warning("Could not hash sentiment prompt for %s: %s", currency_code, exc)
+        return ""
+
+
+async def _score_batch_with_claude(
+    texts: List[str],
+    currency_code: str,
+    currency_name: str,
+    story: str,
+) -> tuple:
+    """
+    Send one batch to Claude and return (scores, sample_reasoning).
+    scores is a list of floats (-1.0 to +1.0), sample_reasoning is one sentence.
+    """
+    payload = _build_claude_payload(texts, currency_code, currency_name, story)
 
     headers = {
         "x-api-key": ANTHROPIC_API_KEY,
@@ -368,10 +430,18 @@ async def _check_and_send_alerts(
             continue
 
         currency = currency_map.get(code, {})
-        await asyncio.gather(*[
+        # return_exceptions: one subscriber's SendGrid 5xx must not abandon the
+        # rest of the fan-out. Without it the first failure propagates, every
+        # later currency's alerts are skipped, and the exception reaches the
+        # engine loop, which re-runs — and re-bills — the whole sweep an hour
+        # later for work already written to the DB.
+        sends = await asyncio.gather(*[
             send_catalyst_alert(email, code, currency, old_score, new_score)
             for email in subscribers
-        ])
+        ], return_exceptions=True)
+        for email, result in zip(subscribers, sends):
+            if isinstance(result, BaseException):
+                logger.warning("Catalyst alert to %s for %s failed: %s", email, code, result)
 
 
 async def calculate_all_hype_scores() -> None:
@@ -532,4 +602,12 @@ async def calculate_all_hype_scores() -> None:
     logger.info("Score engine: wrote hype + catalyst for %d currencies", len(CURRENCIES))
 
     # ── Fire alerts for significant Catalyst spikes ────────────────────────
-    await _check_and_send_alerts(catalyst_out, old_catalyst, currency_map)
+    # Every paid Claude call is done and both snapshot tables are written by
+    # this point, so a failure here must not reach the engine loop: that would
+    # re-run — and re-bill — the whole sweep an hour later, write a second set
+    # of snapshot rows on top of the ones above, and still not re-send these
+    # alerts (the spike diff is against the rows just written, so it is gone).
+    try:
+        await _check_and_send_alerts(catalyst_out, old_catalyst, currency_map)
+    except Exception:
+        logger.exception("Catalyst alert dispatch failed — scores were written, continuing")
