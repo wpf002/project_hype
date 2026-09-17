@@ -2,7 +2,7 @@
 
 **Live speculative foreign currency intelligence dashboard** — real-time hype scoring, NLP catalyst analysis, commodity signal integration, ROI modeling, and catalyst spike alerts for 40 exotic and undervalued currencies.
 
-**Live:** https://project-hype.up.railway.app  
+**Live:** https://projecthype.io  
 **API:** https://backend-production-6057.up.railway.app  
 **API Docs:** https://backend-production-6057.up.railway.app/docs
 
@@ -182,7 +182,7 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | Service | Railway root directory | URL |
 | --- | --- | --- |
 | **backend** | `backend/` | <https://backend-production-6057.up.railway.app> |
-| **frontend** | `frontend/` | <https://project-hype.up.railway.app> |
+| **frontend** | `frontend/` | <https://projecthype.io> (also <https://project-hype.up.railway.app>) |
 
 ### Required environment variables
 
@@ -200,8 +200,8 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | `NEWSAPI_KEY` | NewsAPI.org key — Tier 2 news headlines |
 | `SENDGRID_API_KEY` | SendGrid API key for catalyst spike alert emails |
 | `ALERT_FROM_EMAIL` | Verified sender address for alert emails (e.g. `alerts@yourdomain.com`) |
-| `APP_URL` | `https://project-hype.up.railway.app` |
-| `ALLOWED_ORIGINS` | `https://project-hype.up.railway.app` |
+| `APP_URL` | `https://projecthype.io` |
+| `ALLOWED_ORIGINS` | `https://project-hype.up.railway.app,https://projecthype.io` |
 
 #### Frontend service (build-time variable — triggers a full image rebuild)
 

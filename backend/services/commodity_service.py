@@ -100,7 +100,7 @@ _BROWSER_HEADERS = {
 }
 
 _SCRIPT_HEADERS = {
-    "User-Agent": "project-hype/1.3 (+https://project-hype.up.railway.app)",
+    "User-Agent": "project-hype/1.3 (+https://projecthype.io)",
     "Accept": "text/csv",
 }
 
