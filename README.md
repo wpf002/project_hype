@@ -26,7 +26,7 @@
 - **Bidirectional Converter** — Google-style ⇄ converter: type USD to see how many units you get, or type units to see USD cost. Auto-resets when you switch currencies.
 - **Live Rates** — Open Exchange Rates (primary) + ExchangeRate-API (fallback) for ~30 currencies, analyst fallback rates for sanctioned/exotic currencies (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS) with a clear LIVE / EST badge.
 - **Portfolio Tracker** — track positions across multiple currencies, share a portfolio via short URL.
-- **Catalyst Alerts** — email notification when any tracked currency's Catalyst Score jumps 15+ points between scoring cycles. Free, no spam, unsubscribe anytime.
+- **Catalyst Alerts** — email notification when any tracked currency's Catalyst Score jumps 15+ points between scoring cycles. Double opt-in: signing up sends a confirmation link, and nothing is sent until it's clicked. Every alert carries a tokenized unsubscribe link and RFC 8058 one-click `List-Unsubscribe` headers.
 - **Rate History** — 7-day sparkline per currency (snapshots every 15 min, stored in PostgreSQL).
 - **Hype Map** — treemap-style visual of all 40 currencies by hype intensity.
 
@@ -232,6 +232,10 @@ To redeploy without a code change: Railway dashboard → service → **Redeploy*
 | `GET` | `/api/rates` | All 40 currencies — rate, hype score, catalyst score, 24h change |
 | `GET` | `/api/rate/{code}` | Single currency + news query metadata |
 | `GET` | `/api/status` | Service health — version, db status, uptime, score freshness, commodity feed health |
+| `POST` | `/api/alerts/subscribe` | Sends a confirmation email. Body: `{ email, codes }` |
+| `POST` | `/api/alerts/confirm` | Activates a subscription. Body: `{ token }` from the email |
+| `POST` | `/api/alerts/unsubscribe` | Body: `{ token }` from an alert email |
+| `POST` | `/api/alerts/unsubscribe/one-click` | RFC 8058 target for mail clients. Query: `token` |
 | `POST` | `/api/analytics/event` | Record a frontend event. Public, but the body is sanitised and hard-capped |
 | `GET` | `/api/analytics/summary` | Visitor/event metrics. Requires the `X-Analytics-Token` header |
 | `POST` | `/api/roi` | ROI calculation. Body: `{ code, amount, target_rate }` |
@@ -240,8 +244,6 @@ To redeploy without a code change: Railway dashboard → service → **Redeploy*
 | `GET` | `/api/hype/{code}` | Hype score history for a currency |
 | `POST` | `/api/portfolio/share` | Create a shareable portfolio URL |
 | `GET` | `/api/portfolio/{id}` | Retrieve a shared portfolio |
-| `POST` | `/api/alerts/subscribe` | Subscribe to catalyst spike alerts |
-| `DELETE` | `/api/alerts/unsubscribe` | Unsubscribe from alerts |
 
 Full interactive docs: `/docs` (Swagger UI) and `/redoc`.
 

@@ -13,7 +13,7 @@ import os
 import secrets
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import asyncpg
 
@@ -121,6 +121,37 @@ async def init_db() -> None:
             ALTER TABLE subscribers
             ADD COLUMN IF NOT EXISTS consent_at TEXT NOT NULL DEFAULT ''
         """)
+        # Double opt-in. Only rows with confirmed_at set receive alerts; rows
+        # created before confirmation existed stay silent until re-confirmed.
+        # unsub_token is a random bearer credential embedded in each alert
+        # email, so unsubscribing requires proof of receiving the email.
+        await conn.execute("""
+            ALTER TABLE subscribers
+            ADD COLUMN IF NOT EXISTS confirmed_at TEXT NOT NULL DEFAULT ''
+        """)
+        await conn.execute("""
+            ALTER TABLE subscribers
+            ADD COLUMN IF NOT EXISTS unsub_token TEXT NOT NULL DEFAULT ''
+        """)
+        await conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_unsub_token "
+            "ON subscribers (unsub_token) WHERE unsub_token <> ''"
+        )
+        # Pending confirmations. Only a SHA-256 of the emailed token is stored,
+        # so a database read alone cannot confirm anyone.
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS alert_confirmations (
+                token_hash TEXT        PRIMARY KEY,
+                email      TEXT        NOT NULL,
+                codes      TEXT[]      NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                expires_at TIMESTAMPTZ NOT NULL
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_alert_confirmations_email "
+            "ON alert_confirmations (email, created_at DESC)"
+        )
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS signals (
                 id           BIGSERIAL PRIMARY KEY,
@@ -614,39 +645,93 @@ async def get_shared_portfolio(share_id: str) -> Optional[list]:
 
 # ── Subscribers ───────────────────────────────────────────────────────────
 
-async def upsert_subscriber(email: str, codes: List[str]) -> None:
-    """Create or update a subscriber's code list."""
+CONFIRMATION_TTL_HOURS = 24
+
+
+async def create_alert_confirmation(email: str, codes: List[str], token_hash: str) -> None:
+    """Store a pending signup keyed by the hash of the emailed token."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        # Expired rows are only ever useless; clear them opportunistically.
+        await conn.execute("DELETE FROM alert_confirmations WHERE expires_at < now()")
+        await conn.execute(
+            """INSERT INTO alert_confirmations (token_hash, email, codes, expires_at)
+               VALUES ($1, $2, $3, now() + make_interval(hours => $4))""",
+            token_hash, email, codes, CONFIRMATION_TTL_HOURS,
+        )
+
+
+async def recent_confirmation_exists(email: str, within_minutes: int = 10) -> bool:
+    """True if a confirmation email went to this address recently (resend cooldown)."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchval(
+            """SELECT 1 FROM alert_confirmations
+               WHERE email = $1 AND created_at > now() - make_interval(mins => $2)
+               LIMIT 1""",
+            email, within_minutes,
+        )
+    return row is not None
+
+
+async def consume_alert_confirmation(token_hash: str) -> Optional[Tuple[str, List[str]]]:
+    """
+    Atomically redeem a confirmation token. Single use: the row is deleted in
+    the same statement that reads it. Returns (email, codes) or None.
+    """
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """DELETE FROM alert_confirmations
+               WHERE token_hash = $1 AND expires_at > now()
+               RETURNING email, codes""",
+            token_hash,
+        )
+    return (row["email"], list(row["codes"])) if row else None
+
+
+async def confirm_subscriber(email: str, codes: List[str], unsub_token: str) -> None:
+    """Create or update a confirmed subscriber. Keeps an existing unsub_token."""
     now = datetime.now(timezone.utc).isoformat()
     pool = get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            """INSERT INTO subscribers (email, codes, created_at, consent_at)
-               VALUES ($1, $2, $3, $3)
+            """INSERT INTO subscribers (email, codes, created_at, consent_at, confirmed_at, unsub_token)
+               VALUES ($1, $2, $3, $3, $3, $4)
                ON CONFLICT (email) DO UPDATE
-                 SET codes = EXCLUDED.codes,
-                     consent_at = EXCLUDED.consent_at""",
-            email, codes, now,
+                 SET codes        = EXCLUDED.codes,
+                     consent_at   = EXCLUDED.consent_at,
+                     confirmed_at = EXCLUDED.confirmed_at,
+                     unsub_token  = CASE WHEN subscribers.unsub_token = ''
+                                         THEN EXCLUDED.unsub_token
+                                         ELSE subscribers.unsub_token END""",
+            email, codes, now, unsub_token,
         )
 
 
-async def delete_subscriber(email: str) -> None:
-    """Remove a subscriber by email."""
+async def delete_subscriber_by_token(unsub_token: str) -> bool:
+    """Remove the subscriber holding this unsubscribe token. True if one was removed."""
+    if not unsub_token:
+        return False
     pool = get_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            "DELETE FROM subscribers WHERE email = $1", email
+        row = await conn.fetchval(
+            "DELETE FROM subscribers WHERE unsub_token = $1 RETURNING 1", unsub_token
         )
+    return row is not None
 
 
-async def get_subscribers_for_code(code: str) -> List[str]:
-    """Return all subscriber emails tracking `code`."""
+async def get_subscribers_for_code(code: str) -> List[Tuple[str, str]]:
+    """Return (email, unsub_token) for every CONFIRMED subscriber tracking `code`."""
     try:
         pool = get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT email FROM subscribers WHERE $1 = ANY(codes)", code.upper()
+                """SELECT email, unsub_token FROM subscribers
+                   WHERE $1 = ANY(codes) AND confirmed_at <> '' AND unsub_token <> ''""",
+                code.upper(),
             )
-        return [r["email"] for r in rows]
+        return [(r["email"], r["unsub_token"]) for r in rows]
     except Exception:
         logger.exception("Failed to fetch subscribers for %s", code)
         return []

@@ -56,7 +56,7 @@ from db.db import (
     get_cached_sentiment,
     write_cached_sentiment,
 )
-from services.email_service import send_catalyst_alert
+from services.email_service import mask_email, send_catalyst_alert
 
 logger = logging.getLogger(__name__)
 
@@ -436,12 +436,13 @@ async def _check_and_send_alerts(
         # engine loop, which re-runs — and re-bills — the whole sweep an hour
         # later for work already written to the DB.
         sends = await asyncio.gather(*[
-            send_catalyst_alert(email, code, currency, old_score, new_score)
-            for email in subscribers
+            send_catalyst_alert(email, unsub_token, code, currency, old_score, new_score)
+            for email, unsub_token in subscribers
         ], return_exceptions=True)
-        for email, result in zip(subscribers, sends):
+        for (email, _), result in zip(subscribers, sends):
             if isinstance(result, BaseException):
-                logger.warning("Catalyst alert to %s for %s failed: %s", email, code, result)
+                logger.warning("Catalyst alert to %s for %s failed: %s",
+                               mask_email(email), code, result)
 
 
 async def calculate_all_hype_scores() -> None:

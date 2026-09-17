@@ -152,36 +152,12 @@ async def test_subscribe_rejects_oversized_email(client):
     assert r.status_code == 422
 
 
-async def test_unsubscribe_rejects_invalid_email(client):
-    """DELETE /alerts/unsubscribe should now validate email format (422, not 200)."""
-    r = await client.request(
-        "DELETE",
-        "/api/alerts/unsubscribe",
-        json={"email": "not-an-email"},
-    )
-    assert r.status_code == 422
-
-
-async def test_unsubscribe_rejects_oversized_email(client):
-    long_email = "a" * 250 + "@b.com"
-    r = await client.request(
-        "DELETE",
-        "/api/alerts/unsubscribe",
-        json={"email": long_email},
-    )
-    assert r.status_code == 422
-
-
-async def test_unsubscribe_valid_email_succeeds(client):
-    """A well-formed email should reach the DB (mocked) and return 200."""
-    with patch("routers.alerts.delete_subscriber", new_callable=AsyncMock):
-        r = await client.request(
-            "DELETE",
-            "/api/alerts/unsubscribe",
-            json={"email": "user@example.com"},
-        )
+async def test_unsubscribe_rejects_oversized_token(client):
+    from unittest.mock import AsyncMock, patch
+    with patch("routers.alerts.delete_subscriber_by_token", new_callable=AsyncMock) as d:
+        r = await client.post("/api/alerts/unsubscribe", json={"token": "a" * 5000})
     assert r.status_code == 200
-    assert r.json()["unsubscribed"] is True
+    d.assert_not_awaited()  # rejected before any DB work
 
 
 # ── SQL-metachar path params: 404, not 500 ───────────────────────────────────

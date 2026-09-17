@@ -106,7 +106,7 @@ function makeMockFetch(overrides = {}) {
     if (str.includes("/alerts/subscribe")) {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ subscribed: true }),
+        json: () => Promise.resolve({ pending_confirmation: true, codes: ["IQD"] }),
       });
     }
     if (str.includes("/portfolio/share")) {
@@ -392,7 +392,7 @@ describe("Alert modal", () => {
     fireEvent.click(screen.getByText(/Notify me when/i));
 
     await waitFor(() =>
-      expect(screen.getByText(/subscribed/i)).toBeInTheDocument(),
+      expect(screen.getByText(/check your email/i)).toBeInTheDocument(),
       { timeout: 3000 }
     );
   });

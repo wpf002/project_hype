@@ -499,6 +499,9 @@ export default function ProjectHype() {
   // ── Shared-view banner (loaded from ?portfolio= URL param) ────────────────
   const [isSharedView, setIsSharedView] = useState(false);
 
+  // ── Result of an emailed confirm/unsubscribe link (?confirm= / ?unsubscribe=) ──
+  const [alertNotice, setAlertNotice] = useState(null); // { ok: bool, text: string }
+
 
   // ── Responsive breakpoints ────────────────────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
@@ -576,6 +579,43 @@ export default function ProjectHype() {
     const id = setInterval(() => setSecondsSince(Math.floor((Date.now() - lastFetchedAt) / 1000)), 1000);
     return () => clearInterval(id);
   }, [lastFetchedAt]);
+
+  // ── Redeem emailed alert links ─────────────────────────────────────────────
+  // Links in emails open the app, which POSTs the token. The API has no
+  // state-changing GETs because mail scanners pre-fetch every link.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const confirmToken = params.get("confirm");
+    const unsubToken = params.get("unsubscribe");
+    if (!confirmToken && !unsubToken) return;
+
+    // Drop the token from the address bar and history straight away.
+    params.delete("confirm");
+    params.delete("unsubscribe");
+    const rest = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : ""));
+
+    const endpoint = confirmToken ? "confirm" : "unsubscribe";
+    fetch(`${API}/api/alerts/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: confirmToken || unsubToken }),
+    })
+      .then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (confirmToken) {
+          if (r.ok) {
+            setAlertNotice({ ok: true, text: `Alerts confirmed for ${(d.codes || []).join(", ")}. We'll email you when a Catalyst Score jumps 15+ points.` });
+            trackEvent("alert_confirmed", { currency_count: (d.codes || []).length });
+          } else {
+            setAlertNotice({ ok: false, text: d.detail || "This confirmation link is invalid or has expired. Sign up again to get a new one." });
+          }
+        } else {
+          setAlertNotice({ ok: r.ok, text: r.ok ? "You're unsubscribed. You won't get any more alert emails." : "Couldn't process the unsubscribe link. Please try again." });
+        }
+      })
+      .catch(() => setAlertNotice({ ok: false, text: "Network error. Please reload the page to try the link again." }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load shared portfolio from ?portfolio= URL param ──────────────────────
   useEffect(() => {
@@ -832,6 +872,27 @@ export default function ProjectHype() {
       `}</style>
 
       <DisclaimerBanner isMobile={isMobile} />
+
+      {alertNotice && (
+        <div role="status" style={{
+          background: alertNotice.ok ? "#06231c" : "#2a0d0d",
+          borderBottom: `1px solid ${alertNotice.ok ? "#00d4aa44" : "#ff4d4d44"}`,
+          padding: isMobile ? "10px 16px" : "11px 24px",
+        }}>
+          <div style={{
+            maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center",
+            justifyContent: "space-between", gap: 12,
+          }}>
+            <div style={{ fontSize: 13, color: alertNotice.ok ? "#7fe0c8" : "#ff9a9a", display: "flex", alignItems: "center", gap: 8 }}>
+              {alertNotice.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+              {alertNotice.text}
+            </div>
+            <button onClick={() => setAlertNotice(null)} aria-label="Dismiss" style={{
+              background: "transparent", border: "none", color: "#8080aa", cursor: "pointer", padding: 4, flexShrink: 0,
+            }}><X size={15} /></button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
@@ -2847,10 +2908,10 @@ export default function ProjectHype() {
               <div style={{ textAlign: "center", padding: "20px 0" }}>
                 <div style={{ marginBottom: 16 }}><CheckCircle2 size={40} color="#00d4aa" /></div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
-                  You're subscribed
+                  Check your email
                 </div>
                 <div style={{ fontSize: 13, color: "#8080aa", lineHeight: 1.6, marginBottom: 16 }}>
-                  We'll email you when any tracked currency's Catalyst Score jumps 15+ points.
+                  We sent a confirmation link. Alerts start once you click it. The link expires in 24 hours.
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 20 }}>
                   {[...alertCodes].map(code => {
@@ -2968,7 +3029,7 @@ export default function ProjectHype() {
                         setAlertError(d.detail || "Subscription failed — please try again.");
                       } else {
                         setAlertSubmitted(true);
-                        trackEvent("alert_subscribed", { currency_count: alertCodes.size });
+                        trackEvent("alert_confirmation_sent", { currency_count: alertCodes.size });
                       }
                     } catch {
                       setAlertError("Network error — please check your connection.");
@@ -2984,7 +3045,7 @@ export default function ProjectHype() {
                     opacity: alertLoading ? 0.7 : 1, marginBottom: 12,
                   }}
                 >
-                  {alertLoading ? "Subscribing…" : <><Bell size={16} style={{ verticalAlign: "middle" }} /> Notify me when Catalyst Score spikes</>}
+                  {alertLoading ? "Sending…" : <><Bell size={16} style={{ verticalAlign: "middle" }} /> Notify me when Catalyst Score spikes</>}
                 </button>
 
                 <button onClick={() => setAlertModal(false)} style={{
