@@ -501,6 +501,14 @@ export default function ProjectHype() {
 
   // ── Result of an emailed confirm/unsubscribe link (?confirm= / ?unsubscribe=) ──
   const [alertNotice, setAlertNotice] = useState(null); // { ok: bool, text: string }
+  // Alerts UI is shown only when the backend reports email sending is enabled.
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  useEffect(() => {
+    fetch(`${API}/api/status`)
+      .then(r => (r.ok ? r.json() : {}))
+      .then(d => setAlertsEnabled(d.alerts_enabled === true))
+      .catch(() => {});
+  }, []);
 
 
   // ── Responsive breakpoints ────────────────────────────────────────────────
@@ -933,7 +941,7 @@ export default function ProjectHype() {
               </div>
             )}
             {/* Alert bell */}
-            <button
+            {alertsEnabled && <button
               onClick={() => {
                 setAlertCodes(new Set([selected.code]));
                 setAlertSubmitted(false);
@@ -949,7 +957,7 @@ export default function ProjectHype() {
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#00b4ff"; e.currentTarget.style.color = "#00b4ff"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e3f"; e.currentTarget.style.color = "#8080aa"; }}
-            ><Bell size={18} /></button>
+            ><Bell size={18} /></button>}
           </div>
         </div>
         {/* Gradient accent line */}

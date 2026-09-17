@@ -16,6 +16,7 @@ import sys
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/testdb")
 os.environ["FX_API_KEY"] = ""
 os.environ["SENDGRID_API_KEY"] = ""
+os.environ["ALERTS_ENABLED"] = "true"
 os.environ["NEWSAPI_KEY"] = ""
 os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
 # Rate limits would otherwise tip several test files into 429 territory.

@@ -56,6 +56,7 @@ from db.db import (
     get_cached_sentiment,
     write_cached_sentiment,
 )
+from services import email_service
 from services.email_service import mask_email, send_catalyst_alert
 
 logger = logging.getLogger(__name__)
@@ -425,6 +426,8 @@ async def _check_and_send_alerts(
             "Catalyst spike: %s %.1f → %.1f (+%.1f)",
             code, old_score, new_score, new_score - old_score,
         )
+        if not email_service.ALERTS_ENABLED:
+            continue
         subscribers = await get_subscribers_for_code(code)
         if not subscribers:
             continue

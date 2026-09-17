@@ -9,6 +9,7 @@ from data.currencies import CURRENCIES, CURRENCY_MAP
 from rate_limit import limiter
 from services.fx_service import get_all_rates, get_rate
 from services.commodity_service import get_commodity_health
+from services import email_service
 from db.db import (
     get_all_changes_24h, get_change_24h,
     get_latest_hype_scores, get_latest_catalyst_scores,
@@ -144,6 +145,8 @@ async def get_status():
         # 50 on the commodity axis and the catalyst score silently falls back to
         # its 2-factor form. Surfaced here so the outage is observable.
         "commodity_feed": get_commodity_health(),
+        # Frontend hides alert entry points when false.
+        "alerts_enabled": email_service.ALERTS_ENABLED,
         "uptime_seconds": int(time.time() - START_TIME),
     }
 

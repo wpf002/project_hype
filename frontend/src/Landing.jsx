@@ -173,6 +173,15 @@ function FadeIn({ children, delay = 0 }) {
 
 // ── Main Landing component ──────────────────────────────────────────────────
 export default function Landing() {
+  // Alerts section is advertised only when the backend has email sending on.
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  useEffect(() => {
+    fetch(`${API}/api/status`)
+      .then(r => (r.ok ? r.json() : {}))
+      .then(d => setAlertsEnabled(d.alerts_enabled === true))
+      .catch(() => {});
+  }, []);
+
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
@@ -404,6 +413,7 @@ export default function Landing() {
       </section>
 
       {/* ── ALERTS SECTION ── */}
+      {alertsEnabled && (
       <section style={{ padding: isMobile ? "60px 20px" : "80px 48px", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 48, alignItems: isMobile ? "stretch" : "flex-start" }}>
           <FadeIn>
@@ -471,6 +481,7 @@ export default function Landing() {
           </FadeIn>
         </div>
       </section>
+      )}
 
       {/* ── CTA BANNER ── */}
       <FadeIn>
@@ -501,7 +512,7 @@ export default function Landing() {
               </h2>
               <p style={{ fontSize: 16, color: "#8080aa", margin: 0, lineHeight: 1.75, maxWidth: 520 }}>
                 Free. No account. No paywall. 40 currencies, live rates, NLP sentiment,
-                ROI modeling, portfolio tracking, and catalyst alerts — in one dashboard.
+                ROI modeling{alertsEnabled ? ", portfolio tracking, and catalyst alerts" : ", and portfolio tracking"} — in one dashboard.
               </p>
             </div>
             {/* Right: tagline */}

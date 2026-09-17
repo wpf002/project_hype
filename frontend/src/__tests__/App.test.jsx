@@ -79,6 +79,9 @@ function makeMockFetch(overrides = {}) {
   return vi.fn((url) => {
     const str = url.toString();
 
+    if (str.includes("/status")) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ alerts_enabled: true }) });
+    }
     if (str.includes("/rates")) {
       return Promise.resolve({
         ok: true,
@@ -200,15 +203,17 @@ describe("Error state", () => {
   it("retries fetch when Retry button is clicked", async () => {
     // Five failures (initial + 4 retries) exhaust the backoff, then success.
     vi.useFakeTimers();
-    const failThenSucceed = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockImplementation(makeMockFetch());
-    global.fetch = failThenSucceed;
+    // Fail only the rates request; other startup requests (e.g. /status) must
+    // not consume the failure budget.
+    const ok = makeMockFetch();
+    let rateFailures = 0;
+    global.fetch = vi.fn((url) => {
+      if (url.toString().includes("/rates") && rateFailures < 5) {
+        rateFailures += 1;
+        return Promise.reject(new Error("Network error"));
+      }
+      return ok(url);
+    });
 
     render(<App />);
 
@@ -348,6 +353,18 @@ describe("ROI Calculator", () => {
 // ── Alert modal ─────────────────────────────────────────────────────────────
 
 describe("Alert modal", () => {
+  it("hides the bell when the backend reports alerts disabled", async () => {
+    const base = makeMockFetch();
+    global.fetch = vi.fn((url) =>
+      url.toString().includes("/status")
+        ? Promise.resolve({ ok: true, json: () => Promise.resolve({ alerts_enabled: false }) })
+        : base(url)
+    );
+    render(<App />);
+    await waitFor(() => expect(screen.getAllByText("IQD").length).toBeGreaterThan(0), { timeout: 3000 });
+    expect(screen.queryByRole("button", { name: /alerts/i })).not.toBeInTheDocument();
+  });
+
   it("opens when the bell button is clicked", async () => {
     await renderWithData();
     const bell = screen.getByRole("button", { name: /alerts/i });

@@ -29,6 +29,7 @@ from db.db import (
     recent_confirmation_exists,
 )
 from rate_limit import limiter
+from services import email_service
 from services.email_service import send_confirmation_email
 
 router = APIRouter()
@@ -52,6 +53,11 @@ def _clean_token(raw: str) -> str:
     return token if _TOKEN_RE.match(token) else ""
 
 
+def _require_enabled() -> None:
+    if not email_service.ALERTS_ENABLED:
+        raise HTTPException(status_code=503, detail="Email alerts are temporarily unavailable.")
+
+
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -68,6 +74,7 @@ class TokenRequest(BaseModel):
 @router.post("/alerts/subscribe")
 @limiter.limit("5/minute")
 async def subscribe(request: Request, body: SubscribeRequest):
+    _require_enabled()
     email = _normalise_email(body.email)
 
     codes = sorted({c.upper() for c in body.codes if c.upper() in CURRENCY_MAP})
@@ -92,6 +99,7 @@ async def subscribe(request: Request, body: SubscribeRequest):
 @router.post("/alerts/confirm")
 @limiter.limit("10/minute")
 async def confirm(request: Request, body: TokenRequest):
+    _require_enabled()
     token = _clean_token(body.token)
     redeemed = await consume_alert_confirmation(_hash(token)) if token else None
     if not redeemed:

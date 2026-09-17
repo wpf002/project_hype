@@ -153,3 +153,20 @@ async def test_no_state_changing_get_endpoints(client):
     for path in ("/api/alerts/confirm", "/api/alerts/unsubscribe", "/api/alerts/unsubscribe/one-click"):
         r = await client.get(f"{path}?token={TOKEN}")
         assert r.status_code == 405, path
+
+
+# ── feature switch ───────────────────────────────────────────────────────────
+
+async def test_disabled_alerts_refuse_signup_and_confirm_but_allow_unsubscribe(client, monkeypatch):
+    from services import email_service
+    monkeypatch.setattr(email_service, "ALERTS_ENABLED", False)
+    with patch("routers.alerts.send_confirmation_email", new_callable=AsyncMock) as send, \
+         patch("routers.alerts.delete_subscriber_by_token", new_callable=AsyncMock) as d:
+        r1 = await client.post("/api/alerts/subscribe", json={"email": VALID_EMAIL, "codes": VALID_CODES})
+        r2 = await client.post("/api/alerts/confirm", json={"token": TOKEN})
+        r3 = await client.post("/api/alerts/unsubscribe", json={"token": TOKEN})
+    assert r1.status_code == 503
+    assert r2.status_code == 503
+    assert r3.status_code == 200  # leaving must always work
+    send.assert_not_awaited()
+    d.assert_awaited_once()

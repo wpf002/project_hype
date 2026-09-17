@@ -26,6 +26,10 @@ import httpx
 logger = logging.getLogger(__name__)
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
+# Master switch for the alerts feature. Off by default: signups, confirmations
+# and alert sends are refused/skipped, and the UI hides alert entry points
+# (read via GET /api/status). Unsubscribe always works regardless.
+ALERTS_ENABLED = os.getenv("ALERTS_ENABLED", "false").strip().lower() == "true"
 FROM_EMAIL = os.getenv("ALERT_FROM_EMAIL", "alerts@projecthype.io")
 FROM_NAME = "Project Hype"
 APP_URL = os.getenv("APP_URL", "https://projecthype.io").rstrip("/")
