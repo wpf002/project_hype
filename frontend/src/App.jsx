@@ -983,8 +983,19 @@ export default function ProjectHype() {
             ...(isMobile ? {} : { overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexWrap: "nowrap" }),
           }}>
             {["calculator", "markets", "heatmap", "signals", "portfolio", "about"].map(tab => {
-              const labelDesktop = tab === "calculator" ? <><Zap size={12} /> ROI Calculator</> : tab === "markets" ? <><BarChart2 size={12} /> Markets</> : tab === "heatmap" ? <><Flame size={12} /> Hype Map</> : tab === "signals" ? <><Target size={12} /> Signal Strength</> : tab === "about" ? <><Info size={12} /> About</> : <><Briefcase size={12} /> Portfolio{portfolio.length > 0 ? ` (${portfolio.length})` : ""}</>;
-              const labelMobile = tab === "calculator" ? <><Zap size={11} /> ROI</> : tab === "markets" ? <><BarChart2 size={11} /> Markets</> : tab === "heatmap" ? <><Flame size={11} /> Hype</> : tab === "signals" ? <><Target size={11} /> Signals</> : tab === "about" ? <><Info size={11} /> About</> : <><Briefcase size={11} /> Portfolio{portfolio.length > 0 ? ` (${portfolio.length})` : ""}</>;
+              // Icon + text as flex children of the button. Previously the SVG sat
+              // next to a text node and baseline-aligned, so it rode high or low
+              // against the label instead of centring on it.
+              const size = isMobile ? 11 : 12;
+              const ICONS = {
+                calculator: <Zap size={size} />, markets: <BarChart2 size={size} />,
+                heatmap: <Flame size={size} />, signals: <Target size={size} />,
+                portfolio: <Briefcase size={size} />, about: <Info size={size} />,
+              };
+              const TEXT = isMobile
+                ? { calculator: "ROI", markets: "Markets", heatmap: "Hype", signals: "Signals", portfolio: "Portfolio", about: "About" }
+                : { calculator: "ROI Calculator", markets: "Markets", heatmap: "Hype Map", signals: "Signal Strength", portfolio: "Portfolio", about: "About" };
+              const count = tab === "portfolio" && portfolio.length > 0 ? ` (${portfolio.length})` : "";
               return (
                 <button key={tab} onClick={() => { setActiveTab(tab); trackEvent("tab_changed", { tab }); }} style={{
                   padding: isMobile ? "8px 4px" : "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
@@ -994,8 +1005,11 @@ export default function ProjectHype() {
                   fontSize: isMobile ? 11 : 13, textTransform: "capitalize", fontWeight: 600,
                   transition: "all 0.2s", boxShadow: activeTab === tab ? "0 0 20px #252560" : "none",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  gap: 6, lineHeight: 1,
                 }}>
-                  {isMobile ? labelMobile : labelDesktop}
+                  {ICONS[tab]}
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{TEXT[tab]}{count}</span>
                 </button>
               );
             })}
