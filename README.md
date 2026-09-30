@@ -44,7 +44,7 @@
 | Rates | Open Exchange Rates (primary) + ExchangeRate-API v6 (fallback) |
 | News & NLP | NewsAPI + VADER sentiment analysis |
 | Commodity Data | 3-tier provider chain: Yahoo Finance → Alpha Vantage → FRED (keyless floor) |
-| Email | SendGrid |
+| Email | Resend |
 | Analytics | Self-hosted — FastAPI + PostgreSQL (no third-party scripts) |
 
 ---
@@ -75,7 +75,7 @@
           │ PostgreSQL   │    │ External APIs    │
           │ rate_snapshots│   │ ExchangeRate-API │
           │ hype_snapshots│   │ NewsAPI / GDELT  │
-          │ catalyst_snap │   │ SendGrid         │
+          │ catalyst_snap │   │ Resend           │
           │ subscribers  │    └─────────────────┘
           │ shared_portf │
           └─────────────┘
@@ -148,8 +148,9 @@ VITE_API_URL=http://localhost:8000 npm run dev
 | `ANALYTICS_SALT` | **In prod** | Random string salting the daily visitor hash. This repo is public, so a hardcoded default would let anyone reverse visitor hashes by enumerating IPs. Unset in production, the app falls back to a random per-process salt and logs an error — visitor counts then reset on every restart. |
 | `ANALYTICS_TOKEN` | **In prod** | Shared secret guarding `GET /api/analytics/summary`, which exposes traffic metrics and runs full-table scans. Unset in production, that endpoint returns 404. Send it as the `X-Analytics-Token` header. |
 | `NEWSAPI_KEY` | No | [NewsAPI.org](https://newsapi.org/) key. Without it, analyst-written mock headlines are served and Catalyst Score is 100% rate momentum. |
-| `SENDGRID_API_KEY` | No | SendGrid key for catalyst spike alert emails. |
-| `SENDGRID_FROM_EMAIL` | No | Sender address for alerts (e.g. `alerts@yourdomain.com`). |
+| `RESEND_API_KEY` | No | [Resend](https://resend.com) key for alert emails. Without it, emails are logged instead of sent. |
+| `ALERTS_ENABLED` | No | `true` turns the alerts feature on. Default off: signups are refused and the UI hides all alert entry points. |
+| `ALERT_FROM_EMAIL` | No | Sender address for alerts, on a domain verified in Resend (e.g. `alerts@yourdomain.com`). |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins. Defaults to `http://localhost:5173,http://localhost:3000`. In production, set to your frontend Railway URL. |
 
 ### Frontend (build-time)
@@ -198,7 +199,8 @@ Two Railway services, one monorepo (`wpf002/project_hype`):
 | `ANALYTICS_SALT` | Random string salting the daily visitor hash — required in production |
 | `ANALYTICS_TOKEN` | Shared secret for `GET /api/analytics/summary` — required in production |
 | `NEWSAPI_KEY` | NewsAPI.org key — Tier 2 news headlines |
-| `SENDGRID_API_KEY` | SendGrid API key for catalyst spike alert emails |
+| `RESEND_API_KEY` | Resend API key for alert emails |
+| `ALERTS_ENABLED` | `true` to enable the alerts feature |
 | `ALERT_FROM_EMAIL` | Verified sender address for alert emails (e.g. `alerts@yourdomain.com`) |
 | `APP_URL` | `https://projecthype.io` |
 | `ALLOWED_ORIGINS` | `https://project-hype.up.railway.app,https://projecthype.io` |
@@ -262,7 +264,7 @@ Full interactive docs: `/docs` (Swagger UI) and `/redoc`.
 | [FRED](https://fred.stlouisfed.org/) (St. Louis Fed) | Commodity tier 3 — **no API key, no quota**, covers all five commodities. Daily for WTI, monthly for the IMF global-price series. The guaranteed floor |
 | [Anthropic Claude](https://www.anthropic.com/) | Geopolitical narrative sentiment scoring |
 | Analyst fallback rates | Fixed rates for sanctioned/exotic currencies with no reliable market feed |
-| [SendGrid](https://sendgrid.com/) | Transactional email for catalyst spike alerts |
+| [Resend](https://resend.com/) | Transactional email for catalyst spike alerts |
 
 ---
 
@@ -294,7 +296,7 @@ project_hype/
 │       ├── fx_service.py        ExchangeRate-API + 15min cache
 │       ├── hype_service.py      Hype + Catalyst scoring engine
 │       ├── news_service.py      NewsAPI + VADER + mock fallback
-│       └── email_service.py     SendGrid alert dispatch
+│       └── email_service.py     Resend alert dispatch
 └── frontend/
     ├── Dockerfile
     ├── railway.toml

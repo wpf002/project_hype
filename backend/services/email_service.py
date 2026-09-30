@@ -1,9 +1,14 @@
 """
-Email alert service using SendGrid API via httpx.
+Email alert service using the Resend API via httpx.
 
-If SENDGRID_API_KEY is not set, emails are logged instead of sent (dev mode).
-FROM_EMAIL defaults to alerts@projecthype.io, which requires the projecthype.io
-domain to be authenticated in SendGrid (SPF/DKIM CNAMEs in Cloudflare DNS).
+If RESEND_API_KEY is not set, emails are logged instead of sent (dev mode).
+FROM_EMAIL defaults to alerts@projecthype.io, which requires projecthype.io to
+be a verified domain in Resend (SPF/DKIM records in Cloudflare DNS).
+
+Resend replaced SendGrid on 2026-09-30: the SendGrid account sat on the free
+type with a hard daily limit of 0 credits, so every send returned 401
+"Maximum credits exceeded", and the upgrade request stayed under manual review
+for 13 days.
 
 Two message types:
   confirmation  sent on signup; the subscription only takes effect after the
@@ -25,7 +30,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 # Master switch for the alerts feature. Off by default: signups, confirmations
 # and alert sends are refused/skipped, and the UI hides alert entry points
 # (read via GET /api/status). Unsubscribe always works regardless.
@@ -41,7 +46,7 @@ API_PUBLIC_URL = (
     or "http://localhost:8000"
 ).rstrip("/")
 
-SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
+RESEND_URL = "https://api.resend.com/emails"
 
 
 def _build_html(code: str, currency: dict, old_score: float, new_score: float, unsubscribe_url: str) -> str:
@@ -166,20 +171,17 @@ def one_click_unsubscribe_url(unsub_token: str) -> str:
 
 
 def _base_payload(email: str, subject: str, html: str, text: str) -> dict:
+    """
+    Resend's send shape. Unlike SendGrid there is no tracking_settings block:
+    Resend does not rewrite links by default, so the confirm/unsubscribe tokens
+    travel intact without opting out of click tracking.
+    """
     return {
-        "personalizations": [{"to": [{"email": email}]}],
-        "from": {"email": FROM_EMAIL, "name": FROM_NAME},
+        "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+        "to": [email],
         "subject": subject,
-        # text/plain must precede text/html (SendGrid requirement)
-        "content": [
-            {"type": "text/plain", "value": text},
-            {"type": "text/html", "value": html},
-        ],
-        # Click tracking would rewrite the token links through sendgrid.net.
-        "tracking_settings": {
-            "click_tracking": {"enable": False, "enable_text": False},
-            "open_tracking": {"enable": False},
-        },
+        "html": html,
+        "text": text,
     }
 
 
@@ -232,25 +234,25 @@ def build_catalyst_payload(
 
 
 async def _send(payload: dict, masked: str, kind: str) -> bool:
-    """POST a payload to SendGrid. Returns True on acceptance (or in dev mode)."""
-    if not SENDGRID_API_KEY:
-        logger.info("[DEV] %s email (no SENDGRID_API_KEY): to=%s subject=%s",
+    """POST a payload to Resend. Returns True on acceptance (or in dev mode)."""
+    if not RESEND_API_KEY:
+        logger.info("[DEV] %s email (no RESEND_API_KEY): to=%s subject=%s",
                     kind, masked, payload["subject"])
         return True
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
-                SENDGRID_URL,
+                RESEND_URL,
                 json=payload,
                 headers={
-                    "Authorization": f"Bearer {SENDGRID_API_KEY}",
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
                     "Content-Type": "application/json",
                 },
             )
-        if resp.status_code in (200, 202):
+        if resp.status_code in (200, 201, 202):
             return True
         # Log status code only — never log resp.text (may echo back PII)
-        logger.warning("SendGrid returned %s for %s email to %s", resp.status_code, kind, masked)
+        logger.warning("Resend returned %s for %s email to %s", resp.status_code, kind, masked)
         return False
     except Exception:
         logger.exception("Failed to send %s email to %s", kind, masked)
@@ -269,6 +271,6 @@ async def send_catalyst_alert(
     old_score: float,
     new_score: float,
 ) -> bool:
-    """Send a Catalyst Score spike alert. Falls back to logging without SENDGRID_API_KEY."""
+    """Send a Catalyst Score spike alert. Falls back to logging without RESEND_API_KEY."""
     payload = build_catalyst_payload(email, unsub_token, code, currency, old_score, new_score)
     return await _send(payload, mask_email(email), "catalyst")
