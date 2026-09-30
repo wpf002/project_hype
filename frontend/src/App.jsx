@@ -924,7 +924,7 @@ export default function ProjectHype() {
                 <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#fff" }}>
                   PROJECT <span style={{ color: "#ff4d4d" }}>HYPE</span>
                 </div>
-                {!isMobile && <span style={{ fontSize: 10, color: "#5c5c8a", fontFamily: "'Space Mono',monospace" }}>v1.2.0</span>}
+                {!isMobile && <span style={{ fontSize: 10, color: "#5c5c8a", fontFamily: "'Space Mono',monospace" }}>v1.4.0</span>}
               </div>
               {!isMobile && <div style={{ fontSize: 10, color: "#8080aa", letterSpacing: 3, textTransform: "uppercase" }}>Speculative Currency Intelligence</div>}
             </div>

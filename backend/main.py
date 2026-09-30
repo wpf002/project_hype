@@ -51,11 +51,18 @@ async def _rate_snapshot_loop() -> None:
     row and skew 24h-change and volatility calculations.
     """
     while True:
-        await asyncio.sleep(3600)  # 1 hour
         try:
-            await get_all_rates()  # cache is stale → fetches + writes snapshots
+            # Snapshot FIRST, then sleep. Sleeping first meant every restart
+            # reset the hour, so on a service that restarts more often than
+            # hourly no snapshot was ever written by this loop: production went
+            # 2026-09-26 to 2026-09-30 with none. Two snapshots inside 24h are
+            # required for a 24h change, so the 24H column and Top Movers were
+            # empty for every currency. get_all_rates() is a no-op against a
+            # warm cache, so an early restart costs no OXR quota.
+            await get_all_rates()  # stale cache → fetches + writes snapshots
         except Exception:
             logger.exception("Rate snapshot loop iteration failed")
+        await asyncio.sleep(3600)  # 1 hour, matching the OXR cache TTL
 
 
 async def _analytics_prune_loop() -> None:
@@ -91,7 +98,7 @@ IS_PRODUCTION = APP_ENV == "production"
 app = FastAPI(
     title="Project Hype API",
     description="Speculative foreign currency intelligence — rates, ROI modeling, and geopolitical news.",
-    version="1.3.0",
+    version="1.4.0",
     lifespan=lifespan,
     docs_url=None if IS_PRODUCTION else "/docs",
     redoc_url=None if IS_PRODUCTION else "/redoc",
@@ -167,7 +174,7 @@ app.include_router(analytics.router, prefix="/api")
 async def root():
     return {
         "service": "Project Hype API",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "docs": "/docs",
         "endpoints": [
             "GET  /api/rates",

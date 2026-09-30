@@ -548,7 +548,7 @@ export default function Landing() {
                 </span>
               </div>
               <div style={{ fontSize: 11, color: "#5c5c8a", lineHeight: 1.5 }}>
-                Speculative Currency Intelligence<br />v1.2.0
+                Speculative Currency Intelligence<br />v1.4.0
               </div>
             </div>
 

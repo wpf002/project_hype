@@ -136,7 +136,7 @@ async def get_status():
         db_status = "error"
 
     return {
-        "version": "1.3.0",
+        "version": "1.4.0",
         "currencies_tracked": len(CURRENCIES),
         "last_hype_run": last_hype_run,
         "last_rate_fetch": last_rate_fetch,
