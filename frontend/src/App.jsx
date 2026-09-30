@@ -576,7 +576,9 @@ export default function ProjectHype() {
   };
   useEffect(() => {
     fetchRates(true); // initial load — show loading screen
-    const refreshId = setInterval(() => fetchRates(false), 60_000); // background refresh — silent
+    // 5 minutes. The upstream FX feed updates hourly and the backend caches for
+    // an hour, so polling every 60s returned identical data 59 times out of 60.
+    const refreshId = setInterval(() => fetchRates(false), 300_000);
     return () => clearInterval(refreshId);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -702,16 +704,26 @@ export default function ProjectHype() {
     }
   }
 
-  // ── Fetch news whenever the selected currency changes ─────────────────────
+  // ── Fetch news whenever the selected CURRENCY CODE changes ────────────────
+  // Keyed on the code, not the object: the 60s rate refresh replaces every
+  // currency object, so depending on `selected` re-ran this on every refresh,
+  // blanked the list and flashed the loading skeleton for news that hadn't
+  // changed. The skeleton now only appears when there is nothing to show yet.
+  const selectedCode = selected?.code;
   useEffect(() => {
-    if (!selected) return;
-    setHeadlines([]);
+    if (!selectedCode) return;
+    let cancelled = false;
     setLoadingNews(true);
-    fetch(`${API}/api/news/${selected.code}`)
+    fetch(`${API}/api/news/${selectedCode}`)
       .then(r => { if (!r.ok) throw new Error(`news ${r.status}`); return r.json(); })
-      .then(data => { setHeadlines(Array.isArray(data) ? data : []); setLoadingNews(false); })
-      .catch(() => setLoadingNews(false));
-  }, [selected]);
+      .then(data => {
+        if (cancelled) return;
+        setHeadlines(Array.isArray(data) ? data : []);
+        setLoadingNews(false);
+      })
+      .catch(() => { if (!cancelled) setLoadingNews(false); });
+    return () => { cancelled = true; };
+  }, [selectedCode]);
 
   // ── Fetch rate history whenever selected currency or time window changes ────
   // Snapshots are written hourly (see _rate_snapshot_loop), so a window is
@@ -719,14 +731,15 @@ export default function ProjectHype() {
   // "1H" actually plotted the last 12 hours.
   const HISTORY_LIMITS = { "6H": 6, "24H": 24, "3D": 72, "7D": 168 };
   useEffect(() => {
-    if (!selected) return;
-    setRateHistory([]);
-    const limit = HISTORY_LIMITS[historyWindow] ?? 72;
-    fetch(`${API}/api/history/${selected.code}?limit=${limit}`)
+    if (!selectedCode) return;
+    let cancelled = false;
+    const limit = HISTORY_LIMITS[historyWindow] ?? 24;
+    fetch(`${API}/api/history/${selectedCode}?limit=${limit}`)
       .then(r => { if (!r.ok) throw new Error(`history ${r.status}`); return r.json(); })
-      .then(data => setRateHistory(Array.isArray(data) ? data : []))
-      .catch(() => setRateHistory([]));
-  }, [selected, historyWindow]);
+      .then(data => { if (!cancelled) setRateHistory(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setRateHistory([]); });
+    return () => { cancelled = true; };
+  }, [selectedCode, historyWindow]);
 
   // ── Fetch institutional signals whenever the selected currency changes ─────
   useEffect(() => {
@@ -2293,8 +2306,10 @@ export default function ProjectHype() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#8080aa", textTransform: "uppercase", marginBottom: 10 }}>
                 NEWS · {selected.code}
               </div>
-              <div key={selected.code} style={{ maxHeight: 260, overflowY: "auto", scrollbarWidth: "thin" }}>
-                {loadingNews ? (
+              <div style={{ maxHeight: 260, overflowY: "auto", scrollbarWidth: "thin" }}>
+                {/* Skeleton only when there's nothing to show. A refetch for the
+                    same currency keeps the current headlines on screen. */}
+                {loadingNews && headlines.length === 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
                     {[100, 80, 100, 60].map((w, i) => (
                       <div key={i} style={{
