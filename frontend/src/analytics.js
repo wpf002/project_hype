@@ -9,7 +9,27 @@
 
 const API = import.meta.env.VITE_API_URL || "";
 
+// Owner opt-out. Visiting any page with ?notrack=1 sets a flag in that
+// browser and no event is ever sent from it again — the point of the numbers
+// is other people, so the owner's own visits must not inflate them.
+// ?notrack=0 clears it. Local development never reports either.
+const OPT_OUT_KEY = "hype_no_track";
+
+function isOptedOut() {
+  try {
+    const p = new URLSearchParams(window.location.search).get("notrack");
+    if (p === "1") localStorage.setItem(OPT_OUT_KEY, "1");
+    if (p === "0") localStorage.removeItem(OPT_OUT_KEY);
+    if (localStorage.getItem(OPT_OUT_KEY)) return true;
+  } catch (_) {
+    /* private mode / blocked storage: fall through and track normally */
+  }
+  const h = window.location.hostname;
+  return h === "localhost" || h === "127.0.0.1" || h.endsWith(".local");
+}
+
 export function trackEvent(name, props) {
+  if (isOptedOut()) return;
   try {
     fetch(`${API}/api/analytics/event`, {
       method: "POST",

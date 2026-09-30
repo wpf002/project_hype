@@ -1,0 +1,259 @@
+{
+  "project": {
+    "name": "project_hype",
+    "description": "Live speculative foreign currency intelligence dashboard — real-time hype scoring, NLP catalyst analysis, commodity signal integration, ROI modeling, and catalyst spike alerts for 40 exotic and undervalued currencies.",
+    "languages": [
+      "python",
+      "javascript"
+    ],
+    "frameworks": [
+      "Docker",
+      "FastAPI",
+      "Pydantic",
+      "React",
+      "Starlette",
+      "Vite"
+    ],
+    "homepage": "https://projecthype.io",
+    "analyzedAt": "2026-09-30T19:41:34.198Z",
+    "gitCommit": "f88a8c5816dc024a7778205be71488218790878b"
+  },
+  "endpoints": [
+    {
+      "id": "endpoint:backend/main.py:GET /",
+      "name": "GET /",
+      "handler": "function:backend/main.py:root",
+      "summary": "GET route / handled by root (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/alerts.py:POST /alerts/subscribe",
+      "name": "POST /alerts/subscribe",
+      "handler": "function:backend/routers/alerts.py:subscribe",
+      "summary": "POST route /alerts/subscribe handled by subscribe (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/alerts.py:POST /alerts/confirm",
+      "name": "POST /alerts/confirm",
+      "handler": "function:backend/routers/alerts.py:confirm",
+      "summary": "POST route /alerts/confirm handled by confirm (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/alerts.py:POST /alerts/unsubscribe",
+      "name": "POST /alerts/unsubscribe",
+      "handler": "function:backend/routers/alerts.py:unsubscribe",
+      "summary": "POST route /alerts/unsubscribe handled by unsubscribe (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/alerts.py:POST /alerts/unsubscribe/one-click",
+      "name": "POST /alerts/unsubscribe/one-click",
+      "handler": "function:backend/routers/alerts.py:unsubscribe_one_click",
+      "summary": "POST route /alerts/unsubscribe/one-click handled by unsubscribe_one_click (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/analytics.py:POST /analytics/event",
+      "name": "POST /analytics/event",
+      "handler": "function:backend/routers/analytics.py:record_event",
+      "summary": "POST route /analytics/event handled by record_event (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/analytics.py:GET /analytics/summary",
+      "name": "GET /analytics/summary",
+      "handler": "function:backend/routers/analytics.py:analytics_summary",
+      "summary": "GET route /analytics/summary handled by analytics_summary (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/history.py:GET /history/{code}",
+      "name": "GET /history/{code}",
+      "handler": "function:backend/routers/history.py:get_rate_history",
+      "summary": "GET route /history/{code} handled by get_rate_history (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/hype.py:GET /hype/{code}",
+      "name": "GET /hype/{code}",
+      "handler": "function:backend/routers/hype.py:get_hype_history_route",
+      "summary": "GET route /hype/{code} handled by get_hype_history_route (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/news.py:GET /news/{code}",
+      "name": "GET /news/{code}",
+      "handler": "function:backend/routers/news.py:get_currency_news",
+      "summary": "GET route /news/{code} handled by get_currency_news (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/portfolio.py:POST /portfolio/share",
+      "name": "POST /portfolio/share",
+      "handler": "function:backend/routers/portfolio.py:share_portfolio",
+      "summary": "POST route /portfolio/share handled by share_portfolio (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/portfolio.py:GET /portfolio/{share_id}",
+      "name": "GET /portfolio/{share_id}",
+      "handler": "function:backend/routers/portfolio.py:get_portfolio",
+      "summary": "GET route /portfolio/{share_id} handled by get_portfolio (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/rates.py:GET /rates",
+      "name": "GET /rates",
+      "handler": "function:backend/routers/rates.py:get_all_currency_rates",
+      "summary": "GET route /rates handled by get_all_currency_rates (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/rates.py:GET /rate/{code}",
+      "name": "GET /rate/{code}",
+      "handler": "function:backend/routers/rates.py:get_single_currency_rate",
+      "summary": "GET route /rate/{code} handled by get_single_currency_rate (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/rates.py:GET /status",
+      "name": "GET /status",
+      "handler": "function:backend/routers/rates.py:get_status",
+      "summary": "GET route /status handled by get_status (FastAPI). Auth: public."
+    },
+    {
+      "id": "endpoint:backend/routers/roi.py:POST /roi",
+      "name": "POST /roi",
+      "handler": "function:backend/routers/roi.py:calculate_roi",
+      "summary": "POST route /roi handled by calculate_roi (FastAPI). Auth: unguarded."
+    },
+    {
+      "id": "endpoint:backend/routers/signals.py:GET /signals/{code}",
+      "name": "GET /signals/{code}",
+      "handler": "function:backend/routers/signals.py:get_signals_for_currency",
+      "summary": "GET route /signals/{code} handled by get_signals_for_currency (FastAPI). Auth: unguarded."
+    }
+  ],
+  "dataModels": [],
+  "services": [
+    {
+      "id": "file:backend/services/email_service.py",
+      "summary": "Email alert service using the Resend API via httpx. If RESEND_API_KEY is not set, emails are logged instead of sent (dev mode). FROM_EMAIL defaults to alerts@p…"
+    },
+    {
+      "id": "file:backend/services/fx_service.py",
+      "summary": "FX Service — fetches live exchange rates from Open Exchange Rates (primary) with ExchangeRate-API v6 as secondary fallback. Architecture decisions: - Open Exch…"
+    },
+    {
+      "id": "file:backend/services/commodity_service.py",
+      "summary": "Commodity Price Service — 14-day % changes for the commodities that drive speculative currency movements in Project Hype. PROVIDER CHAIN ------------ Each comm…"
+    },
+    {
+      "id": "file:backend/services/exotic_rates_service.py",
+      "summary": "Exotic Rates Service — scrapes real-world parallel/black market rates for currencies where commercial FX APIs return fictional official rates. Each scraper: - …"
+    },
+    {
+      "id": "file:backend/services/news_service.py",
+      "summary": "News Service — returns headlines for speculative currencies. 2-tier source architecture (GDELT was retired due to rate-limiting): Tier 1: Institutional RSS fee…"
+    },
+    {
+      "id": "file:backend/services/hype_service.py",
+      "summary": "Hype Score Engine + Catalyst Engine — run together every 12 hours. News source: GDELT Project DOC API — free, no API key, global coverage, no meaningful rate l…"
+    },
+    {
+      "id": "file:backend/services/signal_service.py",
+      "summary": "Signal Service — monitors IMF and OFAC RSS feeds for institutional signals that are material to the exotic/speculative currencies tracked by Project Hype. Runs…"
+    },
+    {
+      "id": "file:backend/app_state.py",
+      "summary": "Shared application-level state that both main.py and routers need. Keeping this in a small dedicated module avoids the router→main import inversion (routers sh…"
+    },
+    {
+      "id": "file:backend/data/__init__.py",
+      "summary": "Python module."
+    },
+    {
+      "id": "file:backend/data/currencies.py",
+      "summary": "40 speculative currency definitions for Project Hype. news_query strings are crafted for maximum signal-to-noise on NewsAPI — each targets the actual market dr…"
+    },
+    {
+      "id": "file:backend/rate_limit.py",
+      "summary": "Shared slowapi Limiter instance. Imported by main.py (to register exception handler + middleware) and by routers (to decorate specific endpoints). Centralising…"
+    },
+    {
+      "id": "file:backend/services/__init__.py",
+      "summary": "Python module."
+    },
+    {
+      "id": "file:backend/start.sh",
+      "summary": "Shell script."
+    }
+  ],
+  "handlers": [
+    {
+      "id": "function:backend/main.py:root",
+      "summary": "Function root."
+    },
+    {
+      "id": "function:backend/routers/alerts.py:subscribe",
+      "summary": "Function subscribe. Calls _require_enabled, _normalise_email, recent_confirmation_exists, create_alert_confirmation and…"
+    },
+    {
+      "id": "function:backend/routers/alerts.py:confirm",
+      "summary": "Function confirm. Calls _require_enabled, _clean_token, consume_alert_confirmation, _hash and 1 more."
+    },
+    {
+      "id": "function:backend/routers/alerts.py:unsubscribe",
+      "summary": "Function unsubscribe. Calls _clean_token, delete_subscriber_by_token."
+    },
+    {
+      "id": "function:backend/routers/alerts.py:unsubscribe_one_click",
+      "summary": "Function unsubscribe_one_click. Calls _clean_token, delete_subscriber_by_token."
+    },
+    {
+      "id": "function:backend/routers/analytics.py:_client_ip",
+      "summary": "Real client IP, accounting for the Railway/nginx proxy hop."
+    },
+    {
+      "id": "function:backend/routers/analytics.py:_visitor_hash",
+      "summary": "Stable-for-today, unlinkable-across-days visitor fingerprint. Returns 32 hex chars. Never reversible to an IP in practi…"
+    },
+    {
+      "id": "function:backend/routers/analytics.py:record_event",
+      "summary": "Function record_event. Calls write_analytics_event, _sanitise_props, _visitor_hash."
+    },
+    {
+      "id": "function:backend/routers/analytics.py:analytics_summary",
+      "summary": "Function analytics_summary. Calls get_analytics_summary."
+    },
+    {
+      "id": "function:backend/routers/history.py:get_rate_history",
+      "summary": "Function get_rate_history. Calls get_history."
+    },
+    {
+      "id": "function:backend/routers/hype.py:get_hype_history_route",
+      "summary": "Function get_hype_history_route. Calls get_hype_history."
+    },
+    {
+      "id": "function:backend/routers/news.py:get_currency_news",
+      "summary": "Function get_currency_news. Calls get_news."
+    },
+    {
+      "id": "function:backend/routers/portfolio.py:share_portfolio",
+      "summary": "Function share_portfolio. Calls create_shared_portfolio, ShareResponse."
+    },
+    {
+      "id": "function:backend/routers/portfolio.py:get_portfolio",
+      "summary": "Function get_portfolio. Calls get_shared_portfolio."
+    },
+    {
+      "id": "function:backend/routers/rates.py:get_all_currency_rates",
+      "summary": "Function get_all_currency_rates. Calls _gather_rates_data, CurrencyRate."
+    },
+    {
+      "id": "function:backend/routers/rates.py:get_single_currency_rate",
+      "summary": "Function get_single_currency_rate. Calls get_rate, _gather_single_data, SingleRate, get_change_24h."
+    },
+    {
+      "id": "function:backend/routers/rates.py:get_status",
+      "summary": "Function get_status. Calls get_latest_hype_updated_at, get_latest_rate_updated_at, get_pool, get_commodity_health."
+    },
+    {
+      "id": "function:backend/routers/roi.py:calculate_roi",
+      "summary": "Function calculate_roi. Calls get_rate, ROIResponse."
+    },
+    {
+      "id": "function:backend/routers/signals.py:get_signals_for_currency",
+      "summary": "Function get_signals_for_currency. Calls get_signals."
+    }
+  ],
+  "existingDomains": []
+}

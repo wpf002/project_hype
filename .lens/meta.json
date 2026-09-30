@@ -1,0 +1,8 @@
+{
+  "version": "lens/1",
+  "analyzedAt": "2026-09-30T19:50:46.666Z",
+  "gitCommit": "f88a8c5816dc024a7778205be71488218790878b",
+  "analyzedFiles": 67,
+  "layersSource": "heuristic",
+  "tourSource": "heuristic"
+}
