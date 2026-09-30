@@ -1,0 +1,316 @@
+{
+  "generatedAt": "2026-09-30T20:21:48.479Z",
+  "costUsd": 3.02293,
+  "summary": "No Critical or High findings: no injection, no auth bypass, no secret exposure, and the AI scoring path treats model input as untrusted correctly. The one path to real impact is availability — /api/status and /api/portfolio/{id} carry no rate limit and both hold one of 20 pool connections with no acquire timeout, and /api/status is Railway's healthcheck, so an anonymous flood can restart the service into a failed deploy. Fix that first (~30 min), then reconcile the two conflicting notions of client IP between rate_limit.py and analytics.py.",
+  "report": "SECURITY_AUDIT.md",
+  "items": [
+    {
+      "id": "t1-auth",
+      "status": "pass",
+      "evidence": [
+        "backend/routers/alerts.py:99 confirm() authorised by hashed single-use emailed token, not a session",
+        "backend/routers/alerts.py:112 and :122 authorised by the subscriber's emailed unsub_token",
+        "backend/routers/alerts.py:86 recent_confirmation_exists() per-address cooldown gates the only email send",
+        "backend/routers/analytics.py:172 secrets.compare_digest gates the one non-public route",
+        "backend/routers/roi.py:69 stateless calculation, writes nothing",
+        "backend/routers/portfolio.py:51 anonymous share links by design",
+        "All 9 GET routes return market data with no owner concept"
+      ]
+    },
+    {
+      "id": "t1-idor",
+      "status": "na",
+      "evidence": [
+        "No user accounts, no orgs, no per-caller ownership anywhere",
+        "backend/db/db.py:638 SELECT ... WHERE id = $1 is the only lookup-by-id",
+        "backend/db/db.py:623 share_id = token_urlsafe(8), a 64-bit capability with no owner to scope to"
+      ]
+    },
+    {
+      "id": "t1-admin",
+      "status": "na",
+      "evidence": [
+        "No roles or admin surface in the codebase"
+      ]
+    },
+    {
+      "id": "t1-mass-assign",
+      "status": "pass",
+      "evidence": [
+        "backend/routers/portfolio.py:63 builds {code, amount} dicts field by field",
+        "backend/routers/analytics.py:106-125 _sanitise_props whitelists scalar types and coerces everything else",
+        "No **body or dict-spread into any INSERT in backend/db/db.py"
+      ]
+    },
+    {
+      "id": "t1-bundle",
+      "status": "pass",
+      "evidence": [
+        "frontend/src/App.jsx:12 VITE_API_URL is the only import.meta.env reference",
+        "frontend/src/Landing.jsx:4 same",
+        "frontend/src/analytics.js:10 same",
+        "backend/routers/analytics.py:66 ANALYTICS_TOKEN is read server-side only"
+      ]
+    },
+    {
+      "id": "t1-git-secrets",
+      "status": "unverified",
+      "evidence": [
+        "Current working tree is clean of secret-shaped strings",
+        "Git history not scanned: this audit is read-only with no command or network access"
+      ]
+    },
+    {
+      "id": "t1-env",
+      "status": "fail",
+      "evidence": [
+        ".gitignore:15-19 enumerates .env, backend/.env, frontend/.env.local, frontend/.env*.local, *.env.local",
+        "backend/.env.production or root .env.local would not be matched and would be staged by `git add .`",
+        "No .pre-commit-config.yaml and no .husky/ in the repo"
+      ],
+      "fix": "Replace the enumerated paths with `.env`, `.env.*`, `**/.env`, `**/.env.*` plus `!.env.example` / `!**/.env.example`, and add a gitleaks pre-commit hook."
+    },
+    {
+      "id": "t1-spend",
+      "status": "unverified",
+      "evidence": [
+        "Manual item. Four paid APIs: ANTHROPIC_API_KEY, OXR_APP_ID, RESEND_API_KEY, ALPHA_VANTAGE_KEY (backend/.env.example)",
+        "Anthropic calls fire from a 12h background sweep (backend/main.py:31), not from requests, so cost risk is a leaked key rather than traffic"
+      ]
+    },
+    {
+      "id": "t1-stripe",
+      "status": "na",
+      "evidence": [
+        "No payment code and no stripe dependency in backend/requirements.txt"
+      ]
+    },
+    {
+      "id": "t2-provider",
+      "status": "na",
+      "evidence": [
+        "No accounts, no password handling, no session handling"
+      ]
+    },
+    {
+      "id": "t2-tokens",
+      "status": "na",
+      "evidence": [
+        "No sessions. The emailed tokens are the only credentials.",
+        "backend/db/db.py:648 CONFIRMATION_TTL_HOURS = 24",
+        "backend/db/db.py:685-689 single-use redemption via DELETE ... RETURNING in one statement",
+        "subscribers.unsub_token is intentionally permanent so mail clients can POST it at any time"
+      ]
+    },
+    {
+      "id": "t2-ratelimit",
+      "status": "fail",
+      "evidence": [
+        "Overturns the scanner's pass. slowapi is applied to 12 routes but two are missing.",
+        "backend/routers/rates.py:122 @router.get(\"/status\") has no @limiter.limit and runs conn.fetchval at :132-135",
+        "backend/routers/portfolio.py:68 @router.get(\"/portfolio/{share_id}\") has no @limiter.limit and acquires at db.py:637",
+        "backend/db/db.py:48 create_pool(min_size=2, max_size=20) with no timeout; no acquire() call passes one, so asyncpg waits indefinitely",
+        "backend/railway.toml:6 healthcheckPath = \"/api/status\" with restartPolicyMaxRetries = 3",
+        "backend/rate_limit.py:20 key_func=get_remote_address reads request.client.host only",
+        "backend/Dockerfile:34 --forwarded-allow-ips defaults to 127.0.0.1, so Railway's proxy is untrusted and all clients share one bucket",
+        "backend/routers/analytics.py:78-80 reads the raw x-forwarded-for header, bypassing uvicorn's trust check entirely"
+      ],
+      "fix": "Add @limiter.limit to /api/status and /api/portfolio/{share_id} and pass a timeout to pool.acquire() (or create_pool(timeout=5.0)). Separately, pin FORWARDED_ALLOW_IPS to Railway's proxy CIDR and make analytics._client_ip use request.client.host instead of the raw header."
+    },
+    {
+      "id": "t2-validation",
+      "status": "fail",
+      "evidence": [
+        "Confirms the scanner. A grep for ConfigDict|model_config|extra= across every .py under backend/ returns zero matches.",
+        "backend/routers/portfolio.py:42 ShareRequest is a plain BaseModel",
+        "backend/routers/roi.py:36 ROIRequest is a plain BaseModel",
+        "backend/routers/alerts.py:65 SubscribeRequest and :70 TokenRequest are plain BaseModels",
+        "backend/routers/analytics.py:132 EventPayload is a plain BaseModel",
+        "Impact is low today: nothing spreads a body into a query (portfolio.py:63 names each field)"
+      ],
+      "fix": "Add model_config = ConfigDict(extra='forbid') to every request model, including the nested Position model in portfolio.py."
+    },
+    {
+      "id": "t2-ssrf",
+      "status": "pass",
+      "evidence": [
+        "Every outbound URL is a module-level constant; no user input reaches an httpx call",
+        "backend/services/commodity_service.py:204 is the only interpolated URL and the symbol comes from a hardcoded table",
+        "Caveat: follow_redirects=True on all five clients (news_service.py:426, signal_service.py:114, commodity_service.py:349, exotic_rates_service.py:69 and :130) with no final-host re-validation"
+      ]
+    },
+    {
+      "id": "t2-agents",
+      "status": "pass",
+      "evidence": [
+        "No tool use, no shell, no SQL access granted to the model anywhere in backend/services/hype_service.py",
+        "backend/services/hype_service.py:227-231 truncates headlines to 500 chars and XML-fences each one",
+        "backend/services/hype_service.py:236-238 labels the fenced text untrusted in the user prompt",
+        "backend/services/hype_service.py:266-267 repeats the instruction in the system prompt",
+        "backend/services/hype_service.py:339 clamps every returned score to [-1.0, 1.0] and consumes only float(item['score'])",
+        "backend/services/hype_service.py:253 model pinned to claude-haiku-4-5-20251001",
+        "backend/services/hype_service.py:347 returns ([], \"\") on any failure so the caller falls back to keyword scoring"
+      ]
+    },
+    {
+      "id": "t2-prodcreds",
+      "status": "fail",
+      "evidence": [
+        ".claude/settings.local.json allows Bash(railway variables *) — reads every production secret",
+        ".claude/settings.local.json allows Bash(railway up *) — deploys to production",
+        ".claude/settings.local.json allows Bash(python3 -c ' *) — arbitrary code execution",
+        ".claude/settings.local.json allows Read(//Users/willfoti/**) — the entire home directory including ~/.ssh and ~/.aws",
+        "The file is not committed (ignored by ~/.config/git/ignore), so this is a local-machine exposure, not a repo one"
+      ],
+      "fix": "Remove the railway variables / railway up / python3 -c entries from the allowlist and narrow Read(//Users/willfoti/**) to the repository path."
+    },
+    {
+      "id": "t2-storage",
+      "status": "na",
+      "evidence": [
+        "No uploads, no object storage, no file-serving routes"
+      ]
+    },
+    {
+      "id": "t2-xss",
+      "status": "pass",
+      "evidence": [
+        "No dangerouslySetInnerHTML, innerHTML, eval or new Function anywhere in frontend/src",
+        "Caveat: frontend/src/App.jsx:2318 and :2479 render feed-supplied h.url / sig.url into href with no scheme allowlist; the CSP's script-src 'self' blocks javascript: navigation"
+      ]
+    },
+    {
+      "id": "t2-csrf",
+      "status": "na",
+      "evidence": [
+        "No cookies are set or read by the backend or frontend",
+        "backend/main.py:156 allow_credentials=True is unnecessary but harmless with the explicit origin allowlist"
+      ]
+    },
+    {
+      "id": "t2-errors",
+      "status": "pass",
+      "evidence": [
+        "backend/main.py:124-130 logs the traceback server-side and returns a fixed {\"detail\": \"Internal server error.\"}",
+        "backend/main.py:112-117 rate-limit handler is equally generic",
+        "No str(exc) or exc.args in any response body across backend/routers/"
+      ]
+    },
+    {
+      "id": "t2-debug",
+      "status": "pass",
+      "evidence": [
+        "backend/main.py:103-105 docs_url / redoc_url / openapi_url all None when APP_ENV=production",
+        "No debug routes or GraphQL endpoint",
+        "Minor: backend/main.py:193 lists GET /api/analytics/summary in the public root response, negating the 404-not-401 obfuscation at analytics.py:164"
+      ]
+    },
+    {
+      "id": "t2-staging",
+      "status": "unverified",
+      "evidence": [
+        "Manual item. Per-environment variables live in the Railway dashboard, outside the repo."
+      ]
+    },
+    {
+      "id": "t3-lockfile",
+      "status": "pass",
+      "evidence": [
+        "backend/requirements.txt is fully SHA-256 pinned via pip-compile --generate-hashes",
+        "backend/Dockerfile:20 installs with --require-hashes",
+        ".github/workflows/ci.yml re-derives the lockfile and diffs it, failing the build on drift",
+        "frontend/package-lock.json installed with npm ci"
+      ]
+    },
+    {
+      "id": "t3-depscan",
+      "status": "pass",
+      "evidence": [
+        ".github/dependabot.yml present",
+        ".github/workflows/ci.yml runs pip-audit --severity high",
+        ".github/workflows/ci.yml runs npm audit --audit-level=high",
+        ".github/workflows/ci.yml runs a Trivy image scan with exit-code 1 on HIGH,CRITICAL"
+      ]
+    },
+    {
+      "id": "t3-realdeps",
+      "status": "unverified",
+      "evidence": [
+        "All 41 names in backend/requirements.txt are correctly spelled real packages; no typo-squat candidates",
+        "Every entry is SHA-256 pinned, which rules out substitution at install time",
+        "CVE status not checked here (no network access); CI's pip-audit covers it on every push"
+      ]
+    },
+    {
+      "id": "t3-agentcfg",
+      "status": "fail",
+      "evidence": [
+        ".claude/launch.json is the only tracked file and is benign (npm run dev)",
+        ".claude/settings.local.json is not committed (globally ignored via ~/.config/git/ignore)",
+        "Its allowlist grants Bash(railway variables *), Bash(railway up *), Bash(python3 -c ' *), Bash(pip3 install *), Bash(npm install *), Bash(git push *), Read(//Users/willfoti/**)",
+        "Net effect: an agent can read every production secret, deploy, run arbitrary Python, and read ~/.ssh and ~/.aws"
+      ],
+      "fix": "Trim the allowlist: drop railway variables / railway up / python3 -c, and scope Read to the repository directory instead of the whole home directory."
+    },
+    {
+      "id": "t3-headers",
+      "status": "pass",
+      "evidence": [
+        "frontend/nginx-security-headers.conf:16 CSP with default-src 'self', script-src 'self' (no unsafe-inline), object-src 'none', base-uri 'self', frame-ancestors 'none'",
+        "connect-src names the backend host exactly rather than a *.up.railway.app wildcard",
+        "HSTS max-age=31536000 includeSubDomains, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy all present",
+        "Minor gap: no form-action directive, so it falls back to unrestricted"
+      ]
+    },
+    {
+      "id": "t3-cors",
+      "status": "pass",
+      "evidence": [
+        "backend/main.py:149 filters \"*\" out of the parsed origin list",
+        "backend/main.py:143 raises RuntimeError at startup if ALLOWED_ORIGINS is unset in production",
+        "backend/main.py:152 raises if the list is empty after filtering",
+        "backend/main.py:158-159 methods and headers are both explicitly enumerated"
+      ]
+    },
+    {
+      "id": "t3-rawsql",
+      "status": "pass",
+      "evidence": [
+        "Every query in backend/db/db.py uses $1-style placeholders; code.upper() values are passed as parameters, never concatenated",
+        "The only string-built SQL is the static DDL inside init_db()",
+        "backend/tests/test_security.py:90 and :165-175 assert SQL metacharacters in `code` are rejected or 404"
+      ]
+    },
+    {
+      "id": "t3-rls",
+      "status": "na",
+      "evidence": [
+        "No client-side database access; the frontend only calls /api/*"
+      ]
+    },
+    {
+      "id": "t3-logs",
+      "status": "pass",
+      "evidence": [
+        "backend/services/email_service.py:150-155 mask_email() is applied at every log site that touches an address",
+        "backend/services/email_service.py:254-255 deliberately logs Resend's status code and never resp.text",
+        "No log statement anywhere emits an API key, bearer token, cookie, or auth header",
+        "backend/routers/analytics.py:84-92 hashes the IP with a daily-rotating salt before storage; raw IPs are never logged"
+      ]
+    },
+    {
+      "id": "t3-auditlog",
+      "status": "na",
+      "evidence": [
+        "No accounts, permission changes, exports, or payments to audit"
+      ]
+    },
+    {
+      "id": "t3-backups",
+      "status": "unverified",
+      "evidence": [
+        "Manual item. Railway Postgres backup settings are outside the repo."
+      ]
+    }
+  ]
+}

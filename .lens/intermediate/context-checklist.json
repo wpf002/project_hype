@@ -1,0 +1,437 @@
+{
+  "project": {
+    "name": "project_hype",
+    "description": "Live speculative foreign currency intelligence dashboard — real-time hype scoring, NLP catalyst analysis, commodity signal integration, ROI modeling, and catalyst spike alerts for 40 exotic and undervalued currencies.",
+    "languages": [
+      "python",
+      "javascript"
+    ],
+    "frameworks": [
+      "Docker",
+      "FastAPI",
+      "Pydantic",
+      "React",
+      "Starlette",
+      "Vite"
+    ],
+    "homepage": "https://projecthype.io",
+    "analyzedAt": "2026-09-30T19:56:17.243Z",
+    "gitCommit": "13c3c40f2cb0afbc0e262e9fd3bab7715d051f78"
+  },
+  "checklist": [
+    {
+      "id": "t1-auth",
+      "tier": 1,
+      "title": "Auth enforced server-side on every non-public route",
+      "status": "unverified",
+      "evidence": [
+        "7 unauthenticated routes triaged as public by design",
+        "9 GET routes have no visible auth; confirm each is meant to be public"
+      ],
+      "source": "scanner"
+    },
+    {
+      "id": "t1-idor",
+      "tier": 1,
+      "title": "Every object lookup scoped to the caller (no IDOR)",
+      "status": "na",
+      "evidence": [
+        "No user accounts detected."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t1-admin",
+      "tier": 1,
+      "title": "Admin and role checks on the server",
+      "status": "na",
+      "evidence": [
+        "No user accounts detected."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t1-mass-assign",
+      "tier": 1,
+      "title": "No mass assignment (request body never spread into the DB)",
+      "source": "scanner",
+      "status": "clear",
+      "evidence": [
+        "Scanner found no instances."
+      ]
+    },
+    {
+      "id": "t1-bundle",
+      "tier": 1,
+      "title": "No secrets in the frontend bundle",
+      "status": "clear",
+      "evidence": [
+        "No secret-looking public env vars or client-side secrets found."
+      ],
+      "source": "scanner"
+    },
+    {
+      "id": "t1-git-secrets",
+      "tier": 1,
+      "title": "No secrets committed to the repository",
+      "status": "clear",
+      "evidence": [
+        "None in the current files. Git history isn't scanned: run `npx gitleaks detect --log-opts=\"--all\"` once."
+      ],
+      "source": "scanner"
+    },
+    {
+      "id": "t1-env",
+      "tier": 1,
+      "title": ".env gitignored, .env.example present, gitleaks pre-commit hook",
+      "status": "fail",
+      "evidence": [
+        ".gitignore ignores .env",
+        "backend/.env.example present",
+        "no gitleaks pre-commit hook"
+      ],
+      "fix": "Add `.env*` (with `!.env.example`) to .gitignore and a gitleaks hook via pre-commit or husky.",
+      "source": "repo"
+    },
+    {
+      "id": "t1-spend",
+      "tier": 1,
+      "title": "Paid AI APIs behind spend caps",
+      "status": "manual",
+      "evidence": [
+        "uses anthropic: set a monthly cap in that provider's billing settings"
+      ],
+      "source": "manual"
+    },
+    {
+      "id": "t1-stripe",
+      "tier": 1,
+      "title": "Prices set server-side; access granted only from a verified Stripe webhook",
+      "status": "na",
+      "evidence": [
+        "Stripe not used."
+      ],
+      "source": "scanner"
+    },
+    {
+      "id": "t2-provider",
+      "tier": 2,
+      "title": "Real auth provider, no homemade password or session handling",
+      "status": "na",
+      "evidence": [
+        "No user accounts detected."
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t2-tokens",
+      "tier": 2,
+      "title": "Short-lived access tokens; refresh tokens revoked on logout",
+      "status": "na",
+      "evidence": [
+        "No user accounts detected."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t2-ratelimit",
+      "tier": 2,
+      "title": "Rate limits on auth, email sends, and AI endpoints",
+      "status": "pass",
+      "evidence": [
+        "uses slowapi",
+        "backend/routers/alerts.py:75",
+        "backend/routers/alerts.py:100",
+        "backend/routers/alerts.py:113",
+        "backend/routers/alerts.py:123"
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t2-validation",
+      "tier": 2,
+      "title": "Schema validation on every route, unknown fields rejected",
+      "status": "fail",
+      "evidence": [
+        "uses pydantic",
+        "Unknown fields are accepted silently (no .strict() / extra='forbid')."
+      ],
+      "fix": "Use .strict() on Zod request schemas, or model_config = ConfigDict(extra='forbid') on Pydantic models.",
+      "source": "repo"
+    },
+    {
+      "id": "t2-ssrf",
+      "tier": 2,
+      "title": "SSRF: user-supplied URLs can't reach private or metadata IPs",
+      "source": "scanner",
+      "status": "clear",
+      "evidence": [
+        "No server-side fetch of a user-supplied URL found."
+      ]
+    },
+    {
+      "id": "t2-agents",
+      "tier": 2,
+      "title": "Model input untrusted; agent tools constrained",
+      "status": "unverified",
+      "evidence": [
+        "AI code present (anthropic); review tool permissions and prompt-injection paths."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t2-prodcreds",
+      "tier": 2,
+      "title": "Production credentials not reachable by agents or dev tooling",
+      "status": "manual",
+      "evidence": [
+        "Keep prod keys out of local .env files and agent-accessible shells."
+      ],
+      "source": "manual"
+    },
+    {
+      "id": "t2-storage",
+      "tier": 2,
+      "title": "Storage private; files via signed URLs; uploads not served from the app origin",
+      "status": "na",
+      "evidence": [
+        "No file storage or upload libraries detected."
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t2-xss",
+      "tier": 2,
+      "title": "No dangerouslySetInnerHTML / unsanitized HTML on user or model output",
+      "source": "scanner",
+      "status": "clear",
+      "evidence": [
+        "Scanner found no instances."
+      ]
+    },
+    {
+      "id": "t2-csrf",
+      "tier": 2,
+      "title": "CSRF protection if auth uses cookies",
+      "source": "scanner",
+      "status": "clear",
+      "evidence": [
+        "Scanner found no instances."
+      ]
+    },
+    {
+      "id": "t2-errors",
+      "tier": 2,
+      "title": "No stack traces or err.message returned on 5xx in production",
+      "status": "unverified",
+      "evidence": [
+        "Needs code review of the error handler."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t2-debug",
+      "tier": 2,
+      "title": "No public source maps, debug routes, Swagger or GraphQL introspection in prod",
+      "status": "clear",
+      "evidence": [
+        "No debug flags or API explorers found."
+      ],
+      "source": "scanner"
+    },
+    {
+      "id": "t2-staging",
+      "tier": 2,
+      "title": "Preview/staging don't share the prod DB or prod secrets",
+      "status": "manual",
+      "evidence": [
+        "Check your hosting dashboard's per-environment variables."
+      ],
+      "source": "manual"
+    },
+    {
+      "id": "t3-lockfile",
+      "tier": 3,
+      "title": "Lockfile committed; CI installs with --frozen-lockfile",
+      "status": "pass",
+      "evidence": [
+        "lockfile: frontend/package-lock.json, backend/requirements.txt",
+        "CI installs from the lockfile"
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t3-depscan",
+      "tier": 3,
+      "title": "Dependency scanning (Dependabot, Renovate, or an audit step)",
+      "status": "pass",
+      "evidence": [
+        ".github/dependabot.yml",
+        "audit step in CI"
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t3-realdeps",
+      "tier": 3,
+      "title": "Every dependency real, maintained, correctly named",
+      "status": "unverified",
+      "evidence": [
+        "41 dependencies. Run `lens security --osv` for known CVEs; typo-squats need review."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t3-agentcfg",
+      "tier": 3,
+      "title": "CLAUDE.md, skills and MCP configs reviewed for commands and secrets",
+      "status": "unverified",
+      "evidence": [
+        ".claude present"
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t3-headers",
+      "tier": 3,
+      "title": "Security headers and CSP",
+      "status": "pass",
+      "evidence": [
+        "frontend/nginx-security-headers.conf:16"
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t3-cors",
+      "tier": 3,
+      "title": "CORS is an explicit allowlist on credentialed routes",
+      "status": "clear",
+      "evidence": [
+        "No wildcard or reflected CORS origins found."
+      ],
+      "source": "scanner"
+    },
+    {
+      "id": "t3-rawsql",
+      "tier": 3,
+      "title": "No $queryRawUnsafe / string-built SQL",
+      "source": "scanner",
+      "status": "clear",
+      "evidence": [
+        "Scanner found no instances."
+      ]
+    },
+    {
+      "id": "t3-rls",
+      "tier": 3,
+      "title": "Row-level security if clients talk to the DB directly",
+      "status": "na",
+      "evidence": [
+        "No client-side database access detected."
+      ],
+      "source": "repo"
+    },
+    {
+      "id": "t3-logs",
+      "tier": 3,
+      "title": "Logs redact auth headers, cookies, tokens, passwords, PII",
+      "status": "unverified",
+      "evidence": [
+        "Needs code review of logging."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t3-auditlog",
+      "tier": 3,
+      "title": "Audit log for logins, permission changes, deletes, exports, payments",
+      "status": "na",
+      "evidence": [
+        "No accounts or payments detected."
+      ],
+      "source": "ai"
+    },
+    {
+      "id": "t3-backups",
+      "tier": 3,
+      "title": "Backups configured with a documented restore procedure",
+      "status": "manual",
+      "evidence": [
+        "Check your database host's backup settings and write down the restore steps."
+      ],
+      "source": "manual"
+    }
+  ],
+  "findings": [
+    {
+      "id": "F0001",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/alerts.py",
+      "line": 74,
+      "status": "accepted",
+      "triageNote": "Public by design (no user accounts). Double opt-in: stores nothing until the emailed token is redeemed; 5/min rate limit, per-address cooldown, gated by ALERTS_ENABLED."
+    },
+    {
+      "id": "F0002",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/alerts.py",
+      "line": 99,
+      "status": "accepted",
+      "triageNote": "Authorised by the emailed confirmation token (hashed, single-use, regex-validated) rather than a session. 10/min rate limit."
+    },
+    {
+      "id": "F0003",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/alerts.py",
+      "line": 112,
+      "status": "accepted",
+      "triageNote": "Authorised by the subscriber's emailed unsubscribe token; same response whether or not it matches, so no oracle. 10/min rate limit."
+    },
+    {
+      "id": "F0004",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/alerts.py",
+      "line": 122,
+      "status": "accepted",
+      "triageNote": "RFC 8058 one-click unsubscribe target; must accept unauthenticated POSTs from mail providers. Token-gated, 30/min rate limit."
+    },
+    {
+      "id": "F0005",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/analytics.py",
+      "line": 137,
+      "status": "accepted",
+      "triageNote": "First-party analytics beacon, not a webhook. Anonymous by design; 120/min rate limit, event name truncated, props sanitised and size-capped, always 204."
+    },
+    {
+      "id": "F0006",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/portfolio.py",
+      "line": 51,
+      "status": "accepted",
+      "triageNote": "Anonymous share links by design. Positions validated (tracked codes, finite bounded amounts, max 50), 10/min rate limit, share URL built from server-side APP_URL."
+    },
+    {
+      "id": "F0007",
+      "rule": "unauthenticated-mutation",
+      "title": "State-changing endpoint without visible auth",
+      "severity": "medium",
+      "path": "backend/routers/roi.py",
+      "line": 69,
+      "status": "false_positive",
+      "triageNote": "Stateless calculation: POST only carries the request body; nothing is written. Inputs validated and bounded, 30/min rate limit."
+    }
+  ]
+}

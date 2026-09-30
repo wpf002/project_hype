@@ -27,7 +27,7 @@
 - **Live Rates** — Open Exchange Rates (primary) + ExchangeRate-API (fallback) for ~30 currencies, analyst fallback rates for sanctioned/exotic currencies (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS) with a clear LIVE / EST badge.
 - **Portfolio Tracker** — track positions across multiple currencies, share a portfolio via short URL.
 - **Catalyst Alerts** — email notification when any tracked currency's Catalyst Score jumps 15+ points between scoring cycles. Double opt-in: signing up sends a confirmation link, and nothing is sent until it's clicked. Every alert carries a tokenized unsubscribe link and RFC 8058 one-click `List-Unsubscribe` headers.
-- **Rate History** — 7-day sparkline per currency (snapshots every 15 min, stored in PostgreSQL).
+- **Rate History** — 7-day sparkline per currency (hourly snapshots, stored in PostgreSQL).
 - **Hype Map** — treemap-style visual of all 40 currencies by hype intensity.
 
 ---
@@ -81,7 +81,7 @@
           └─────────────┘
 
   Hype Engine: background task, runs every 12h
-  Rate snapshots: written on every /api/rates call, pruned to 7 days
+  Rate snapshots: written hourly (and on cache-miss requests), pruned to 7 days
 ```
 
 ---

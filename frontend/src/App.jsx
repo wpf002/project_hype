@@ -452,7 +452,7 @@ export default function ProjectHype() {
   const [marketSearch, setMarketSearch] = useState("");
   const [marketSort, setMarketSort] = useState("hype"); // "hype" | "catalyst"
   const [bottomView, setBottomView] = useState("hype"); // "hype" | "catalyst"
-  const [historyWindow, setHistoryWindow] = useState("6H");
+  const [historyWindow, setHistoryWindow] = useState("24H");
   const [openAccordion, setOpenAccordion] = useState(null);
 
   // ── Portfolio ─────────────────────────────────────────────────────────────
@@ -714,7 +714,10 @@ export default function ProjectHype() {
   }, [selected]);
 
   // ── Fetch rate history whenever selected currency or time window changes ────
-  const HISTORY_LIMITS = { "1H": 12, "6H": 72, "24H": 288, "7D": 672 };
+  // Snapshots are written hourly (see _rate_snapshot_loop), so a window is
+  // that many hours of points. The old values assumed a 5-minute cadence, so
+  // "1H" actually plotted the last 12 hours.
+  const HISTORY_LIMITS = { "6H": 6, "24H": 24, "3D": 72, "7D": 168 };
   useEffect(() => {
     if (!selected) return;
     setRateHistory([]);
@@ -932,14 +935,6 @@ export default function ProjectHype() {
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 20 }}>
             <LiveDot secondsSince={secondsSince} />
             {!isMobile && <HeaderTicker currencies={currencies} />}
-            {!isMobile && (
-              <div style={{
-                background: "#0d0d2e", border: "1px solid #1e1e3f",
-                borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#8080aa"
-              }}>
-                {currencies.length} currencies tracked
-              </div>
-            )}
             {/* Alert bell */}
             {alertsEnabled && <button
               onClick={() => {
@@ -2157,7 +2152,7 @@ export default function ProjectHype() {
                         ["Analyst Fallback Rates", "#ffa500", "10 exotic and sanctioned currencies (IRR, KPW, ZWL, MMK, SYP, VES, LBP, SDG, YER, SOS) use analyst-maintained fallback rates. Reason: no reliable market feed exists. Black market rates, sanctions distortions, and dual exchange rate systems make any single 'live' rate misleading. EST badge = fallback rate. These rates are updated manually when significant changes are confirmed."],
                         ["News Pipeline", "#9999cc", "3-tier RSS architecture with no API key or rate limits. Tier 1 (3× weight): institutional feeds — IMF, World Bank, US Treasury OFAC, BIS. Tier 2 (2× weight): GDELT Project filtered to quality domains (Reuters, FT, Bloomberg, Al Jazeera, BBC, etc.). Tier 3 (1× weight): currency-specific regional sources (Iraq Business News, NK News, Caracas Chronicles, Nairametrics, etc.). Scores refresh every 12 hours — during fast-moving situations, check primary sources directly."],
                         ["Claude AI Sentiment", "#7b7bcc", "Headlines are scored by Claude (Haiku model) which understands financial and geopolitical context: 'sanctions relief' is bullish, 'IMF program suspended' is bearish, 'CBI reduces auction spread' is strongly bullish for IQD. Sentiment accounts for 60% of the Catalyst Score. Falls back to keyword scoring if no API key is present."],
-                        ["Rate History", "#5a5aaa", "Snapshots stored every 15 minutes, retained for 7 days. Hype and Catalyst history retained for 30 days. The sparkline and trend indicators reflect this window."],
+                        ["Rate History", "#5a5aaa", "Snapshots stored hourly, retained for 7 days. Hype and Catalyst history retained for 30 days. The sparkline and trend indicators reflect this window."],
                       ].map(([label, color, desc]) => (
                         <div key={label} style={{ display: "flex", gap: 12, padding: "12px 16px", background: "#070714", borderRadius: 10, border: "1px solid #1e1e3f" }}>
                           <div style={{ width: 3, borderRadius: 2, background: color, flexShrink: 0 }} />
@@ -2584,7 +2579,7 @@ export default function ProjectHype() {
               <div style={{ fontSize: 11, color: "#8080aa" }}>{selected.code} · {rateHistory.length} pts</div>
             </div>
             <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
-              {["1H", "6H", "24H", "7D"].map(w => (
+              {["6H", "24H", "3D", "7D"].map(w => (
                 <button key={w} onClick={() => setHistoryWindow(w)} style={{
                   flex: 1, padding: "4px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
                   background: historyWindow === w ? "#1e1e4f" : "#070714",
